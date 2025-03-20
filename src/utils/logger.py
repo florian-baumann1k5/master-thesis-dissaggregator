@@ -59,8 +59,6 @@ def get_logger(
 
 
 # Example usage in other modules:
-# from utils.logger import get_logger
-# logger = get_logger(__name__, console_level=logging.INFO, file_path="logs/app.log")
 # logger.debug("Debug info: usually for diagnosing issues.")
 # logger.info("Info message: normal operation details.")
 # logger.warning("Warning: something unexpected but not fatal.")

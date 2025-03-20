@@ -17,3 +17,20 @@
 ### View Dependencies
 'pip3 list'
 or look in the requirements.txt
+
+
+
+
+--------------------------------
+Piplelines are calling data_processing funcitons
+
+
+
+data_processing:
+(input df and output df)
+- making changes to dfs
+
+Pipelines:
+(combining data_processing functions -> highlevel)
+- consumption brach and district (= just a mapper of )
+- disagg_temporal_applications (is is a highlevel function of all the other dissagg fucntiuon (see miro))
