@@ -42,5 +42,5 @@ Pipelines:
 - 
 
 ## Dict
-- WZ = industries
+- WZ = industry_sector
 - energy carriers = power, gas, hydrogen, petrol_products

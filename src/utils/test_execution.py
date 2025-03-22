@@ -13,7 +13,7 @@ x = 2
 if x == 1:
     df = generate_specific_consumption_per_branch()
 elif x == 2:
-    df = get_ugr_data(year=2000)
+    df = get_ugr_data(year=2002)
 else:
     print("x is not 1")
     

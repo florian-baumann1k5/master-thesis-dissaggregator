@@ -7,6 +7,7 @@ alwaysApply: true
 # Technical stack
 - pure python
 - pandas version 2.x
+- use google docstrings
 
 # Project structure
 .
