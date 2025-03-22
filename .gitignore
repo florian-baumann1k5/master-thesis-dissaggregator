@@ -1,3 +1,10 @@
+# Mac
+.DS_Store
+
+# Preprocessed data
+data/processed/*
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

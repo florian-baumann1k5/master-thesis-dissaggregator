@@ -13,7 +13,6 @@ from collections.abc import Iterable
 
 def generate_specific_consumption_per_branch(year=2018, **kwargs):
     """
-    NEW
     Returns specific power and gas consumption per branch and year.
         2001-2019:  data from openFfE API
         2018:       data from local pre-calculated data
