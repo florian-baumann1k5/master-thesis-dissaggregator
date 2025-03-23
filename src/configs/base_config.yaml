@@ -4,3 +4,14 @@ base_year: 2015
 # UGR GENEISIS DATA
 ugr_genisis_year_start: 2000
 ugr_genisis_year_end: 2020
+processed_dir: "data/processed/ugr/"
+
+
+# REGIONAL NORMALIZATION 
+year_for_regional_normalization: 2023 # 2023 are 400 regions/districts
+regional_id_changes_files: "data/raw/regional/ags_lk_changes/changes_{year}to{year_next}.csv"
+
+# employees 
+employees_processed_dir: "data/processed/employees"
+employees_preprocessed_filename_pattern: "employees_preprocessed_{year}.csv"
+employees_target_year: 2023

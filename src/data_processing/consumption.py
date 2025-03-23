@@ -293,6 +293,8 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
 
     # 12. Save the Preprocessed Data
     # Create directory if it doesn't exist
+    processed_dir = load_config("base_config.yaml")['base_year']
+    processed_file = os.path.join(processed_dir, f"ugr_preprocessed_{year}.csv")
     os.makedirs(processed_dir, exist_ok=True)
     # Save the DataFrame
     result_df.to_csv(processed_file)

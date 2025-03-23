@@ -44,3 +44,4 @@ Pipelines:
 ## Dict
 - WZ = industry_sector
 - energy carriers = power, gas, hydrogen, petrol_products
+- ags_lk = Allgemeneiner Gemeindeschlüssel Landkreise = regional_id
