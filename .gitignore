@@ -1,8 +1,11 @@
 # Mac
 .DS_Store
 
-# Preprocessed data
+# Preprocessed data & cache
 data/processed/*
+data/api_cache/*
+
+# 
 
 
 # Byte-compiled / optimized / DLL files

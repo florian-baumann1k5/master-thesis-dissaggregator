@@ -17,9 +17,17 @@ def load_raw_ugr_data() -> pd.DataFrame:
     return pd.read_csv(raw_file, delimiter=';')
 
 def load_genisis_wz_sector_mapping_file() -> pd.DataFrame:
-    mapping_file = "src/configs/genisis_wz_dict.csv"
-    return pd.read_csv(mapping_file)
+    raw_file = "src/configs/genisis_wz_dict.csv"
+    return pd.read_csv(raw_file)
 
 
+def load_activity_driver_cts_and_industry() -> pd.DataFrame:
+    raw_file = "data/raw/temporal/Activity_drivers.xlsx"
 
+    df_driver_industry = pd.read_excel(raw_file, sheet_name=("drivers_industry_emp"), skiprows=1).set_index('year')
+    df_driver_cts = pd.read_excel(raw_file, sheet_name=("drivers_cts_emp"), skiprows=1).set_index('year')
+    emp_total = df_driver_industry.join(df_driver_cts)
+    # normalize projection using last available year from database (2030)
+    emp_total = emp_total.apply(lambda x: x/x.loc[2030])
 
+    return emp_total

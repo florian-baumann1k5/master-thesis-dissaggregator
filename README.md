@@ -42,6 +42,7 @@ Pipelines:
 - 
 
 ## Dict
-- WZ = industry_sector
-- energy carriers = power, gas, hydrogen, petrol_products
-- ags_lk = Allgemeneiner Gemeindeschlüssel Landkreise = regional_id
+- WZ                                                    = industry_sector [88 unique sectors]
+- WZs e.g. 37-39                                        = industry_sector groups [48 unique groups]
+- energy carriers                                       = power, gas, hydrogen, petrol_products
+- ags_lk = Allgemeneiner Gemeindeschlüssel Landkreise   = regional_id [400 unique regions for 2021 following]

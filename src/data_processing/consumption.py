@@ -314,6 +314,6 @@ def resolve_industry_sector_ranges(ugr_data: pd.DataFrame) -> pd.DataFrame:
     Resolve the industry_sector ranges in the UGR data.
     """
 
-    
+    # TODO: Implement this function
     return ugr_data
 
