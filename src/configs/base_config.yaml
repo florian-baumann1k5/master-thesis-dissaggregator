@@ -4,7 +4,8 @@ base_year: 2015
 # UGR GENEISIS DATA
 ugr_genisis_year_start: 2000
 ugr_genisis_year_end: 2020
-processed_dir: "data/processed/ugr/"
+ugr_genisis_data_file: "data/raw/dimensionless/ugr_2000to2020.csv"
+preprocessed_dir: "data/processed/ugr/"
 
 
 # REGIONAL NORMALIZATION 
@@ -14,4 +15,6 @@ regional_id_changes_files: "data/raw/regional/ags_lk_changes/changes_{year}to{ye
 # employees 
 employees_processed_dir: "data/processed/employees"
 employees_preprocessed_filename_pattern: "employees_preprocessed_{year}.csv"
-employees_target_year: 2023
+
+# gas industry self consumption
+gas_industry_self_consumption_cache_file: "data/processed/industry_self_consumption.csv"

@@ -1,0 +1,104 @@
+from src.data_processing.consumption import (get_ugr_data_ranges, 
+                                             resolve_ugr_industry_sector_ranges_by_employees, 
+                                             project_consumption,
+                                             get_total_gas_industry_self_consuption,
+                                             calculate_self_generation,
+                                             get_regional_energy_consumption,
+                                             calculate_regional_energy_consumption_iteravely
+                                        )
+from src.data_processing.employees import get_employees_per_industry_sector_and_regional_ids
+from src.configs.config_loader import load_config
+from src.data_access.local_reader import load_decomposition_factors
+
+def get_historical_consumption(year):
+    """
+    Get historical consumption data (2000-2018) for a specific year: Consumption per industry_sector [88?] and regional_id [401]
+    
+    Args:
+        year (int): The year to get consumption data for
+    """
+
+    # 1. validate the year
+    if year < 2000 or year > 2018:
+        raise ValueError("Year must be between 2000 and 2018")
+
+    # 2. Get UGR data
+    # gas does also include other gases
+    # gas does not include self generation, power does
+    ugr_data_ranges = get_ugr_data_ranges(year)
+
+    # 2. resolve the industry ranges
+    employees = get_employees_per_industry_sector_and_regional_ids(year)
+
+    # 3. resolve the ugr data ranges by employees
+    ugr_data = resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges, employees)
+
+    # 3. fix gas: original source (GENISIS) gives sum of natural gas and other gases use factor from sheet to get natural gas only
+    # TODO check wz 35
+    decomposition_factors = load_decomposition_factors()
+    factor_natural_gas = decomposition_factors['Anteil Erdgas am Verbrauch aller Gase']
+    ugr_data['gas[MWh]'] = (ugr_data['gas[MWh]'] * factor_natural_gas)
+
+
+    # 3. add self consumption/ self gen for power and gas (baseed on power self generation)
+    # Include the power and gas self generation
+    # based on the power generation from self generation
+    # I have the total gas self gen value but not how it is distributed across the WZs
+    # I calculate the factor: How much of the total power self generation is in each WZ 
+    # and assume that I can use that factor also for gas
+
+    # self gen is only missing for gas, we get that consumption from JEVI. For power it is already included
+    total_gas_self_consuption = get_total_gas_industry_self_consuption(year)
+    consumption_data, self_generation_factor_power, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, decomposition_factors)
+
+
+
+
+
+
+    # 4. fix the industry consumption with iterative approach
+    regional_energy_consumption = get_regional_energy_consumption(year)
+
+    consumption_data = calculate_regional_energy_consumption_iteravely(consumption_data, year, regional_energy_consumption)
+
+
+
+
+
+    return consumption_data
+
+
+def get_future_consumption(year):
+    """
+    Get historical consumption data (2000-2018) for a specific year: Consumption per industry_sector [88?] and regional_id [401]
+    
+    Args:
+        year (int): The year to get consumption data for
+    """
+    ugr_genisis_year_end = load_config("base_config.yaml")["ugr_genisis_year_end"]
+
+
+    # 1. validate the year
+    if year < ugr_genisis_year_end or year > 2050:
+        raise ValueError("Year must be between ugr_genisis_year_end and 2050")
+
+    # 2. Get UGR data
+    ugr_data_ranges = get_ugr_data_ranges(ugr_genisis_year_end)
+
+    # project consumption
+
+    # 2. resolve the industry ranges
+    employees = get_employees_per_industry_sector_and_regional_ids(year)
+
+    ugr_data = resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges, employees)
+    # project consumption
+    consumption = project_consumption(ugr_data, ugr_genisis_year_end, year)
+
+    # 3. add self consumption/ self gen
+
+    # 4. fix the industry consumption with iterative approach
+
+
+
+
+    return ugr_data

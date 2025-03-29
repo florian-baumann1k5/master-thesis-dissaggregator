@@ -6,11 +6,10 @@ from collections import defaultdict
 from src import logger
 from src.utils.utils import fix_region_id
 from src.configs.config_loader import load_config
-from src.configs.mappings import wz_dict
 from src.data_access.api_reader import get_historical_employees, get_future_employees
-from src.data_access.local_reader import load_activity_driver_cts_and_industry
+from src.data_access.local_reader import load_activity_driver_employees
 from src.data_processing.normalization import normalize_region_ids_columns
-
+from src.configs.mappings import wz_dict
 
 def get_historical_employees_by_industry_sector_and_regional_id(year, force_preprocessing=False):
     """
@@ -180,7 +179,7 @@ def get_future_employees_by_industry_sector_and_regional_id(year, force_preproce
     # projecting the data further into the future with the help of the activity driver data
     if year == 2030:
         # load activity driver data
-        emp_total = load_activity_driver_cts_and_industry()
+        emp_total = load_activity_driver_employees()
         # multiply each column by its corresponding scaling factor (from the normalized projection for the specified year).
         pivoted_df = (pivoted_df.T.multiply(emp_total.loc[year_requested])).T
 
@@ -200,6 +199,20 @@ def get_future_employees_by_industry_sector_and_regional_id(year, force_preproce
 
 def get_employees_per_industry_sector_groups_and_regional_ids(year):
     """
+    Wrapper of the functions:
+        get_historical_employees_by_industry_sector_and_regional_id(year)
+        get_future_employees_by_industry_sector_and_regional_id(year)
+    Deciding on the correct function based on the year.
+    Grouping the result by industry sector groups of wz_dict().
+
+
+    Args:
+        year: 2000-2050
+        
+    Returns:
+        A dataframe with the number of employees by industry code REGIONS and regional code
+        -> 400 rows (regions) x 48 columns (industry sectors)
+    
     """
 
     # 1. Validate year: must be between 2000 and 2050
@@ -213,7 +226,7 @@ def get_employees_per_industry_sector_groups_and_regional_ids(year):
     elif year >= 2018 and year <= 2050:
         df_emp = get_future_employees_by_industry_sector_and_regional_id(year)
 
-    # 3. group the data based on the wz_dict
+    # 3. translate industry sectors from openffe to our industry sectors and group the data based on the wz_dict groups
     # Transpose so regions are rows, industry_sector codes are columns
     df_employees = df_emp.transpose()
     # Get mapping: {original_industry_sector: group_label}
@@ -233,15 +246,23 @@ def get_employees_per_industry_sector_groups_and_regional_ids(year):
         else:
             df_employees_grouped[group_label] = 0.0  # or np.nan if you prefer
 
-    """
-    400 rows x 48 columns
-    """
-    
     return df_employees_grouped
 
 
 def get_employees_per_industry_sector_and_regional_ids(year):
     """
+    Wrapper of the functions:
+        get_historical_employees_by_industry_sector_and_regional_id(year)
+        get_future_employees_by_industry_sector_and_regional_id(year)
+    Deciding on the correct function based on the year.
+
+    Args:
+        year: 2000-2050
+        
+    Returns:
+        A dataframe with the number of employees by industry code and regional code
+        -> 88 rows (industry sectors) x 400 columns (regions)
+    
     """
 
     # 1. Validate year: must be between 2000 and 2050
@@ -254,9 +275,5 @@ def get_employees_per_industry_sector_and_regional_ids(year):
         df_emp = get_historical_employees_by_industry_sector_and_regional_id(year)
     elif year >= 2018 and year <= 2050:
         df_emp = get_future_employees_by_industry_sector_and_regional_id(year)
-
-    """
-    88 rows x 400 columns
-    """
-    
+   
     return df_emp

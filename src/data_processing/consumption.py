@@ -1,178 +1,33 @@
 import pandas as pd
-from src import logger
 import os
-
-from src.configs.config_loader import load_config
-from src.data_access.local_reader import load_preprocessed_ugr_file_if_exists, load_raw_ugr_data, load_genisis_wz_sector_mapping_file
-
-
+import numpy as np
 import holidays
 import datetime
 from collections import OrderedDict
 from collections.abc import Iterable
+from typing import Tuple
 
-
-def generate_specific_consumption_per_branch(year=2018, **kwargs):
-    """
-    Returns specific power and gas consumption per branch and year.
-        2001-2019:  data from openFfE API
-        2018:       data from local pre-calculated data
-        2019-2050:  data from local pre-calculated data (2019). !Projecting future consumption using activity drivers from input files
-
-    Also returns total power and gas consumption per branch.
-    Also returns the amount of workers per branch and district.
-    Also returns the factor of power and gas self generation per branch.
-
-    Returns
-    ------------
-    dataframe with the following columns:±
-    WZ ['power_incl_selfgen[MWh]', 'employees', 'factor_power_no_selfgen', 'gas_incl_selfgen[MWh]', 'factor_gas_no_selfgen']
-    88 rows x 5 columns
-    """
-    logger.info('Function call:', extra={'function': 'generate_specific_consumption_per_branch_flo', 'kwargs': kwargs})
-
-    
-    # get a year - if not in kwargs, get it from config
-    cfg = kwargs.get('cfg', load_config("base_config.yaml"))
-    year = kwargs.get('year', cfg['base_year'])
-    # get electricity and gas consumption from database
-    x = True
-    year1 = year
-    # input validation
-    if year1 not in range(2000, 2051):
-        raise ValueError("`year` must be between 2000 and 2050")
-    
-    ## get consumption data
-    consumption_by_wz = get_total_gas_power_consumption_by_wz(year=year)
-    """ consumption_by_wz_ranges:
-    WZ  gas[MWh]    power[MWh]
-    88 rows x 2 columns
-    """
-    
-
-
-    ## calculate specific consumption 
-    # spez consumption = consumption / number of employees
-    # see Diss S. 73
-
-    employees_by_WZ_and_regional_code = pd.DataFrame(employees_per_branch(year=year))
-    """
-    88 rows x 401 columns
-    """
-
-    # sum up the columns of employees_by_WZ_and_regional_code to get total employees per WZ
-    employees_by_WZ = employees_by_WZ_and_regional_code.sum(axis=1).rename("employees")
-    """
-    88 rows x 1 column
-    """
-
-    # merge the employees_by_WZ with the consumption_by_wz
-    consumption_and_employees_by_WZ = consumption_by_wz.merge(employees_by_WZ, left_index=True, right_index=True)
-    """
-    88 rows x 3 column
-    columns: gas[MWh] power[MWh] employees
-    index: WZ
-    """
-    
-    
-
-    ## add self generation to the consumption_and_employees_by_WZ
-    # with the help of the decomposition factors
-
-    # get the decomposition factors
-    file_name = "Decomposition Factors.xlsx"
-    df_decom_el = pd.read_excel(data_in("dimensionless", file_name), sheet_name="Endenergieverbrauch Strom" )
-    df_decom_el.set_index("WZ", inplace=True)
-    df_decom_gas = pd.read_excel(data_in("dimensionless", file_name), sheet_name="Endenergieverbrauch Gas" )
-    df_decom_gas.set_index("WZ", inplace=True)
-    # create new DataFrame with columns from df_decom_el and df_decom_gas
-    decomposition_factors_by_WZ = pd.concat(
-        [
-            df_decom_el[["Strom Netzbezug", "Strom Eigenerzeugung"]],
-            df_decom_gas["Anteil Erdgas am Verbrauch aller Gase"],
-        ],
-        axis=1,
-    )
-    # fill missing values with 0 and 1 (WZ 35)
-    decomposition_factors_by_WZ["Strom Eigenerzeugung"].fillna(0, inplace=True)
-    decomposition_factors_by_WZ.fillna(1, inplace=True)
-
-
-    ## add filter to only look at "Erdgas", ignore the other gases
-    consumption_and_employees_by_WZ['gas[MWh]'] = (consumption_and_employees_by_WZ['gas[MWh]'] * decomposition_factors_by_WZ['Anteil Erdgas am Verbrauch aller Gase'])
-
-
-    # merge the decomposition factors with the consumption_and_employees_by_WZ
-    consumption_and_employees_and_decomfactors_by_WZ = consumption_and_employees_by_WZ.merge(decomposition_factors_by_WZ, left_index=True, right_index=True)
-    """ consumption_and_employees_and_decomfactors_by_WZ
-    WZ ['gas[MWh]', 'power[MWh]', 'employees', 'Strom Netzbezug', 'Strom Eigenerzeugung', 'Anteil Erdgas am Verbrauch aller Gase']
-    88 rows x 6 columns
-    """
-
-
-
-
-
-    ## Get the gas consumption for self generation from local files
-    # original source (table_id = 71) does not include gas consumption for
-    # self generation in industrial sector
-    # get gas consumption for self_generation from German energy balance JEVI
-    gas_industry_self_consuption = get_gas_industry_self_consuption(year)
-
-
-
-    ## Include the power and gas self generation
-    # based on the power generation from self generation
-    # I have the total gas self gen value but not how it is distributed across the WZs
-    # I calculate the factor: How much of the total power self generation is in each WZ 
-    # and assume that I can use that factor also for gas
-
-    # self gen is only missing for gas, we get that consumption from JEVI. For power it is already included
-
-
-
-    temp_df = consumption_and_employees_and_decomfactors_by_WZ.copy()
-
-    # rename column sincel power already includes selfgen and gas does not
-    temp_df.rename(columns={"power[MWh]": "power_incl_selfgen[MWh]", "gas[MWh]": "gas_no_selfgen[MWh]"}, inplace=True)
-
-    temp_df["power_only_selfgen[MWh]"] = temp_df["Strom Eigenerzeugung"] * temp_df["power_incl_selfgen[MWh]"]
-    temp_df["factor_selfgen_of_total_power"] = temp_df["power_only_selfgen[MWh]"] / temp_df["power_only_selfgen[MWh]"].sum()
-
-    # use power factor on gas total consumption to get gas self generation per wz
-    temp_df["gas_only_selfgen[MWh]"] = temp_df["factor_selfgen_of_total_power"] * gas_industry_self_consuption
-    temp_df["gas_incl_selfgen[MWh]"] = temp_df["gas_no_selfgen[MWh]"] + temp_df["gas_only_selfgen[MWh]"]
-   
-
-    temp_df["factor_gas_no_selfgen"] = temp_df["gas_no_selfgen[MWh]"] / temp_df["gas_incl_selfgen[MWh]"]
-    temp_df.rename(columns={"Strom Netzbezug": "factor_power_no_selfgen"}, inplace=True)
-
-
-    ## dataframe cleanup
-    consumption_employees_no_selfgen_by_WZ = temp_df.copy()
-    consumption_employees_no_selfgen_by_WZ.drop(columns=['Strom Eigenerzeugung', 
-                                                                   'Anteil Erdgas am Verbrauch aller Gase', 
-                                                                   'power_only_selfgen[MWh]',
-                                                                   'factor_selfgen_of_total_power', 
-                                                                   'gas_only_selfgen[MWh]',
-                                                                   'gas_no_selfgen[MWh]'], inplace=True)
-    """
-    WZ ['power_incl_selfgen[MWh]', 'employees', 'factor_power_no_selfgen', 'gas_incl_selfgen[MWh]', 'factor_gas_no_selfgen']
-    88 rows x 5 columns
-    """
-
-    # Set the index name to "WZ" before returning
-    consumption_employees_no_selfgen_by_WZ.index.name = "WZ"
-    return consumption_employees_no_selfgen_by_WZ
-
-
+from src import logger
+from src.configs.config_loader import load_config
+from src.data_access.local_reader import (load_preprocessed_ugr_file_if_exists, 
+                                          load_raw_ugr_data, 
+                                          load_genisis_wz_sector_mapping_file,
+                                          load_activity_driver_consumption,
+                                          load_gas_industry_self_consuption,
+                                          load_gas_industry_self_consuption_cache)
+from src.data_access.api_reader import get_manufacturing_energy_consumption
+from src.utils.utils import fix_region_id
+from src.data_processing.normalization import normalize_region_ids_rows
+# This file contains the functions for the consumption data. Will be used in the pipeline "cunsumption".
 
 def get_ugr_data_ranges(year, force_preprocessing=False):
     """
     Get UGR (Underlying Energy Requirements) data for a specific year. 
     
     Args:
-        year (int): The year to filter data for (between 2000 and 2050)
+        year (int): The year to get the UGR data for. Availible data is defined in the config file:
+            load_config("base_config.yaml")['ugr_genisis_year_start'] 
+            load_config("base_config.yaml")['ugr_genisis_year_end']
         force_preprocessing (bool): If True, always preprocess the data even if a processed file exists
     
     Returns:
@@ -182,8 +37,10 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
 
 
     # 1. Validate the Year
-    if not 2000 <= year <= 2050:
-        raise ValueError(f"Year {year} is outside the valid range (2000-2050)")
+    ugr_first_year = load_config("base_config.yaml")['ugr_genisis_year_start'] 
+    ugr_last_year = load_config("base_config.yaml")['ugr_genisis_year_end']
+    if not ugr_first_year <= year <= ugr_last_year:
+        raise ValueError(f"Year {year} is outside the valid range ({ugr_first_year}-{ugr_last_year}). No Genisis UGR data for this year.")
 
 
     # 3. Check for Existing Preprocessed File and force_preprocessing
@@ -193,7 +50,7 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
         return df
 
     # Preprocessing the raw data
-    logger.info(f"Preprocessing the UGR raw data for year {year}")
+    logger.info(f"Preprocessing the UGR raw data for year {year}") 
     raw_data = load_raw_ugr_data()
     raw_data = raw_data.drop(columns=[
         "statistics_code", "statistics_label", 
@@ -270,9 +127,9 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
     # 10. Convert Energy Units from TJ to MWh
     # Rename columns
     column_mapping = {
-        "power[TJ]": "power[Mwh]",
-        "gas[TJ]": "gas[Mwh]",
-        "petrol[TJ]": "petrol[Mwh]"
+        "power[TJ]": "power[MWh]",
+        "gas[TJ]": "gas[MWh]",
+        "petrol[TJ]": "petrol[MWh]"
     }
 
     for col in grouped_data.columns:
@@ -287,13 +144,13 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
             grouped_data[energy_type] = 0
     
     # Reorder columns
-    ordered_columns = ["power[Mwh]", "gas[Mwh]", "petrol[Mwh]"]
+    ordered_columns = ["power[MWh]", "gas[MWh]", "petrol[MWh]"]
     result_df = grouped_data[ordered_columns]
     
 
     # 12. Save the Preprocessed Data
     # Create directory if it doesn't exist
-    processed_dir = load_config("base_config.yaml")['base_year']
+    processed_dir = load_config("base_config.yaml")['preprocessed_dir']
     processed_file = os.path.join(processed_dir, f"ugr_preprocessed_{year}.csv")
     os.makedirs(processed_dir, exist_ok=True)
     # Save the DataFrame
@@ -309,11 +166,319 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
     return result_df
 
 
-def resolve_industry_sector_ranges(ugr_data: pd.DataFrame) -> pd.DataFrame:
+def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFrame, employees_by_industry_sector_and_regional_ids: pd.DataFrame) -> pd.DataFrame:
     """
-    Resolve the industry_sector ranges in the UGR data.
+    NEW
+    Resolve WZ ranges in consumption data to individual WZ codes based on employee distribution.
+    
+    Parameters:
+    -----------
+    ugr_data_ranges : pd.DataFrame
+        DataFrame with WZ ranges as index and consumption values for gas and power
+    employees_by_industry_sector_and_regional_ids : pd.DataFrame
+        DataFrame with employees per industry_sector and regional code
+    year : int
+        Year for data
+        
+    Returns:
+    --------
+    pd.DataFrame
+        DataFrame with individual WZ codes and their consumption values
+    """
+        # Create an empty DataFrame to store the result
+    consumption_by_wz = pd.DataFrame(columns=ugr_data_ranges.columns)
+    
+    # Convert employees dataframe to national totals
+    employees_by_WZ = employees_by_industry_sector_and_regional_ids.sum(axis=1)
+    
+    # Process each entry in the consumption data
+    for wz_code, row in ugr_data_ranges.iterrows():
+        # Check if the index is a range (contains a hyphen)
+        if isinstance(wz_code, str) and '-' in wz_code:
+            # Extract the range bounds
+            start_wz, end_wz = map(int, wz_code.split('-'))
+            wz_range = range(start_wz, end_wz + 1)
+            
+            # Get total employees in this range
+            total_employees_in_range = sum(employees_by_WZ.get(wz, 0) for wz in wz_range)
+            
+            if total_employees_in_range > 0:
+                # Distribute consumption based on employee ratio
+                for wz in wz_range:
+                    if wz in employees_by_WZ:
+                        employee_ratio = employees_by_WZ[wz] / total_employees_in_range
+                        
+                        # Allocate consumption according to employee ratio
+                        consumption_values = {
+                            col: row[col] * employee_ratio for col in row.index
+                        }
+                        consumption_by_wz.loc[wz] = consumption_values
+            else:
+                # If no employees in range, distribute equally
+                for wz in wz_range:
+                    consumption_values = {
+                        col: row[col] / len(wz_range) for col in row.index
+                    }
+                    consumption_by_wz.loc[wz] = consumption_values
+        else:
+            # If not a range, keep as is
+            consumption_by_wz.loc[wz_code] = row
+    
+    # Ensure WZ codes are integers
+    if all(isinstance(idx, (int, np.integer)) or (isinstance(idx, str) and idx.isdigit()) 
+           for idx in consumption_by_wz.index):
+        consumption_by_wz.index = consumption_by_wz.index.astype(int)
+
+
+    #validate result: consumption sum of the rows must be equal before and after
+    # sum of all cells ugr_data_ranges must be equal to sum of all cells consumption_by_wz
+    if ugr_data_ranges.sum().sum() != consumption_by_wz.sum().sum():
+        raise ValueError("Consumption sum mismatch between ugr_data_ranges and consumption_by_wz")
+    
+    return consumption_by_wz
+
+
+def project_consumption(consumption, year_dataset, year_future):
+    """
+    DISS 4.5
+    project energy demand per wz to given year using activity drivers from
+    input files. For industry gross value added (gva) per branch is used, for
+    CTS energy reference area per branch is used, which is derived from
+    projected number of employees
+
+    Projects consumption data from publications to future year using different
+    demand driver per sector. for industry use projected gross value added per
+    branch and for CTS use projected consumption area per branch. drivers are
+    imported from data_in folder.
     """
 
-    # TODO: Implement this function
-    return ugr_data
+    # Validate Inputs: activity drivers are only available for 2015-2050
+    if year_dataset not in range(2015, 2050) or year_future not in range(2015, 2050):
+        raise ValueError("year_dataset must be between 2015 and 2050. Use the historical consumption!")
+    
+    # 2. Get Activity Drivers
+    activity_drivers = load_activity_driver_consumption()
+
+    # 3. group industry sectors
+    #TODO: wieso? df_driver_total = group_industry_sectors(activity_drivers)
+    df_driver_total = activity_drivers
+
+    # 4. normalize activity drivers year_dataset
+    df_driver_norm = df_driver_total.apply(lambda x: x/x.loc[year_dataset])
+
+    # 5. get the wanted year
+    df_driver_norm_year = df_driver_norm.loc[year_future]
+
+    # 6. multiply with consumption
+    consumption_projected = consumption.mul(df_driver_norm_year, axis=0)
+
+    return consumption_projected
+    
+
+def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
+    """
+    NEW
+    Returns the industry self consumption of a year in MWh.
+    
+    original source (UGR) does not include gas consumption for self generation in industrial sector
+    get gas consumption for self_generation from German energy balance
+
+    in the bilanz<year>d.xlsx file it is the cell: Naturgase_Erdgas/Erdölgas in row "Industriewärmekraftwerke (nur für Strom)"
+
+    preprocessing in the file load_config("base_config.yaml")['gas_industry_self_consumption_cache_file']
+
+    Returns
+    ------------
+    number with the total industrygas self consumption in MWh
+    """
+
+       # Validate year and adjust to available data range
+    if year < 2000 or year > 2050:
+        raise ValueError("`year` must be between 2000 and 2050")
+    if year < 2007:
+        year = 2007
+    elif year >= 2020:
+        year = 2019
+    # Otherwise, if year is between 2007 and 2019, we use it as is.
+
+    # Load the cache DataFrame.
+    # This should be a DataFrame with a "year" column and a "gas_industry_self_consumption" column.
+    cache_df = load_gas_industry_self_consuption_cache()  # Assumes a function that returns a DataFrame
+
+    # Load existing cache (expects a DataFrame with columns "year" and "gas_industry_self_consumption")
+    cache_df = load_gas_industry_self_consuption_cache()  # This function should return a DataFrame.
+    
+    # If not forcing preprocessing and the cache already contains an entry for this year, return that value.
+    if not force_preprocessing and not cache_df.empty and (year in cache_df['year'].values):
+        return cache_df.loc[cache_df['year'] == year, "gas_industry_self_consumption"].iloc[0]
+    
+    # Load the gas industry self-consumption data for the adjusted year.
+    df_balance = load_gas_industry_self_consuption(year)
+    
+    # Rename columns as needed.
+    df_balance.rename(
+        columns={
+            "Unnamed: 1": "Zeile",
+            "Unnamed: 24": "Grubengas",
+            "Naturgase": "Erdgas in Mio kWh",
+        },
+        inplace=True,
+    )
+    
+    # Drop the first three rows (assuming they are header/info rows)
+    df_balance.drop([0, 1, 2], inplace=True)
+    
+    # Set 'Zeile' as the index.
+    df_balance.set_index("Zeile", inplace=True)
+    
+    # Extract the natural gas consumption value from row with index 12.
+    # The value is in Mio kWh (i.e. GWh), so multiply by 1000 to convert to MWh.
+    GV_slf_gen_global = df_balance["Erdgas in Mio kWh"].loc[12] * 1000
+
+    # If force_preprocessing is True, remove any cached entry for this year.
+    if force_preprocessing and not cache_df.empty:
+        cache_df = cache_df[cache_df["year"] != year]
+    
+    # Prepare the new row; ensure that the new row's types match:
+    new_row = pd.DataFrame({
+        "year": [int(year)],
+        "gas_industry_self_consumption": [GV_slf_gen_global]
+    })
+    
+    # Concatenate the new row with the cache.
+    updated_cache = pd.concat([cache_df, new_row], ignore_index=True)
+    
+    # Explicitly convert the "year" column to integers.
+    # Using an apply ensures that each value is cast to int.
+    updated_cache["year"] = updated_cache["year"].apply(lambda x: int(x) if pd.notnull(x) else x)
+    
+    # Save the updated cache back to CSV.
+    file_path_cache = load_config("base_config.yaml")['gas_industry_self_consumption_cache_file']
+    updated_cache.to_csv(file_path_cache, index=False)
+    
+    return GV_slf_gen_global
+
+
+def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consuption: float, decomposition_factors: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
+
+    """
+    Computes power and gas self-generation metrics and appends them to the input consumption DataFrame.
+    
+    Parameters:
+        consumption_df (pd.DataFrame): UGR data with power, gas, and natural gas consumption.
+        decomposition_factors (pd.DataFrame): Contains self-generation shares per industry.
+    
+    Returns:
+        Tuple:
+            - pd.DataFrame: Enriched DataFrame with additional self-generation columns.
+            - pd.Series: Power self-generation factor per industry sector.
+            - pd.Series: Gas no-selfgen-to-total ratio per industry sector.
+    """
+    # Copy to avoid modifying the original input
+    df = consumption_df.copy()
+    
+    # Rename columns for clarity
+    df.rename(columns={
+        "power[MWh]": "power_incl_selfgen[MWh]",
+        "gas[MWh]": "gas_no_selfgen[MWh]"
+    }, inplace=True)
+    
+    # Self-generation factor for power by industry
+    selfgen_factor_power = decomposition_factors['Strom Eigenerzeugung']
+    df['power_self_generation[MWh]'] = df['power_incl_selfgen[MWh]'] * selfgen_factor_power
+    
+    # Share of self-generation per industry
+    df['factor_selfgen_of_total_power'] = (
+        df['power_self_generation[MWh]'] / df['power_self_generation[MWh]'].sum()
+    )
+    
+    # Allocate gas self-generation based on power distribution
+    df['gas_only_selfgen[MWh]'] = df['factor_selfgen_of_total_power'] * total_gas_self_consuption
+    df['gas_incl_selfgen[MWh]'] = df['gas_no_selfgen[MWh]'] + df['gas_only_selfgen[MWh]']
+    
+    # Final ratio: gas w/o selfgen / total gas
+    df['factor_gas_no_selfgen'] = df['gas_no_selfgen[MWh]'] / df['gas_incl_selfgen[MWh]']
+    
+    # Return both the enriched DataFrame and the key factors
+    return df, df['factor_selfgen_of_total_power'], df['factor_gas_no_selfgen']
+
+
+def get_regional_energy_consumption(year) -> pd.DataFrame:
+    """
+    Returns the regional energy consumption for a given year from JEVI
+    Database: 'spatial', table_id=15
+
+    Returns
+    ------------
+    pd.DataFrame:
+    ['id_spatial', 'id region_type', 'id_region", 'year", 'internal_id', value]
+    value is in Gigajoules (GJ)
+    """
+    # Check if year is in valid range
+    if year not in range(2000, 2051):
+        raise ValueError("`year` must be between 2000 and 2050")
+
+    # API spacial_id=15 has data for years 2003-2017
+    # If year is outside this range, use closest available year
+    if year < 2003:
+        year_to_use = 2003
+        logger.info('Regional energy consumption of 2003 was used for calibration of industrial energy consumption.')
+    elif year > 2017:
+        year_to_use = 2017
+        logger.info('Regional energy consumption of 2017 was used for calibration of industrial energy consumption.')
+    else:
+        year_to_use = year
+    
+    # Get data "Energieverwendung in der Industrie je LK" spacial_id=15
+    data = get_manufacturing_energy_consumption(year=year_to_use)
+
+
+    # Rename 'value' column to 'consumption[GJ]' = thousand MJ
+    data = data.rename(columns={"value": "consumption[GJ]"})
+    # Convert 'consumption[GJ]' to MWh
+    data['consumption[MWh]'] = data['consumption[GJ]'] / 3.6
+    
+    # transform the id_region to ags_lk standard format
+    data["regional_id"] = data["id_region"].apply(fix_region_id)
+
+    # Filter rows to keep only those with "2" or "4" in the "ET" column (ET=energy type)
+    # Extract energy type (ET) from internal_id: 2=gas, 4=power
+    # Filter to keep only gas (ET=2) and power (ET=4) rows
+    data = data[data['internal_id[0]'].isin([2, 4])]
+    data = data.rename(columns={"internal_id[0]": "energy_carrier"})
+    
+    # Create a pivot table to get consumption by energy type
+    data_pivot = data.pivot_table(
+        index='regional_id', 
+        columns='energy_carrier', 
+        values='consumption[MWh]',
+        aggfunc='sum'
+    ).reset_index()
+    
+    # Rename columns for clarity
+    data_pivot.rename(columns={
+        2: 'power[MWh]',
+        4: 'gas[MWh]'
+    }, inplace=True)
+    
+    # Fill NaN values with 0 for districts that might be missing one type of consumption
+    data_pivot.fillna(0, inplace=True)
+    
+    # Use the pivoted data
+    data = data_pivot
+
+    # normalize the regional_id from 402 (= 2015) to 400 districts (load_config("base_config.yaml")["regional_id_changes_files"])
+    normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=2015)
+
+    return normalized_df
+
+
+def calculate_regional_energy_consumption_iteravely(consumption_data, year, regional_energy_consumption):
+    """
+    Calculates the regional energy consumption for a given year iteratively.
+    """
+    # Get the regional energy consumption for the given year
+    
+    return year
+    
 

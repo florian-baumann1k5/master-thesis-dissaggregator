@@ -3,7 +3,7 @@ from pathlib import Path
 from src.configs.config_loader import load_config
 
 
-def normalize_region_ids_rows(df, id_column, data_year, target_year):
+def normalize_region_ids_rows(df, id_column, data_year, target_year=None):
     """
     NEW
     Normalize region IDs and sum up values for merged regions.

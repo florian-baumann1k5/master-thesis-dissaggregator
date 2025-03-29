@@ -8,15 +8,20 @@ from src.data_processing.employees import (get_historical_employees_by_industry_
                                             get_future_employees_by_industry_sector_and_regional_id, 
                                             get_employees_per_industry_sector_groups_and_regional_ids, 
                                             get_employees_per_industry_sector_and_regional_ids)
-from src.data_processing.consumption import generate_specific_consumption_per_branch, get_ugr_data_ranges
+from src.data_processing.consumption import (get_ugr_data_ranges,
+                                             project_consumption,
+                                             get_total_gas_industry_self_consuption,
+                                             get_regional_energy_consumption)
 from src.data_access.api_reader import get_historical_employees, get_future_employees, get_manufacturing_energy_consumption
+from src.pipeline.consumption import get_historical_consumption, get_future_consumption
 
-x = 9
+x = 14
 if x == 1:
-    df = generate_specific_consumption_per_branch()
+    # local_reader.py /api_reader.py
+    df = get_manufacturing_energy_consumption(year=2015)
 
 elif x == 2:
-    df = get_ugr_data_ranges(year=2002)
+    df = get_ugr_data_ranges(year=2021)
 
 elif x == 3:
     df = get_manufacturing_energy_consumption(year=2002)
@@ -46,6 +51,21 @@ elif x == 8:
 
 elif x == 9:
     df = get_employees_per_industry_sector_and_regional_ids(year=2033)
+
+elif x == 10:
+    df = get_historical_consumption(year=2010)
+
+elif x == 11:
+    df = project_consumption(year_dataset=2015, year_future=2033)
+
+elif x == 12:
+    df = get_future_consumption(year=2033)
+
+elif x == 13:
+    df = get_total_gas_industry_self_consuption(2015, force_preprocessing=True)
+
+elif x == 14:
+    df = get_regional_energy_consumption(year=2015)
 
 else:
     print("x is not 1")

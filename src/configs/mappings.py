@@ -15,3 +15,10 @@ def wz_dict():
             55: '51', 56: '52', 57: '53', 58: '55-56', 59: '58-63',
             60: '64-66', 61: '68', 62: '69-75', 63: '77-82', 64: '84',
             65: '85', 66: '86-88', 67: '90-99'}
+
+def industry_sector_groups():
+    """
+    Returns a unique list of industry sector groups. (48 groups)
+    """
+    return list(set(wz_dict().values()))
+

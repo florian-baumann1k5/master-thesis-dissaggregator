@@ -46,3 +46,9 @@ Pipelines:
 - WZs e.g. 37-39                                        = industry_sector groups [48 unique groups]
 - energy carriers                                       = power, gas, hydrogen, petrol_products
 - ags_lk = Allgemeneiner Gemeindeschlüssel Landkreise   = regional_id [400 unique regions for 2021 following]
+- activity_drivers = Mengentreiber (DISS 4.5.1)
+
+
+## Industry Sectors
+- 48 industry sector groups
+- 88 industry sectors (1-99 without 4, 34, 40, 44, 48, 54, 57, 67, 76, 83, 89)
