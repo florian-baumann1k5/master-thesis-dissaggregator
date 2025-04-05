@@ -9,6 +9,7 @@ from typing import Tuple
 
 from src import logger
 from src.configs.config_loader import load_config
+from src.configs.mappings import dict_cts_or_industry_per_industry_sector
 from src.data_access.local_reader import (load_preprocessed_ugr_file_if_exists, 
                                           load_raw_ugr_data, 
                                           load_genisis_wz_sector_mapping_file,
@@ -168,8 +169,8 @@ def get_ugr_data_ranges(year, force_preprocessing=False):
 
 def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFrame, employees_by_industry_sector_and_regional_ids: pd.DataFrame) -> pd.DataFrame:
     """
-    NEW
     Resolve WZ ranges in consumption data to individual WZ codes based on employee distribution.
+    consumption_wz = total_consumption_range * (employee_wz / sum_employees_range)
     
     Parameters:
     -----------
@@ -230,12 +231,16 @@ def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFram
         consumption_by_wz.index = consumption_by_wz.index.astype(int)
 
 
-    #validate result: consumption sum of the rows must be equal before and after
+    #validate result: consumption sum of the rows must be close to equal before and after (due to rounding)
     # sum of all cells ugr_data_ranges must be equal to sum of all cells consumption_by_wz
-    if ugr_data_ranges.sum().sum() != consumption_by_wz.sum().sum():
-        raise ValueError("Consumption sum mismatch between ugr_data_ranges and consumption_by_wz")
+    total_ugr = ugr_data_ranges.sum().sum()
+    total_wz = consumption_by_wz.sum().sum()
+    relative_diff = abs(total_ugr - total_wz) / max(total_ugr, total_wz)
+    if relative_diff > 0.00001:
+        raise ValueError("Consumption sum mismatch between ugr_data_ranges and consumption_by_wz (difference > 0.001%)")
     
     return consumption_by_wz
+
 
 
 def project_consumption(consumption, year_dataset, year_future):
@@ -256,7 +261,7 @@ def project_consumption(consumption, year_dataset, year_future):
     if year_dataset not in range(2015, 2050) or year_future not in range(2015, 2050):
         raise ValueError("year_dataset must be between 2015 and 2050. Use the historical consumption!")
     
-    # 2. Get Activity Drivers
+    # 2. Get Activity Drivers = Mengeneffekt
     activity_drivers = load_activity_driver_consumption()
 
     # 3. group industry sectors
@@ -274,6 +279,7 @@ def project_consumption(consumption, year_dataset, year_future):
 
     return consumption_projected
     
+
 
 def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
     """
@@ -359,7 +365,8 @@ def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
     return GV_slf_gen_global
 
 
-def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consuption: float, decomposition_factors: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
+
+def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consuption: float, decomposition_factors: pd.DataFrame, year: int) -> Tuple[pd.DataFrame, pd.Series, pd.Series]:
 
     """
     Computes power and gas self-generation metrics and appends them to the input consumption DataFrame.
@@ -388,9 +395,7 @@ def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consu
     df['power_self_generation[MWh]'] = df['power_incl_selfgen[MWh]'] * selfgen_factor_power
     
     # Share of self-generation per industry
-    df['factor_selfgen_of_total_power'] = (
-        df['power_self_generation[MWh]'] / df['power_self_generation[MWh]'].sum()
-    )
+    df['factor_selfgen_of_total_power'] = (df['power_self_generation[MWh]'] / df['power_self_generation[MWh]'].sum())
     
     # Allocate gas self-generation based on power distribution
     df['gas_only_selfgen[MWh]'] = df['factor_selfgen_of_total_power'] * total_gas_self_consuption
@@ -398,6 +403,14 @@ def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consu
     
     # Final ratio: gas w/o selfgen / total gas
     df['factor_gas_no_selfgen'] = df['gas_no_selfgen[MWh]'] / df['gas_incl_selfgen[MWh]']
+
+    # fill the missing values with 1 (happens if there is no gas consumption and the above valculation tries deviding by 0)
+    df.fillna(1, inplace=True)
+
+    # cache factor_gas_no_selfgen
+    template = load_config("base_config.yaml")['factor_gas_no_selfgen_cache_file']
+    path = template.format(year=year)
+    df[['factor_gas_no_selfgen']].to_csv(path, index=True, index_label='industry_sector')
     
     # Return both the enriched DataFrame and the key factors
     return df, df['factor_selfgen_of_total_power'], df['factor_gas_no_selfgen']
@@ -408,11 +421,10 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     Returns the regional energy consumption for a given year from JEVI
     Database: 'spatial', table_id=15
 
-    Returns
-    ------------
-    pd.DataFrame:
-    ['id_spatial', 'id region_type', 'id_region", 'year", 'internal_id', value]
-    value is in Gigajoules (GJ)
+    Returns:
+        pd.DataFrame:
+            - index: regional_ids [normalized 400 regional_ids]
+            - columns: power[MWh], gas[MWh]
     """
     # Check if year is in valid range
     if year not in range(2000, 2051):
@@ -470,15 +482,146 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     # normalize the regional_id from 402 (= 2015) to 400 districts (load_config("base_config.yaml")["regional_id_changes_files"])
     normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=2015)
 
+    # make the regional_id the index
+    normalized_df.set_index('regional_id', inplace=True)
+
     return normalized_df
 
 
-def calculate_regional_energy_consumption_iteravely(consumption_data, year, regional_energy_consumption):
+def filter_consumption_data_per_cts_or_industry(consumption_data: pd.DataFrame, cts_or_industry: str):
     """
-    Calculates the regional energy consumption for a given year iteratively.
+    Get consumption data for a specific year.
+    Dict of industry and cts industry sectors in dict_cts_or_industry_per_industry_sector()
+
+    Args:
+        consumption_data (pd.DataFrame): Consumption data df for a specific year
+            index: industry_sectors (88)
+            columns: regional_ids (400)
+        cts_or_industry (str): 'cts' or 'industry'
+    """
+    # validate the input
+    if cts_or_industry not in ['cts', 'industry']:
+        raise ValueError("`cts_or_industry` must be 'cts' or 'industry'")
+
+
+    # get the industry_sectors from the dict_cts_or_industry_per_industry_sector
+    industry_sectors = dict_cts_or_industry_per_industry_sector()[cts_or_industry]
+
+    # filter the consumption_data for the wanted industry_sectors
+    consumption_data = consumption_data.loc[industry_sectors]
+
+   
+    return consumption_data
+
+
+def calculate_regional_energy_consumption(consumption_data, energy_carrier, year, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids):
+    """
+    Calculating the regional energy consumption for industry and cts.
+    For CTS we are using the employees data.
+    For industry we are using the iterative approach.
+    
+    This is only necessary for industry, for CTS we are using the employees data.
+
+    Returns:
+        - totatl consumption per regional_id and industry_sector for all industry_sectors for the given energy_carrier
+        pd.DataFrame:
+            - index: industry_sectors
+            - columns: regional_ids
     """
     # Get the regional energy consumption for the given year
+
+    # validate the inputs
+    if year not in range(2000, 2051):
+        raise ValueError("`year` must be between 2000 and 2050")
     
-    return year
+
+    # 0. find and filter for the wanted energy_carrier
+    # find the energy_carrier column in the consumption_data and remove all other columns
+    # Find and keep only the column containing the substring 'energy_carrier' e.g. 'power[MWh]'
+    matching_cols = [col for col in consumption_data.columns if energy_carrier in col]
+    if matching_cols:
+        consumption_data = consumption_data.loc[:, matching_cols]
+    else:
+        raise ValueError(f"No column containing '{energy_carrier}' found.")
+    # rename the column to 'consumption[MWh]'
+    consumption_data.rename(columns={energy_carrier: "consumption[MWh]"}, inplace=True)
+
+
+    # 1. calculate the specific consumption per employee per industry_sector
+    employees_by_WZ = employees_by_industry_sector_and_regional_ids.sum(axis=1)
+    specific_consumption_per_employee_per_industry_sector = consumption_data.div(employees_by_WZ, axis=0)
+    # rename the column
+    specific_consumption_per_employee_per_industry_sector.rename(columns={"consumption[MWh]": "consumption[MWh/employee]"}, inplace=True)
+    
+
+    # 2. Splitting the consumption data to industry and cts 
+    consumption_data_cts = filter_consumption_data_per_cts_or_industry(specific_consumption_per_employee_per_industry_sector, 'cts')
+    consumption_data_industry = filter_consumption_data_per_cts_or_industry(specific_consumption_per_employee_per_industry_sector, 'industry')
+
+
+    # 3. For the CTS sector we are using the employees data to get the consumption per regional_id
+    # - multiply the specific cinsumption now to the employees per region and industry sector to get 
+    # the consumption per regional_id and industry_sector
+    regional_consumption_data_cts = consumption_data_cts.mul(employees_by_industry_sector_and_regional_ids, axis=0)
+
+
+    # 4. for the industry sectore we are using the iterative approach
+    # call the function to calculate the consumption per regional_id and industry_sector in the iterative approach
+    regional_consumption_data_industry = calculate_iteratively_industry_regional_consumption(consumption_data_industry, year, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids, energy_carrier)
+
+
+    # 5. merge the consumption data for industry and cts
+    consumption_data = pd.concat([regional_consumption_data_cts, regional_consumption_data_industry], axis=0)
+
+    #6. recalculate the total consumption per regional_id and industry_sector
+    consumption_data = consumption_data.mul(employees_by_industry_sector_and_regional_ids, axis=0)
+
+    return consumption_data
+
+
+
+
+def calculate_iteratively_industry_regional_consumption(spez_consumption_data_industry, year, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids, energy_carrier):
+    """
+    Resolves the the consumption per industry_sector (from UGR) to regional_ids (with the help of JEVI) in an iterative approach.
+
+
+        Args:
+            spez_consumption_data_industry: pd.DataFrame with consumption data industry sectors based on the UGR: specific consumption per industry_sector
+            year: int, year to calculate the regional energy consumption for
+            regional_energy_consumption_jevi: pd.DataFrame with regional energy consumption from JEVI: consumption per regional_id
+            employees_by_industry_sector_and_regional_ids: pd.DataFrame with employees by industry_sector and regional_id
+            energy_carrier: str, energy carrier to calculate the consumption for: [power, gas, petrol]
+
+        Returns:
+            pd.DataFrame:
+                - index: industry_sectors
+                - columns: regional_ids
+    """
+    # validate the input
+    if energy_carrier not in ['power', 'gas', 'petrol']:
+        raise ValueError("`energy_carrier` must be 'power', 'gas' or 'petrol'")
+    if year not in range(2000, 2051):
+        raise ValueError("`year` must be between 2000 and 2050")
+    if (spez_consumption_data_industry.shape[1] != 1):
+        raise ValueError("spez_consumption_data_industry must have exactly one column.")
+    if not pd.api.types.is_numeric_dtype(spez_consumption_data_industry.index):
+        raise TypeError("spez_consumption_data_industry Index must be numeric.")
+    if (regional_energy_consumption_jevi.shape[1] < 400) & (regional_energy_consumption_jevi.shape[0] != 1):
+        raise ValueError("regional_energy_consumption_jevi must have at least 400 columns and only one row.")
+    #if (employees_by_industry_sector_and_regional_ids.shape[1] != ) & (employees_by_industry_sector_and_regional_ids.shape[0] != 1):
+    #    raise ValueError("employees_by_industry_sector_and_regional_ids must have at least 400 columns and only one row.")
+    
+
+
+    # TODO iterativer prozess
+
+
+
+    return spez_consumption_data_industry
+
+
+
+
     
 

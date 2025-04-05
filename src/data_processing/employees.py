@@ -176,7 +176,7 @@ def get_future_employees_by_industry_sector_and_regional_id(year, force_preproce
     88 rows x 400 columns
     """
 
-    # projecting the data further into the future with the help of the activity driver data
+    # projecting the data further into the future with the help of the activity driver data = Mengeneffekt
     if year == 2030:
         # load activity driver data
         emp_total = load_activity_driver_employees()
@@ -275,5 +275,7 @@ def get_employees_per_industry_sector_and_regional_ids(year):
         df_emp = get_historical_employees_by_industry_sector_and_regional_id(year)
     elif year >= 2018 and year <= 2050:
         df_emp = get_future_employees_by_industry_sector_and_regional_id(year)
-   
+
+    # name the index
+    df_emp.index.name = "industry_sector"
     return df_emp
