@@ -42,7 +42,7 @@ def get_consumption_data_historical(year: int) -> pd.DataFrame: #TODO: iterative
     # 3. fix gas: original source (GENISIS) gives sum of natural gas and other gases use factor from sheet to get natural gas only
     # TODO check wz 35 
     decomposition_factors_gas = load_decomposition_factors_gas()
-    factor_natural_gas = decomposition_factors_gas['Anteil Erdgas am Verbrauch aller Gase']
+    factor_natural_gas = decomposition_factors_gas['share_natural_gas_total_gas']
     ugr_data['gas[MWh]'] = (ugr_data['gas[MWh]'] * factor_natural_gas)
 
 

@@ -6,6 +6,20 @@ from src.configs.mappings import *
 
 
 def dissaggregate_for_applications(consumption_data, year, sector, energy_carrier):
+    """
+    Dissaggregate the consumption data based on applications.
+
+    Args:
+        consumption_data (pd.DataFrame): Consumption data
+        year (int): Year
+        sector (str): Sector
+        energy_carrier (str): Energy carrier
+
+    Returns:
+        pd.DataFrame: Disaggregated consumption data
+            MultiIndex columns: (industry_sector, application)
+            MultiIndex index: (regional_id)
+    """
 
     # 1. load decomposition factors only for the relevant industry_sectors and energy_carrier
     decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
@@ -38,8 +52,10 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
     # 3. calidate the output
     new_df_sum = df.sum().sum()
     total_sum = consumption_data.sum().sum()
-    msg = (f'The sum of the disaggregated consumption must be the same as the sum of the initial consumption data! 
-           New sum: {new_df_sum}, initial consumption sum: {total_sum}')
+    msg = (
+        f"The sum of the disaggregated consumption must be the same as the sum of the initial consumption data! "
+        f"New sum: {new_df_sum}, initial consumption sum: {total_sum}"
+    )
     assert np.isclose(total_sum, new_df_sum), msg
 
     return df
@@ -47,7 +63,8 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
 
 def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     """
-    Perfrom dissagregation based on applications of the final energy usage
+    Performes the disaggregation of the gas-industry consumption data based on applications.
+    This is the only case where we have to consider industrial_power_plants.
 
     Args:
         consumption_data (pd.DataFrame): Consumption data: columns: industry_sectors, index: regional_ids ; already filtered to contain only relevant industry_sectors(cts/industry)
@@ -123,11 +140,20 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     
 def disagg_applications_default(consumption_data, decomp):
     """
-    
+    Performs the disaggregation of the consumption data based on applications.
+    This is the default case.
+
+    Args:
+        consumption_data (pd.DataFrame): Consumption data
+        decomp (pd.DataFrame): Decomposition factors for applications
+
+    Returns:
+        pd.DataFrame: Disaggregated consumption data with MultiIndex columns (industry_sector, application).
+        MultiIndex columns: (industry_sector, application)
+        MultiIndex index: (regional_id)
     """
 
     consumption_data = consumption_data.T  # shape: (400 regions, 29 industry_sectors)
-
 
     # 4. Calculate disaggregated consumption for each application
     industry_sectors = consumption_data.columns
@@ -157,13 +183,12 @@ def disagg_applications_default(consumption_data, decomp):
         for application in applications:
             new_df[(industry, application)] = sector_consumption * app_shares[application]
 
-
     return new_df
 
 
 
 
-def disagg_applications_petrol():
+def disagg_applications_petrol(): #TODO: add petrol
     """
     Perfrom dissagregation based on applications of the final energy usage
     """
@@ -201,8 +226,20 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         decomp_temp = load_decomposition_factors_temperature_industry()
         decomp_gas = load_decomposition_factors_gas()
 
-        # join and drop unneeded columns + only keep the industry sectors 5..33
+        # join the two dataframes
         decomp = decomp_gas.join(decomp_temp, how='inner')
+
+        # since process_heat is the total sum of all process heat applications we have to multiply it
+        # Multiply each of the share columns by the 'process_heat' column
+        share_columns = [
+            'process_heat_below_100C',
+            'process_heat_100_to_200C',
+            'process_heat_200_to_500C',
+            'process_heat_above_500C'
+        ]
+        decomp[share_columns] = decomp[share_columns].multiply(decomp['process_heat'], axis=0)
+
+        # drop unneeded columns
         if "process_heat" in decomp.columns:
             decomp = decomp.drop(columns={"process_heat", "share_natural_gas_total_gas", "natural_gas_consumption_energetic"})
 
@@ -220,9 +257,19 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         decomp_power = load_decomposition_factors_power()
         decomp_temp = load_decomposition_factors_temperature_industry()
 
-        
-        # join and drop unneeded columns + only keep the industry sectors 5..33 
+        # join dfs and only keep the industry sectors 5..33 
         decomp = decomp_power.join(decomp_temp, how='inner')
+        # since process_heat is the total sum of all process heat applications we have to multiply it
+        # Multiply each of the share columns by the 'process_heat' column
+        share_columns = [
+            'process_heat_below_100C',
+            'process_heat_100_to_200C',
+            'process_heat_200_to_500C',
+            'process_heat_above_500C'
+        ]
+        decomp[share_columns] = decomp[share_columns].multiply(decomp['process_heat'], axis=0)
+
+        # drop unneeded columns
         if "process_heat" in decomp.columns:
             decomp = decomp.drop(columns={"process_heat", "electricity_grid", "electricity_self_generation"})
 

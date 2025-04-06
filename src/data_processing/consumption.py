@@ -391,7 +391,7 @@ def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consu
     }, inplace=True)
     
     # Self-generation factor for power by industry
-    selfgen_factor_power = decomposition_factors['Strom Eigenerzeugung']
+    selfgen_factor_power = decomposition_factors['electricity_self_generation']
     df['power_self_generation[MWh]'] = df['power_incl_selfgen[MWh]'] * selfgen_factor_power
     
     # Share of self-generation per industry
