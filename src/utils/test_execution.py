@@ -8,6 +8,7 @@ from src.data_processing.employees import *
 from src.data_processing.consumption import *
 from src.data_access.api_reader import *
 from src.pipeline.pipe_consumption import *
+from src.pipeline.pipe_applications import *
 from src.data_access.local_reader import *
 from src.data_processing.application import *
 
@@ -17,12 +18,11 @@ x = 16
 
 if x == 1:
 
-    df1 = load_decomposition_factors_power()
+    df1 = load_efficiency_rate(sector="cts", energy_carrier="power")
     print(df1)
-    df2 = load_decomposition_factors_gas()
+    df2 = load_decomposition_factors_temperature_industry()
     print(df2)
-    df3 = load_decomposition_factors_temperature_industry()
-    print(df3)
+
 
 elif x == 2:
     df = get_ugr_data_ranges(year=2021)
@@ -75,17 +75,13 @@ elif x == 15:
     df = load_factor_gas_no_selfgen_cache(year=2015)
 
 elif x == 16:
-    sector = "cts"
-    energy_carrier = "power"
-    year = 2015
+    sector = "industry"
+    energy_carrier = "gas"
+    year = 2020
 
-    
-    consumption_data = get_employees_per_industry_sector_and_regional_ids(year=year)
-    
-    sectors_industry_sectors = dict_cts_or_industry_per_industry_sector()[sector]
-    consumption_data = consumption_data.loc[consumption_data.index.intersection(sectors_industry_sectors)]
+    df = get_consumption_data_historical(year=2016)
 
-    df = dissaggregate_for_applications(consumption_data=consumption_data, year=year, sector=sector, energy_carrier=energy_carrier)
+    df = disagg_applications_efficiency_factor(year=year, sector=sector, energy_carrier=energy_carrier)
 
 else:
     print("x is not 1")

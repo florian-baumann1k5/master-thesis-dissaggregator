@@ -210,24 +210,70 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
     return file
 
 # efficiency rate
-def load_efficiency_rate(sector: str, source: str) -> pd.DataFrame:
+def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame: 
     """
-    Load the efficiency enhancement rate DataFrame based on sector and source.
+    Load the efficiency enhancement rate DataFrame based on sector and energy_carrier.
     Returns a DataFrame with either 'until year' or 'WZ' as index.
     """
     file_path = 'data/raw/temporal/Efficiency_Enhancement_Rates_Applications.xlsx'
 
     sheet_map = {
-        ("CTS", "power"): "eff_enhance_el_cts",
-        ("CTS", "gas"): "eff_enhance_gas_cts",
+        ("cts", "power"): "eff_enhance_el_cts",
+        ("cts", "gas"): "eff_enhance_gas_cts",
         ("industry", "power"): "eff_enhance_industry",
         ("industry", "gas"): "eff_enhance_industry"
     }
-    sheet_name = sheet_map.get((sector, source), "eff_enhance_industry")
+    sheet_name = sheet_map.get((sector, energy_carrier), "eff_enhance_industry") # arg2 is default value
 
     df = pd.read_excel(file_path, sheet_name=sheet_name)
 
-    if sector == "CTS":
-        return df.set_index("until year")
+    if sector == "cts":
+        df = df.set_index("until year")
+        df.index.name = "until_year"
     else:
-        return df.set_index("WZ").transpose()
+        df = df.set_index("WZ")
+        df.index.name = "industry_sector"
+        df = df.transpose()
+
+    """ returns:
+    cts power/gas: eff_enhance_industry
+    WZ       5      6      7      8      9      10     11     12     13     14     15     16  ...     22     23      24     25     26     27     28     29     30     31     32     33
+    2035  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  ...  0.019  0.005  0.0025  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019  0.019
+    2045  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  ...  0.013  0.005  0.0050  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013  0.013
+    [2 rows x 29 columns]
+
+    cts gas : eff_enhance_gas_cts
+                Mechanische Energie  Prozesswärme  Raumwärme  Warmwasser  Nichtenergetische Nutzung
+    until year                                                                                     
+    2035                     0.0150        0.0130     0.0250      0.0250                          0
+    2050                     0.0075        0.0065     0.0125      0.0125                          0
+    [2 rows x 5 columns]
+
+    cts power: eff_enhance_el_cts
+                Beleuchtung     IKT  Klimakälte  Prozesskälte  Mechanische Energie  Prozesswärme  Raumwärme  Warmwasser  Nichtenergetische Nutzung
+    until year                                                                                                                                    
+    2035             0.0210  0.0070      -0.005        0.0330               0.0150        0.0130     0.0090      0.0090                          0
+    2050             0.0105  0.0035      -0.005        0.0165               0.0075        0.0065     0.0045      0.0045                          0
+    [2 rows x 9 columns]
+    """
+
+    # rename the columns to english standard
+    column_rename_map = {
+        'Anteil Erdgas am Verbrauch aller Gase': 'share_natural_gas_total_gas',
+        'Energetischer Erdgasverbrauch': 'natural_gas_consumption_energetic',
+        'Nichtenergetische Nutzung': 'non_energetic_use',
+        'Mechanische Energie': 'mechanical_energy',
+        'Prozesswärme': 'process_heat',
+        'Raumwärme': 'space_heating',
+        'Warmwasser': 'hot_water',
+        'Beleuchtung': 'lighting',
+        'IKT': 'information_communication_technology',
+        'Klimakälte': 'space_cooling',
+        'Prozesskälte': 'process_cooling',
+        'Strom Netzbezug': 'electricity_grid',
+        'Strom Eigenerzeugung': 'electricity_self_generation'
+    }
+    # Only rename columns that exist in the DataFrame
+    df = df.rename(columns={k: v for k, v in column_rename_map.items() if k in df.columns})
+
+    return df
