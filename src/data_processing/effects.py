@@ -1,5 +1,6 @@
 import pandas as pd
 from src.data_access.local_reader import load_efficiency_rate
+from src import logger
 
 # Activity drivers = Mengeneffekt
 # used to project consumption data and employees

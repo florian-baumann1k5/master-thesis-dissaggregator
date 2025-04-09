@@ -36,3 +36,10 @@ def dict_cts_or_industry_per_industry_sector():
     }
 
 
+def federal_state_dict():
+    """
+    Translate the federal state (Bundesland) number to its abbreviation.
+    """
+    return {01: 'SH', 02: 'HH', 03: 'NI', 04: 'HB', 05: 'NW', 06: 'HE',
+            07: 'RP', 08: 'BW', 09: 'BY', 10: 'SL', 11: 'BE', 12: 'BB',
+            13: 'MV', 14: 'SN', 15: 'ST', 16: 'TH'}
