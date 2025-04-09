@@ -419,7 +419,7 @@ def calculate_self_generation(consumption_df: pd.DataFrame, total_gas_self_consu
 def get_regional_energy_consumption(year) -> pd.DataFrame:
     """
     Returns the regional energy consumption for a given year from JEVI
-    Database: 'spatial', table_id=15
+    OpenFFE API: 'spatial', table_id=15
 
     Returns:
         pd.DataFrame:
@@ -577,8 +577,6 @@ def calculate_regional_energy_consumption(consumption_data, energy_carrier, year
     consumption_data = consumption_data.mul(employees_by_industry_sector_and_regional_ids, axis=0)
 
     return consumption_data
-
-
 
 
 def calculate_iteratively_industry_regional_consumption(spez_consumption_data_industry, year, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids, energy_carrier):

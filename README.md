@@ -23,16 +23,16 @@ or look in the requirements.txt
 ### Download the newest version of UGR from Genisis DB https://www-genesis.destatis.de/datenbank/online/statistic/85121/table/85121-0002/ as flat csv, name it "ugr_<start_year>_<end_year>.csv"
 
 --------------------------------
-Piplelines are calling data_processing funcitons
+Piplelines are calling data_processing functions
 
 
 
 data_processing:
-(input df and output df)
+(input df and output df, are "filters"/processors of dfs)
 - making changes to dfs
 
-Pipelines:
-(combining data_processing functions -> highlevel)
+pipelines:
+(combining data_processing functions -> highlevel, can be run without big input dfs (~standalone fcts)
 - consumption brach and district (= just a mapper of )
 - disagg_temporal_applications (is is a highlevel function of all the other dissagg fucntiuon (see miro))
 

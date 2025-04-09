@@ -76,10 +76,10 @@ elif x == 15:
 
 elif x == 16:
     sector = "industry"
-    energy_carrier = "gas"
+    energy_carrier = "power"
     year = 2020
 
-    df = get_consumption_data_historical(year=2016)
+    #df = get_consumption_data_historical(year=2016)
 
     df = disagg_applications_efficiency_factor(year=year, sector=sector, energy_carrier=energy_carrier)
 

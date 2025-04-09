@@ -209,7 +209,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
 
     return file
 
-# efficiency rate
+# Efficiency rate
 def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame: 
     """
     Load the efficiency enhancement rate DataFrame based on sector and energy_carrier.

@@ -10,7 +10,22 @@ Dissaggregating the consumption data (per industry sector and regional_id) based
 
 def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int) -> pd.DataFrame: #TODO
     """
+    equals spacial.disagg_applications_eff() in old code
+    TODO: currently it just uses the employees as coinsumption since iterative regional dissaggregation is not implemented yet
+
     
+    
+    Args:
+        sector (str): 'cts' or 'industry'
+        energy_carrier (str): 'power' or 'gas'
+        year (int): Year from 2000 to 2050
+
+    Returns:
+        pd.DataFrame: consumption data with efficiency enhancement factors applied
+            Index: regional_id
+            MultiIndex columns: 
+                level=0: industry_sector
+                level=1: application
     """
 
     # 0. validate the input
@@ -29,18 +44,16 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
     consumption_data = consumption_data.loc[consumption_data.index.intersection(sectors_industry_sectors)]
 
     # 3. dissaggregate for applications - cosnumption data is already fiilterd to contain only relevant industry_sectors(cts/industry)
-    consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data,year=year, sector=sector, energy_carrier=energy_carrier)
+    #TODO: auskommentieren # consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data, year=year, sector=sector, energy_carrier=energy_carrier)
+    consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data, year=2015, sector=sector, energy_carrier=energy_carrier)
 
 
 
     # apply efficiency effect
-    efficiency_rate = apply_efficiency_factor(consumption_data=consumption_data_dissaggregated, sector=sector, energy_carrier=energy_carrier, year=year)
+    consumption_data_with_efficiency_factor = apply_efficiency_factor(consumption_data=consumption_data_dissaggregated, sector=sector, energy_carrier=energy_carrier, year=year)
 
 
-
-
-
-    return year
+    return consumption_data_with_efficiency_factor
 
 
 

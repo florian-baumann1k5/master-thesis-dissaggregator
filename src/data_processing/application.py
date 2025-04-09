@@ -17,8 +17,11 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
 
     Returns:
         pd.DataFrame: Disaggregated consumption data
-            MultiIndex columns: (industry_sector, application)
-            MultiIndex index: (regional_id)
+            MultiIndex columns: 
+                level=0: industry_sectors, level=1: applications
+                check with "df.columns.get_level_values(<0/1>).unique()"
+            MultiIndex index: 
+                regional_ids
     """
 
     # 1. load decomposition factors only for the relevant industry_sectors and energy_carrier
@@ -45,7 +48,7 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
         """
 
     elif energy_carrier == "petrol":
-        df = disagg_applications_petrol(consumption_data, decomp)
+        df = disagg_applications_petrol(consumption_data, decomp) # TODO: add petrol
         """
         """
 
