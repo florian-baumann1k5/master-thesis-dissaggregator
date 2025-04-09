@@ -211,6 +211,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
 
 # Efficiency rate
 def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame: 
+
     """
     Load the efficiency enhancement rate DataFrame based on sector and energy_carrier.
     Returns a DataFrame with either 'until year' or 'WZ' as index.
@@ -277,3 +278,19 @@ def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame:
     df = df.rename(columns={k: v for k, v in column_rename_map.items() if k in df.columns})
 
     return df
+
+
+# Pipeline caches
+
+def load_consumption_data_with_efficiency_factor_cache(sector: str, energy_carrier: str, year: int) -> pd.DataFrame:
+    """
+    Loads the consumption data cache with efficiency factor for the given sector and energy carrier.
+    """
+    cache_dir = load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_file'].format(sector=sector, energy_carrier=energy_carrier, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file)
+
+    return file
