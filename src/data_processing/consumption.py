@@ -620,12 +620,19 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     bze_je_lk_wz = employees_by_industry_sector_and_regional_ids
     bze_je_lk_wz.index.name = 'WZ'
     total_employees_per_sector = employees_by_industry_sector_and_regional_ids.sum(axis=1)
+    bze_je_lk_wz = bze_je_lk_wz.sort_index().sort_index(axis=1)
+    bze_je_lk_wz.columns = bze_je_lk_wz.columns.astype(int)
+
 
     # UGR data spez
     spez_gv  =  pd.DataFrame(sector_energy_consumption_ugr['gas_incl_selfgen[MWh]'] / total_employees_per_sector)
+    spez_gv.columns = spez_gv.columns.astype(int)
     spez_gv.rename(columns={0: 'spez. GV'}, inplace=True)
+    spez_gv = spez_gv.sort_index().sort_index(axis=1)
     spez_sv =  pd.DataFrame(sector_energy_consumption_ugr['power_incl_selfgen[MWh]']  / total_employees_per_sector)
+    spez_sv.columns = spez_sv.columns.astype(int)
     spez_sv.rename(columns={0: 'spez. SV'}, inplace=True)
+    spez_sv = spez_sv.sort_index().sort_index(axis=1)
 
     # UGR data total
     df_ec = pd.DataFrame({
@@ -703,12 +710,15 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
                     sv_LK.loc[:, 'Normierter relativer Fehler'] = (
                         (sv_LK['Verbrauch e-int WZ']
                          - sv_LK['SV Modell e-int [MWh]']) / mean_value)
+                    # create new column 'Anpassungsfaktor' and set it to 1.0 (float)
                     sv_LK.loc[:, 'Anpassungsfaktor'] = 1.0
-                    sv_LK.loc[lambda x:
-                              abs(x['Normierter relativer Fehler']) > 0.1,
-                              'Anpassungsfaktor'] = (
-                                  sv_LK['Verbrauch e-int WZ']
-                                  / sv_LK['SV Modell e-int [MWh]'])
+                    # Perform the assignment
+                    sv_LK.loc[
+                        lambda x: abs(x['Normierter relativer Fehler']) > 0.1,
+                        'Anpassungsfaktor'
+                    ] = (
+                        sv_LK['Verbrauch e-int WZ'] / sv_LK['SV Modell e-int [MWh]']
+                    )
                     if(sv_LK['Anpassungsfaktor'].sum() == 401):
                         y = False
                     elif(i < 10):
@@ -744,15 +754,14 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
                     sv_wz_ugr.loc[:, 'Normierter relativer Fehler'] = (
                         (sv_wz_ugr['SV_MWh_UGR']
                          - sv_wz_ugr['SV WZ Modell [MWh]'])/mean_value2)
-                    sv_wz_ugr['Anpassungsfaktor'] = 1.0  # float, not int
+                    # create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    sv_wz_ugr.loc[:, 'Anpassungsfaktor'] = 1.0 
 
-                    # Avoid division by zero
-                    denominator = sv_wz_ugr['SV WZ Modell [MWh]'].replace(0, np.nan)
-                    # Apply correction only where relative error > 1%
-                    mask = abs(sv_wz_ugr['Normierter relativer Fehler']) > 0.01
-                    sv_wz_ugr.loc[mask, 'Anpassungsfaktor'] = (
-                        sv_wz_ugr.loc[mask, 'SV_MWh_UGR'] / denominator.loc[mask]
-                    )
+                    sv_wz_ugr.loc[lambda x:
+                                  abs(x['Normierter relativer Fehler']) > 0.01,
+                                  'Anpassungsfaktor'] = (
+                                      sv_wz_ugr['SV_MWh_UGR']
+                                      / sv_wz_ugr['SV WZ Modell [MWh]'])
                     sv_wz['Anpassungsfaktor'] = sv_wz_ugr['Anpassungsfaktor']
                     # End of this iteration if all correction factors
                     # ('Anpassungsfaktor') are equal to 1, otherwise adjust
@@ -787,7 +796,8 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
                     gv_LK.loc[:, 'Normierter relativer Fehler'] = (
                         (gv_LK['Verbrauch e-int WZ']
                          - gv_LK['GV Modell e-int [MWh]']) / mean_value)
-                    gv_LK.loc[:, 'Anpassungsfaktor'] = 1
+                    #create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    gv_LK.loc[:, 'Anpassungsfaktor'] = 1.0
                     gv_LK.loc[lambda x:
                               abs(x['Normierter relativer Fehler']) > 0.1,
                               'Anpassungsfaktor'] = (
@@ -827,12 +837,11 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
                         (gv_wz_ugr['GV_MWh_UGR']
                          - gv_wz_ugr['GV WZ Modell [MWh]'])/mean_value2)
                     gv_wz_ugr.loc[:, 'Anpassungsfaktor'] = 1.0
-                    denominator = gv_wz_ugr['GV WZ Modell [MWh]'].replace(0, np.nan)
-                    # Apply correction factor only where relative error > 1%
-                    mask = abs(gv_wz_ugr['Normierter relativer Fehler']) > 0.01
-                    gv_wz_ugr.loc[mask, 'Anpassungsfaktor'] = (
-                        gv_wz_ugr.loc[mask, 'GV_MWh_UGR'] / denominator.loc[mask]
-                    )
+                    gv_wz_ugr.loc[lambda x:
+                                  abs(x['Normierter relativer Fehler']) > 0.01,
+                                  'Anpassungsfaktor'] = (
+                                      gv_wz_ugr['GV_MWh_UGR']
+                                      / gv_wz_ugr['GV WZ Modell [MWh]'])
                     gv_wz['Anpassungsfaktor'] = gv_wz_ugr['Anpassungsfaktor']
                     # End of this iteration if all correction factors
                     # ('Anpassungsfaktor') are equal to 1, otherwise adjust
