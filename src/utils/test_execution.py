@@ -13,7 +13,7 @@ from src.data_access.local_reader import *
 from src.data_processing.application import *
 
 
-x = 16
+x = 10
 
 
 if x == 1:

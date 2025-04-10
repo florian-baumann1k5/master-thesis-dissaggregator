@@ -1,14 +1,6 @@
 import pandas as pd
 
-from src.data_processing.consumption import (get_ugr_data_ranges, 
-                                             resolve_ugr_industry_sector_ranges_by_employees, 
-                                             project_consumption,
-                                             get_total_gas_industry_self_consuption,
-                                             calculate_self_generation,
-                                             get_regional_energy_consumption,
-                                             calculate_regional_energy_consumption,
-                                             filter_consumption_data_per_cts_or_industry
-                                        )
+from src.data_processing.consumption import *
 from src.data_processing.employees import get_employees_per_industry_sector_and_regional_ids
 from src.configs.config_loader import load_config
 from src.data_access.local_reader import *
@@ -63,17 +55,20 @@ def get_consumption_data_historical(year: int) -> pd.DataFrame: #TODO: iterative
 
 
     # 4. fix the industry consumption with iterative approach and resolve consumption to regional_ids
+    
 
     # get regional energy consumption from JEVI
     regional_energy_consumption_jevi = get_regional_energy_consumption(year)
 
     # calculate the regional energy consumption iteratively
-    # TODO: 
+    """
+    !!! uning "calculate_regional_energy_consumption" would be the cleaner and more efficient approach, but for now we are using the old dissaggregator approch
     consumption_data_power = calculate_regional_energy_consumption(consumption_data, 'power', year, regional_energy_consumption_jevi, employees)
     consumption_data_gas = calculate_regional_energy_consumption(consumption_data.loc[:, 'gas[MWh]'], year, regional_energy_consumption_jevi, employees)
-    
-    # TODO !!! no regional consumption for petrol in JEVI -> use coal, heat or other sources
     consumption_data_petrol = calculate_regional_energy_consumption(consumption_data.loc[:, 'petrol[MWh]'], year, regional_energy_consumption_jevi, employees)
+    """
+    # the old dissaggregator approach:
+    consumption_data_power, consumption_data_gas = calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr=consumption_data, regional_energy_consumption_jevi=regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids=employees)
 
 
 
