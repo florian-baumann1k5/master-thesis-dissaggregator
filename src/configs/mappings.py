@@ -40,8 +40,8 @@ def federal_state_dict():
     """
     Translate the federal state (Bundesland) number to its abbreviation.
     """
-    return {01: 'SH', 02: 'HH', 03: 'NI', 04: 'HB', 05: 'NW', 06: 'HE',
-            07: 'RP', 08: 'BW', 09: 'BY', 10: 'SL', 11: 'BE', 12: 'BB',
+    return {1: 'SH', 2: 'HH', 3: 'NI', 4: 'HB', 5: 'NW', 6: 'HE',
+            7: 'RP', 8: 'BW', 9: 'BY', 10: 'SL', 11: 'BE', 12: 'BB',
             13: 'MV', 14: 'SN', 15: 'ST', 16: 'TH'}
 
 

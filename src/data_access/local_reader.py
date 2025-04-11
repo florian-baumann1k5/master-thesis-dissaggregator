@@ -280,6 +280,19 @@ def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame:
     return df
 
 
+# Shift load profiles
+def load_power_load_profile(profile: str) -> pd.DataFrame:
+    """
+    Retuns the power load profiles for the given profile.
+    DISS: "4.2.5.2 Standardlastprofile" -> Tabelle A.9
+    """
+
+    raw_file = f"data/raw/temporal/power_load_profiles/39_VDEW_Strom_Repräsentative_Profile_{profile}.xlsx"
+    load_profiles = pd.read_excel(raw_file)
+
+    return load_profiles
+
+
 # Pipeline caches
 
 def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:

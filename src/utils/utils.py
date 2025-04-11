@@ -1,7 +1,7 @@
 from collections import defaultdict
 import pandas as pd
 
-from src.configs.mappings import industry_sector_groups
+from src.configs.mappings import *
 
 def fix_region_id(rid):
     rid = str(rid)
