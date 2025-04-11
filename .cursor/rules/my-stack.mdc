@@ -1,0 +1,44 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+# Technical stack
+- pure python
+- pandas version 2.x
+- use google docstrings
+
+# Project structure
+.
+├── README.md
+├── data
+│   ├── api_cache
+│   └── raw
+├── docs
+│   ├── architecture.md
+│   └── user_guide.md
+├── project_structure.txt
+├── requirements.txt
+├── src
+│   ├── __init__.py
+│   ├── configs
+│   │   ├── __init__.py
+│   │   ├── base_config.yaml
+│   │   └── config_loader.py
+│   ├── data_access
+│   │   ├── __init__.py
+│   │   ├── api_client.py
+│   │   └── local_reader.py
+│   ├── data_processing
+│   │   ├── __init__.py
+│   │   ├── consumption.py
+│   │   └── normalization.py
+│   ├── main.py
+│   └── utils
+│       ├── __init__.py
+│       └── logger.py
+└── tests
+    └── __init__.py
+
+11 directories, 19 files
