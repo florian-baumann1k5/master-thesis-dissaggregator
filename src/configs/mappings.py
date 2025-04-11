@@ -43,3 +43,17 @@ def federal_state_dict():
     return {01: 'SH', 02: 'HH', 03: 'NI', 04: 'HB', 05: 'NW', 06: 'HE',
             07: 'RP', 08: 'BW', 09: 'BY', 10: 'SL', 11: 'BE', 12: 'BB',
             13: 'MV', 14: 'SN', 15: 'ST', 16: 'TH'}
+
+
+def shift_profile_industry():
+    """
+    Assign a shift profile to every industry_sector.
+    """
+    return {5: 'S3_WT_SA', 6: 'S3_WT_SA_SO', 7: 'S3_WT_SA', 8: 'S3_WT_SA',
+            9: 'S3_WT_SA', 10: 'S2_WT', 11: 'S3_WT', 12: 'S3_WT_SA',
+            13: 'S2_WT', 14: 'S2_WT', 15: 'S2_WT_SA', 16: 'S2_WT_SA',
+            17: 'S3_WT_SA_SO', 18: 'S3_WT_SA_SO', 19: 'S3_WT_SA_SO',
+            20: 'S3_WT_SA_SO', 21: 'S3_WT_SA_SO', 22: 'S2_WT_SA',
+            23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT',
+            27: 'S2_WT_SA', 28: 'S2_WT', 29: 'S3_WT', 30: 'S3_WT_SA_SO',
+            31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
