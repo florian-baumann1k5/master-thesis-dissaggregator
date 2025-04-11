@@ -686,7 +686,7 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     # in the old code ther was 400 and 401 -> we could not figure out where these were coming from -> we decided to just use the 400
 
     
-    # TODO: petrol
+    # TODO petrol
     # ======= START CALCULATION =======
     # start of iterations to adjust regional specific demand of energy
     # energy intensive industries
@@ -866,7 +866,7 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
 
     spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
     spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
-    # TODO: petrol
+    # TODO petrol
     #spez_pv_lk.loc[list(spez_pv_angepasst.index)] = spez_pv_angepasst.values
 
 
@@ -874,11 +874,23 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     #  Regionalstatistik. Therefore, specific demand is set on the average.
     spez_gv_lk[3103] = spez_gv['spez. GV']
 
+    spez_sv_lk = spez_sv_lk.sort_index(axis=1)
+    spez_gv_lk = spez_gv_lk.sort_index(axis=1)
+
+
+    # ------------------------------------------------------------------------------------------------
+    # New Code: make the spez consumption total again
+    # this hapens in the old code in the fct spatial.disagg_CTS_industry()
+    # ------------------------------------------------------------------------------------------------
+
+    total_power_consumption = spez_sv_lk * bze_je_lk_wz
+    total_gas_consumption = spez_gv_lk * bze_je_lk_wz
+    #TODO Petrol: total_petrol_consumption = spez_pv_lk * bze_je_lk_wz
 
 
 
-    return [spez_sv_lk.sort_index(axis=1), spez_gv_lk.sort_index(axis=1)
-            #TODO Petrol , spez_pv_lk.sort_index(axis=1)
+    return [ total_power_consumption, total_gas_consumption
+            #TODO Petrol , total_petrol_consumption
             ]
 
 

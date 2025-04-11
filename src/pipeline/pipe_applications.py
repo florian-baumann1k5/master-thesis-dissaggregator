@@ -6,8 +6,12 @@ from src.data_processing.application import *
 from src.data_access.local_reader import *
 """
 Dissaggregating the consumption data (per industry sector and regional_id) based on their applications.
+
+disagg_applications_efficiency_factor()
+
 """
 
+# main function (with cache)
 def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame: #TODO
     """
     equals spacial.disagg_applications_eff() in old code
@@ -28,6 +32,7 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
                 level=1: application
     """
 
+
     # 0. validate the input
     if sector not in ['cts', 'industry']:
         raise ValueError("`sector` must be 'cts' or 'industry'")
@@ -43,19 +48,18 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
             return consumption_data_with_efficiency_factor
 
     
-    # 2. get consumption data dissaggregated by industry sector and regional_id
-    # TODO: consumption_data = get_consumption_data(year)
-    consumption_data = get_employees_per_industry_sector_and_regional_ids(year=year)
+    # 2. get consumption data dissaggregated by industry sector and regional_id for a year and energy carrier[power, gas]
+    consumption_data_sectors_regional = get_consumption_data(year=year, energy_carrier=energy_carrier)
 
 
     # 3. filter for relevant sector:
     sectors_industry_sectors = dict_cts_or_industry_per_industry_sector()[sector]
-    consumption_data = consumption_data.loc[consumption_data.index.intersection(sectors_industry_sectors)]
+    consumption_data_sectors_regional = consumption_data_sectors_regional.loc[consumption_data_sectors_regional.index.intersection(sectors_industry_sectors)]
 
 
     # 4. dissaggregate for applications - cosnumption data is already fiilterd to contain only relevant industry_sectors(cts/industry)
-    #TODO: auskommentieren # consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data, year=year, sector=sector, energy_carrier=energy_carrier)
-    consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data, year=2015, sector=sector, energy_carrier=energy_carrier)
+    consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data_sectors_regional, year=year, sector=sector, energy_carrier=energy_carrier)
+
 
 
     # 5. apply efficiency effect

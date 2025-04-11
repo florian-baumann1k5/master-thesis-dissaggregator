@@ -282,6 +282,19 @@ def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame:
 
 # Pipeline caches
 
+def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
+    """
+    Loads the consumption data cache for the given year and energy carrier.
+    """
+    cache_dir = load_config("base_config.yaml")['consumption_data_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['consumption_data_cache_file'].format(energy_carrier=energy_carrier, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file)
+
+    return file
+
 def load_consumption_data_with_efficiency_factor_cache(sector: str, energy_carrier: str, year: int) -> pd.DataFrame:
     """
     Loads the consumption data cache with efficiency factor for the given sector and energy carrier.

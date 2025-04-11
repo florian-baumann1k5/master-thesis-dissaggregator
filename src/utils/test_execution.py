@@ -57,7 +57,7 @@ elif x == 9:
     df = get_employees_per_industry_sector_and_regional_ids(year=2015)
 
 elif x == 10:
-    df = get_consumption_data_historical(year=2015)
+    df = get_consumption_data(year=2018, energy_carrier="gas")
 
 elif x == 11:
     df = project_consumption(year_dataset=2015, year_future=2033)
