@@ -189,8 +189,6 @@ def disagg_applications_default(consumption_data, decomp):
     return new_df
 
 
-
-
 def disagg_applications_petrol(): #TODO: add petrol
     """
     Perfrom dissagregation based on applications of the final energy usage

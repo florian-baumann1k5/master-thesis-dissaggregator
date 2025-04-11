@@ -579,13 +579,15 @@ def calculate_regional_energy_consumption(consumption_data, energy_carrier, year
     return consumption_data
 
 
-def calculate_iteratively_industry_regional_consumption(spez_consumption_data_industry, year, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids, energy_carrier):
+def calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids):
     """
     Resolves the the consumption per industry_sector (from UGR) to regional_ids (with the help of JEVI) in an iterative approach.
 
+    !!! The code logis is copied from the old dissaggregator, not from the Diss
+
 
         Args:
-            spez_consumption_data_industry: pd.DataFrame with consumption data industry sectors based on the UGR: specific consumption per industry_sector
+            sector_energy_consumption_ugr: pd.DataFrame with consumption data industry sectors based on the UGR: consumption per industry_sector
             year: int, year to calculate the regional energy consumption for
             regional_energy_consumption_jevi: pd.DataFrame with regional energy consumption from JEVI: consumption per regional_id
             employees_by_industry_sector_and_regional_ids: pd.DataFrame with employees by industry_sector and regional_id
@@ -596,27 +598,300 @@ def calculate_iteratively_industry_regional_consumption(spez_consumption_data_in
                 - index: industry_sectors
                 - columns: regional_ids
     """
-    # validate the input
-    if energy_carrier not in ['power', 'gas', 'petrol']:
-        raise ValueError("`energy_carrier` must be 'power', 'gas' or 'petrol'")
-    if year not in range(2000, 2051):
-        raise ValueError("`year` must be between 2000 and 2050")
-    if (spez_consumption_data_industry.shape[1] != 1):
-        raise ValueError("spez_consumption_data_industry must have exactly one column.")
-    if not pd.api.types.is_numeric_dtype(spez_consumption_data_industry.index):
-        raise TypeError("spez_consumption_data_industry Index must be numeric.")
-    if (regional_energy_consumption_jevi.shape[1] < 400) & (regional_energy_consumption_jevi.shape[0] != 1):
-        raise ValueError("regional_energy_consumption_jevi must have at least 400 columns and only one row.")
-    #if (employees_by_industry_sector_and_regional_ids.shape[1] != ) & (employees_by_industry_sector_and_regional_ids.shape[0] != 1):
-    #    raise ValueError("employees_by_industry_sector_and_regional_ids must have at least 400 columns and only one row.")
+
     
+    # 0. prepare the data/variables to match the old dissaggregator code
+    # regional_id data
+    lk_ags = regional_energy_consumption_jevi.index.astype("int64")
+    lk_ags.name = "ags"
+
+    # Jevi data
+    sv_LK_real = pd.DataFrame(regional_energy_consumption_jevi['power[MWh]'])
+    sv_LK_real.rename(columns={'power[MWh]': 'Verbrauch in MWh'}, inplace=True)
+    sv_LK_real.index.name = "ags"
+    sv_LK_real.index = sv_LK_real.index.astype("int64")
+
+    gv_LK_real = pd.DataFrame(regional_energy_consumption_jevi['gas[MWh]'])
+    gv_LK_real.rename(columns={'gas[MWh]': 'Verbrauch in MWh'}, inplace=True)
+    gv_LK_real.index.name = "ags"
+    gv_LK_real.index = gv_LK_real.index.astype("int64")
+    
+    # employees data
+    bze_je_lk_wz = employees_by_industry_sector_and_regional_ids
+    bze_je_lk_wz.index.name = 'WZ'
+    total_employees_per_sector = employees_by_industry_sector_and_regional_ids.sum(axis=1)
+    bze_je_lk_wz = bze_je_lk_wz.sort_index().sort_index(axis=1)
+    bze_je_lk_wz.columns = bze_je_lk_wz.columns.astype(int)
 
 
-    # TODO iterativer prozess
+    # UGR data spez
+    spez_gv  =  pd.DataFrame(sector_energy_consumption_ugr['gas_incl_selfgen[MWh]'] / total_employees_per_sector)
+    spez_gv.columns = spez_gv.columns.astype(int)
+    spez_gv.rename(columns={0: 'spez. GV'}, inplace=True)
+    spez_gv = spez_gv.sort_index().sort_index(axis=1)
+    spez_sv =  pd.DataFrame(sector_energy_consumption_ugr['power_incl_selfgen[MWh]']  / total_employees_per_sector)
+    spez_sv.columns = spez_sv.columns.astype(int)
+    spez_sv.rename(columns={0: 'spez. SV'}, inplace=True)
+    spez_sv = spez_sv.sort_index().sort_index(axis=1)
+
+    # UGR data total
+    df_ec = pd.DataFrame({
+        'GV_MWh': sector_energy_consumption_ugr['gas_incl_selfgen[MWh]'],
+        'SV_MWh': sector_energy_consumption_ugr['power_incl_selfgen[MWh]']
+    })
+
+    iterations_power = 8
+    iterations_gas = 8
 
 
 
-    return spez_consumption_data_industry
+    #1. calculate the specific demand per industry sector and regional_id
+    # this is the old dissaggregator code
+
+    # ======= START DATA PREPARATION =======
+    # build dataframe with absolute elec and gas demand per district,
+    # calculated from specific consumptions and number of employees
+    spez_gv_lk = pd.DataFrame(index=spez_gv.index, columns=lk_ags)
+    spez_sv_lk = pd.DataFrame(index=spez_sv.index, columns=lk_ags)
+    for lk in lk_ags:
+        spez_gv_lk[lk] = spez_gv['spez. GV']
+        spez_sv_lk[lk] = spez_sv['spez. SV']
+    sv_lk_wz = bze_je_lk_wz * spez_sv_lk  # absolute electricty demand per dis
+    gv_lk_wz = bze_je_lk_wz * spez_gv_lk  # absolute gas demand per district
+
+    # get energy intensive industrial demand and number of workers per LK
+    # energy intensive means a specific consumption >= 10 MWh/worker
+    sv_ind_branches = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29, 33]
+    sv_lk_wz_e_int = sv_lk_wz.loc[sv_ind_branches]
+    bze_sv_e_int = bze_je_lk_wz.loc[sv_ind_branches]
+
+    gv_ind_branches = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 30]
+    gv_lk_wz_e_int = gv_lk_wz.loc[gv_ind_branches]
+    bze_gv_e_int = bze_je_lk_wz.loc[gv_ind_branches]
+
+    # get industry branches with energy intensity < 10 MWh/worker
+    sv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (sv_lk_wz.loc[[21, 26, 30, 31, 32]].sum())
+    sv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (sv_LK_real['Verbrauch in MWh'] - sv_LK_real['Verbrauch e-arme WZ'])
+    gv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (gv_lk_wz.loc[[26, 27, 28, 31, 32, 33]].sum())
+    gv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (gv_LK_real['Verbrauch in MWh'] - gv_LK_real['Verbrauch e-arme WZ'])
+
+    # get specific demand per WZ and district for energy intensive branches
+    spez_sv_e_int = spez_sv_lk.loc[sv_ind_branches]
+    spez_gv_e_int = spez_gv_lk.loc[gv_ind_branches]
+    # ======= END DATA PREPARATION =======
+
+
+    # 2. adjust the specific demand per industry sector and regional_id
+    # this is the old dissaggregator code refactored into a bastracter function to avoid code duplication
+    # in the old code ther was 400 and 401 -> we could not figure out where these were coming from -> we decided to just use the 400
+
+    
+    # TODO petrol
+    # ======= START CALCULATION =======
+    # start of iterations to adjust regional specific demand of energy
+    # energy intensive industries
+    ET = [2, 4]
+    for et in ET:
+        if (et == 2):
+            sv_LK = pd.DataFrame(sv_LK_real.loc[:, 'Verbrauch e-int WZ'])
+            mean_value = sv_LK['Verbrauch e-int WZ'].sum() / len(sv_LK)
+            spez_sv_angepasst = spez_sv_e_int.copy()
+
+            # start loop for adjusting specific power consumption
+            while(iterations_power > 0):
+                iterations_power -= 1
+                y = True
+                i = 0
+                while(y):
+                    # adjust specific demand according to Regionalstatistik
+                    i += 1
+                    sv_LK.loc[:, 'SV Modell e-int [MWh]'] = (
+                        sv_lk_wz_e_int.sum())
+                    sv_LK.loc[:, 'Normierter relativer Fehler'] = (
+                        (sv_LK['Verbrauch e-int WZ']
+                         - sv_LK['SV Modell e-int [MWh]']) / mean_value)
+                    # create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    sv_LK.loc[:, 'Anpassungsfaktor'] = 1.0
+                    # Perform the assignment
+                    sv_LK.loc[
+                        lambda x: abs(x['Normierter relativer Fehler']) > 0.1,
+                        'Anpassungsfaktor'
+                    ] = (
+                        sv_LK['Verbrauch e-int WZ'] / sv_LK['SV Modell e-int [MWh]']
+                    )
+                    if(sv_LK['Anpassungsfaktor'].sum() == 401):
+                        y = False
+                    elif(i < 10):
+                        spez_sv_angepasst = (spez_sv_angepasst
+                                             * sv_LK['Anpassungsfaktor']
+                                             .transpose())
+                        spez_sv_angepasst[spez_sv_angepasst < 10] = 10
+                        spez_sv_angepasst = (spez_sv_angepasst
+                                             * sv_LK['Verbrauch e-int WZ']
+                                             .sum()
+                                             / sv_LK['SV Modell e-int [MWh]']
+                                             .sum())
+                        sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
+                    else:
+                        y = False
+                sv_wz = (pd.DataFrame(sv_lk_wz_e_int.sum(axis=1),
+                                      columns=['SV WZ Modell [MWh]']))
+                k = 0
+                z = True
+                while(z):
+                    # compare adjusted demand to projected demand based on UGR
+                    # adjust specific demands for energy intensive industries
+                    k = k + 1
+                    sv_wz_ugr = (pd.DataFrame(index=sv_ind_branches,
+                                              columns=['SV_MWh_UGR']))
+                    sv_wz_ugr['SV_MWh_UGR'] = (df_ec['SV_MWh']
+                                               .loc[sv_ind_branches]
+                                               .values)
+                    sv_wz_ugr = sv_wz_ugr.merge(sv_wz['SV WZ Modell [MWh]'],
+                                                left_index=True,
+                                                right_index=True)
+                    mean_value2 = sv_wz_ugr['SV_MWh_UGR'].sum()/len(sv_wz_ugr)
+                    sv_wz_ugr.loc[:, 'Normierter relativer Fehler'] = (
+                        (sv_wz_ugr['SV_MWh_UGR']
+                         - sv_wz_ugr['SV WZ Modell [MWh]'])/mean_value2)
+                    # create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    sv_wz_ugr.loc[:, 'Anpassungsfaktor'] = 1.0 
+
+                    sv_wz_ugr.loc[lambda x:
+                                  abs(x['Normierter relativer Fehler']) > 0.01,
+                                  'Anpassungsfaktor'] = (
+                                      sv_wz_ugr['SV_MWh_UGR']
+                                      / sv_wz_ugr['SV WZ Modell [MWh]'])
+                    sv_wz['Anpassungsfaktor'] = sv_wz_ugr['Anpassungsfaktor']
+                    # End of this iteration if all correction factors
+                    # ('Anpassungsfaktor') are equal to 1, otherwise adjust
+                    # specific demand by correction factor and continue
+                    # iteraions until 9 iterations are complete
+
+                    if(sv_wz['Anpassungsfaktor'].sum() == len(sv_wz)):
+                        z = False
+                    elif(k < 10):
+                        spez_sv_angepasst = (spez_sv_angepasst
+                                             .multiply(sv_wz
+                                                       ['Anpassungsfaktor'],
+                                                       axis=0))
+                        spez_sv_angepasst[spez_sv_angepasst < 10] = 10
+                        sv_lk_wz_e_int = bze_sv_e_int * spez_sv_angepasst
+                        sv_wz = pd.DataFrame(sv_lk_wz_e_int.sum(axis=1),
+                                             columns=['SV WZ Modell [MWh]'])
+                    else:
+                        z = False
+        elif (et == 4):  # start adjusting loop for gas
+            gv_LK = pd.DataFrame(gv_LK_real.loc[:, 'Verbrauch e-int WZ'])
+            mean_value = gv_LK['Verbrauch e-int WZ'].sum() / len(gv_LK)
+            spez_gv_angepasst = spez_gv_e_int.copy()
+            while(iterations_gas > 0):
+                iterations_gas -= 1
+                y = True
+                i = 0
+                while(y):
+                    i += 1
+                    gv_LK.loc[:, 'GV Modell e-int [MWh]'] = (
+                        gv_lk_wz_e_int.sum())
+                    gv_LK.loc[:, 'Normierter relativer Fehler'] = (
+                        (gv_LK['Verbrauch e-int WZ']
+                         - gv_LK['GV Modell e-int [MWh]']) / mean_value)
+                    #create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    gv_LK.loc[:, 'Anpassungsfaktor'] = 1.0
+                    gv_LK.loc[lambda x:
+                              abs(x['Normierter relativer Fehler']) > 0.1,
+                              'Anpassungsfaktor'] = (
+                                  gv_LK['Verbrauch e-int WZ']
+                                  / gv_LK['GV Modell e-int [MWh]'])
+                    if(gv_LK['Anpassungsfaktor'].sum() == 400):
+                        y = False
+                    elif(i < 10):
+                        spez_gv_angepasst = (spez_gv_angepasst
+                                             * gv_LK['Anpassungsfaktor']
+                                             .transpose())
+                        spez_gv_angepasst[spez_gv_angepasst < 10] = 10
+                        spez_gv_angepasst = (spez_gv_angepasst
+                                             * gv_LK['Verbrauch e-int WZ']
+                                             .sum()
+                                             / gv_LK['GV Modell e-int [MWh]']
+                                             .sum())
+                        gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
+                    else:
+                        y = False
+                gv_wz = pd.DataFrame(gv_lk_wz_e_int.sum(axis=1),
+                                     columns=['GV WZ Modell [MWh]'])
+                k = 0
+                z = True
+                while(z):
+                    k = k + 1
+                    gv_wz_ugr = (pd.DataFrame(index=gv_ind_branches,
+                                              columns=['GV_MWh_UGR']))
+                    gv_wz_ugr['GV_MWh_UGR'] = (df_ec['GV_MWh']
+                                               .loc[gv_ind_branches]
+                                               .values)
+                    gv_wz_ugr = gv_wz_ugr.merge(gv_wz['GV WZ Modell [MWh]'],
+                                                left_index=True,
+                                                right_index=True)
+                    mean_value2 = gv_wz_ugr['GV_MWh_UGR'].sum()/len(gv_wz_ugr)
+                    gv_wz_ugr.loc[:, 'Normierter relativer Fehler'] = (
+                        (gv_wz_ugr['GV_MWh_UGR']
+                         - gv_wz_ugr['GV WZ Modell [MWh]'])/mean_value2)
+                    gv_wz_ugr.loc[:, 'Anpassungsfaktor'] = 1.0
+                    gv_wz_ugr.loc[lambda x:
+                                  abs(x['Normierter relativer Fehler']) > 0.01,
+                                  'Anpassungsfaktor'] = (
+                                      gv_wz_ugr['GV_MWh_UGR']
+                                      / gv_wz_ugr['GV WZ Modell [MWh]'])
+                    gv_wz['Anpassungsfaktor'] = gv_wz_ugr['Anpassungsfaktor']
+                    # End of this iteration if all correction factors
+                    # ('Anpassungsfaktor') are equal to 1, otherwise adjust
+                    # specific demand by correction factor and continue
+                    # iteraions until 9 iterations are complete
+
+                    if(gv_wz['Anpassungsfaktor'].sum() == len(gv_wz)):
+                        z = False
+                    elif(k < 10):
+                        spez_gv_angepasst = (spez_gv_angepasst.multiply(
+                            gv_wz['Anpassungsfaktor'], axis=0))
+                        spez_gv_angepasst[spez_gv_angepasst < 10] = 10
+                        gv_lk_wz_e_int = bze_gv_e_int * spez_gv_angepasst
+                        gv_wz = pd.DataFrame(gv_lk_wz_e_int.sum(axis=1),
+                                             columns=['GV WZ Modell [MWh]'])
+                    else:
+                        z = False
+                    # ======= END CALCULATION =======
+
+
+
+
+    spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
+    spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
+    # TODO petrol
+    #spez_pv_lk.loc[list(spez_pv_angepasst.index)] = spez_pv_angepasst.values
+
+
+    #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
+    #  Regionalstatistik. Therefore, specific demand is set on the average.
+    spez_gv_lk[3103] = spez_gv['spez. GV']
+
+    spez_sv_lk = spez_sv_lk.sort_index(axis=1)
+    spez_gv_lk = spez_gv_lk.sort_index(axis=1)
+
+
+    # ------------------------------------------------------------------------------------------------
+    # New Code: make the spez consumption total again
+    # this hapens in the old code in the fct spatial.disagg_CTS_industry()
+    # ------------------------------------------------------------------------------------------------
+
+    total_power_consumption = spez_sv_lk * bze_je_lk_wz
+    total_gas_consumption = spez_gv_lk * bze_je_lk_wz
+    #TODO Petrol: total_petrol_consumption = spez_pv_lk * bze_je_lk_wz
+
+
+
+    return [ total_power_consumption, total_gas_consumption
+            #TODO Petrol , total_petrol_consumption
+            ]
 
 
 
