@@ -1,6 +1,15 @@
 # BASICS
 base_year: 2015
 
+
+# PIPELINE CACHES
+consumption_data_with_efficiency_factor_cache_file: "con_eff_{sector}_{energy_carrier}_{year}.csv"
+consumption_data_with_efficiency_factor_cache_dir: "data/processed/pipeline/applications/disagg_applications_efficiency_factor"
+
+consumption_data_cache_file: "con_{energy_carrier}_{year}.csv"
+consumption_data_cache_dir: "data/processed/pipeline/consumption/consumption_data"
+
+
 # UGR GENEISIS DATA
 ugr_genisis_year_start: 2000
 ugr_genisis_year_end: 2020
@@ -12,18 +21,19 @@ preprocessed_dir: "data/processed/ugr/"
 year_for_regional_normalization: 2023 # 2023 are 400 regions/districts
 regional_id_changes_files: "data/raw/regional/ags_lk_changes/changes_{year}to{year_next}.csv"
 
+
 # employees 
 employees_processed_dir: "data/processed/employees"
 employees_preprocessed_filename_pattern: "employees_preprocessed_{year}.csv"
+
 
 # gas industry self consumption
 gas_industry_self_consumption_cache_file: "data/processed/industry_self_consumption.csv"
 factor_gas_no_selfgen_cache_file: "data/processed/factor_gas_no_selfgen/factor_gas_no_selfgen_per_industry_sector_{year}.csv"
 
 
-# Pipeline caches
-consumption_data_with_efficiency_factor_cache_file: "con_eff_{sector}_{energy_carrier}_{year}.csv"
-consumption_data_with_efficiency_factor_cache_dir: "data/processed/pipeline/applications/disagg_applications_efficiency_factor"
+# temporal
+shift_load_profiles_cache_file: "shift_load_profiles_{year}.csv"
+shift_load_profiles_cache_dir: "data/processed/temporal/shift_load_profiles_by_year"
 
-consumption_data_cache_file: "con_{energy_carrier}_{year}.csv"
-consumption_data_cache_dir: "data/processed/pipeline/consumption/consumption_data"
+

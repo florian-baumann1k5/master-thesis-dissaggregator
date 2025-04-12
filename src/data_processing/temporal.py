@@ -5,22 +5,99 @@ import datetime
 
 from src import logger
 from src.data_access.local_reader import *
+from src.pipeline.pipe_applications import *
 
 def disagg_temporal_industry(energy_carrier: str, year: int, low=0.5):
     """
     Disaggregate the consumption data by industry sector and shift load profiles.
     """
 
+    # 0. validate input
+    if year < 2000 or year > 2050:
+        raise ValueError("Year must be between 2000 and 2050")
+    if energy_carrier not in ["power", "gas"]:
+        raise ValueError("Energy carrier must be either 'power' or 'gas'")
+    
+
+    #1. get consumption data for inustry sector
+    consumption_data = disagg_applications_efficiency_factor(sector="industry", energy_carrier=energy_carrier, year=year)
+    # 1.1 remove the application dissagg, but still has the eff factor -> df with 40 rows x 29 columns
+    consumption_data = consumption_data.groupby(level=0, axis=1).sum()
+    #1.2 add federal state to the consumption data in a new column "federal_state"
+    consumption_data = consumption_data.assign(federal_state=lambda x: [federal_state_dict().get(int(i[: -3]))
+                                       for i in x.index.astype(str)])
+
+
+    #2. get shift load profiles
+    slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=False)
+    slp.index = pd.to_datetime(slp.index)
+
+
+    #3. create dataframe with index of all 15min steps in the year
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
+    DF = pd.DataFrame(index=idx)
+
+
+    # 3.1 get all states
+    states = federal_state_dict().values()
+
+
+    # 4. iterate over all states
+    for state in states:
+
+        # 4.1 filter the consumption data for the state and add shift profiles
+        # Filter for the current state
+        sv_lk_wz = consumption_data.loc[consumption_data['federal_state'] == state]
+        sv_lk_wz = sv_lk_wz.drop(columns=['federal_state'])
+        # Fill missing values with 0
+        sv_lk_wz = sv_lk_wz.fillna(0)
+        sv_lk_wz = sv_lk_wz.transpose()
+        # Assign load profiles based on industry index
+        profiles = shift_profile_industry()  # cache function call
+        sv_lk_wz['load_profile'] = [profiles[int(i)] for i in sv_lk_wz.index]
+
+
+        # 4.2 get shift load profiles for the state
+        sp_bl = slp.loc[:, slp.columns.get_level_values(0) == state]
+
+
+        #4.3 Check the alignment of the time-indizes
+        if not slp.index.equals(idx):
+            mismatched = slp.index.symmetric_difference(idx)
+            raise AssertionError(f"The time indexes are not aligned. Mismatched entries:\n{mismatched}. Could also be the type of the index!")
+
+
+        sv_lk_wz_ts = pd.DataFrame(index=idx)
+
+
+        # 4.4 iterate over all columns of the consumption data
+        load_profiles = sv_lk_wz['load_profile'].unique()
+        for load_profile in load_profiles:
+            
+
+
+        
+        
+
+    
+
+
+
+
+
 
 
     return None
 
 
-def get_shift_load_profiles(state, low=0.5, year=2015): 
+def get_shift_load_profiles_by_state_and_year(state: str, low: float = 0.5, year: int = 2015): 
 
     """
     Return shift load profiles in normalized units
     ('normalized' means that the sum over all time steps equals to one).
+
+    DISS 4.4.1
+    = shift_load_profile_generator()
 
     Args:
         state : str
@@ -37,8 +114,6 @@ def get_shift_load_profiles(state, low=0.5, year=2015):
             index: "Date": the year in 15min steps in datetime format(2015-01-01 06:00:00)
             columns: 'S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT', 'S2_WT_SA', 'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA', 'S3_WT_SA_SO'
     """
-    # TODO Flo: Description "Default is set to 0.35" but default is 0.5 in the argument list
-
 
     # 0. validate input
     if state not in ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
@@ -46,8 +121,7 @@ def get_shift_load_profiles(state, low=0.5, year=2015):
         raise ValueError(f"Invalid state: {state}")
 
     # 1. Create datetime index for the full year in 15-minute steps
-    idx = pd.date_range(start=f'{year}-01-01', end=f'{year+1}-01-01', freq='15min', closed='left')
-    # Build DataFrame and extract features using .dt accessors (faster + cleaner)
+    idx = pd.date_range(start=f'{year}-01-01', end=f'{year+1}-01-01', freq='15min')[:-1]    # Build DataFrame and extract features using .dt accessors (faster + cleaner)
     df = pd.DataFrame({'Date': idx})
     df['Day'] = df['Date'].dt.date
     df['Hour'] = df['Date'].dt.time
@@ -83,61 +157,61 @@ def get_shift_load_profiles(state, low=0.5, year=2015):
     
 
 
-    
+    # 4. create shift load profiles
     for sp in ['S1_WT', 'S1_WT_SA', 'S1_WT_SA_SO', 'S2_WT', 'S2_WT_SA', 'S2_WT_SA_SO', 'S3_WT', 'S3_WT_SA', 'S3_WT_SA_SO']:
         if(sp == 'S1_WT'):
-            anzahl_wz = 17 / 48 * len(df[df['WT']])
-            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']]) + len(df[df['SA']]))
+            anzahl_wz = 17 / 48 * len(df[df['workday']])
+            anzahl_nwz = (31 / 48 * len(df[df['workday']]) + len(df[df['sunday']]) + len(df[df['saturday']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = (df['SO'] | df['SA'])
+            mask = (df['sunday'] | df['saturday'])
             df.loc[mask, sp] = low * anteil
-            mask = ((df['WT']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
+            mask = ((df['workday']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
             df.loc[mask, sp] = low * anteil
     
         elif(sp == 'S1_WT_SA'):
-            anzahl_wz = (17 / 48 * len(df[df['WT']]) + 17 / 48 * len(df[df['SA']]))
-            anzahl_nwz = (31 / 48 * len(df[df['WT']]) + len(df[df['SO']]) + 31/48 * len(df[df['SA']]))
+            anzahl_wz = (17 / 48 * len(df[df['workday']]) + 17 / 48 * len(df[df['saturday']]))
+            anzahl_nwz = (31 / 48 * len(df[df['workday']]) + len(df[df['sunday']]) + 31/48 * len(df[df['saturday']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = df['SO']
+            mask = df['sunday']
             df.loc[mask, sp] = low * anteil
-            mask = ((df['WT']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
+            mask = ((df['workday']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
             df.loc[mask, sp] = low * anteil
-            mask = ((df['SA']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
+            mask = ((df['saturday']) & ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time())))
             df.loc[mask, sp] = low * anteil
         
         elif(sp == 'S1_WT_SA_SO'):
-            anzahl_wz = (17 / 48 * (len(df[df['WT']]) + len(df[df['SO']]) + len(df[df['SA']])))
-            anzahl_nwz = (31 / 48 * (len(df[df['WT']]) + len(df[df['SO']]) + len(df[df['SA']])))
+            anzahl_wz = (17 / 48 * (len(df[df['workday']]) + len(df[df['sunday']]) + len(df[df['saturday']])))
+            anzahl_nwz = (31 / 48 * (len(df[df['workday']]) + len(df[df['sunday']]) + len(df[df['saturday']])))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             mask = ((df['Hour'] < pd.to_datetime('08:00:00').time()) | (df['Hour'] >= pd.to_datetime('16:30:00').time()))
             df.loc[mask, sp] = low * anteil
         
         elif(sp == 'S2_WT'):
-            anzahl_wz = 17/24 * len(df[df['WT']])
-            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) + len(df[df['SA']]))
+            anzahl_wz = 17/24 * len(df[df['workday']])
+            anzahl_nwz = (7/24 * len(df[df['workday']]) + len(df[df['sunday']]) + len(df[df['saturday']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = (df['SO'] | df['SA'])
+            mask = (df['sunday'] | df['saturday'])
             df.loc[mask, sp] = low * anteil
-            mask = ((df['WT']) & ((df['Hour'] < pd.to_datetime('06:00:00').time()) | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
+            mask = ((df['workday']) & ((df['Hour'] < pd.to_datetime('06:00:00').time()) | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
             df.loc[mask, sp] = low * anteil
         
         elif(sp == 'S2_WT_SA'):
-            anzahl_wz = 17/24 * (len(df[df['WT']]) + len(df[df['SA']]))
-            anzahl_nwz = (7/24 * len(df[df['WT']]) + len(df[df['SO']]) + 7/24 * len(df[df['SA']]))
+            anzahl_wz = 17/24 * (len(df[df['workday']]) + len(df[df['saturday']]))
+            anzahl_nwz = (7/24 * len(df[df['workday']]) + len(df[df['sunday']]) + 7/24 * len(df[df['saturday']]))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = df['SO']
+            mask = df['sunday']
             df.loc[mask, sp] = low * anteil
-            mask = (((df['WT']) | (df['SA'])) & ((df['Hour'] < pd.to_datetime('06:00:00').time()) | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
+            mask = (((df['workday']) | (df['saturday'])) & ((df['Hour'] < pd.to_datetime('06:00:00').time()) | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
             df.loc[mask, sp] = low * anteil
         
         elif(sp == 'S2_WT_SA_SO'):
-            anzahl_wz = (17/24 * (len(df[df['WT']]) + len(df[df['SA']]) + len(df[df['SO']])))
-            anzahl_nwz = (7/24 * (len(df[df['WT']]) + len(df[df['SO']]) + len(df[df['SA']])))
+            anzahl_wz = (17/24 * (len(df[df['workday']]) + len(df[df['saturday']]) + len(df[df['sunday']])))
+            anzahl_nwz = (7/24 * (len(df[df['workday']]) + len(df[df['sunday']]) + len(df[df['saturday']])))
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
             mask = (((df['Hour'] < pd.to_datetime('06:00:00').time()) | (df['Hour'] >= pd.to_datetime('23:00:00').time())))
@@ -148,19 +222,19 @@ def get_shift_load_profiles(state, low=0.5, year=2015):
             df[sp] = anteil
         
         elif(sp == 'S3_WT'):
-            anzahl_wz = len(df[df['WT']])
-            anzahl_nwz = len(df[df['SO']]) + len(df[df['SA']])
+            anzahl_wz = len(df[df['workday']])
+            anzahl_nwz = len(df[df['sunday']]) + len(df[df['saturday']])
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = (df['SO'] | df['SA'])
+            mask = (df['sunday'] | df['saturday'])
             df.loc[mask, sp] = low * anteil
         
         elif(sp == 'S3_WT_SA'):
-            anzahl_wz = len(df[df['WT']]) + len(df[df['SA']])
-            anzahl_nwz = len(df[df['SO']])
+            anzahl_wz = len(df[df['workday']]) + len(df[df['saturday']])
+            anzahl_nwz = len(df[df['sunday']])
             anteil = 1 / (anzahl_wz + low * anzahl_nwz)
             df[sp] = anteil
-            mask = df['SO']
+            mask = df['sunday']
             df.loc[mask, sp] = low * anteil
     
     
@@ -173,6 +247,7 @@ def get_CTS_power_slp(state, year: int):
     """
     Return the electric standard load profiles in normalized units
     ('normalized' means here that the sum over all time steps equals one).
+    DISS 4.4.1
 
     Parameters
     ----------
@@ -268,4 +343,50 @@ def get_CTS_power_slp(state, year: int):
 
     return df.drop(columns=last_strings).set_index('Date')
 
+
+def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preprocessing: bool = False):
+    """
+    Return the shift load profiles for a given year.
+
+    Args:
+        year (int): The year to get the shift load profiles for.
+        low (float): The low load level.
+        force_preprocessing (bool): Whether to force preprocessing.
+
+    Returns:
+        pd.DataFrame: The shift load profiles for the given year. MultiIndex columns: [state, shift_load_profile]
+    """
+
+    # 0. validate input
+    if year < 2000 or year > 2050:
+        raise ValueError("Year must be between 2000 and 2050")
+
+    # 1. load from cache if not force_preprocessing and cache exists
+    if not force_preprocessing:
+         shift_load_profiles = load_shift_load_profiles_by_year_cache(year=year)
+
+         if shift_load_profiles is not None:
+            return shift_load_profiles
+    
+    # 2. get states
+    states = federal_state_dict().values()
+
+    df_list = []
+
+    # 3. get shift load profiles for each state
+    for state in states:
+        slp = get_shift_load_profiles_by_state_and_year(state=state, year=year, low=low)
+        
+        # 3.1 Set MultiIndex on columns: [<state>, <slp_column>]
+        slp.columns = pd.MultiIndex.from_product([[state], slp.columns])
+        df_list.append(slp)
+
+    # 4. Concatenate all SLPs horizontally
+    combined_slp = pd.concat(df_list, axis=1)
+
+    # 5. save to cache
+    processed_dir = load_config("base_config.yaml")['shift_load_profiles_cache_dir']
+    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
+    os.makedirs(processed_dir, exist_ok=True)
+    combined_slp.to_csv(processed_file)    
 
