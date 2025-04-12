@@ -45,7 +45,8 @@ def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_
     # calculate the efficiency factor
     if year <= 2019:
         # our base year is 2018, below that we have no efficiency enhancements
-        efficiency_factor = pd.DataFrame(1.0, index=eff_rate.columns, columns=eff_rate.index).transpose()
+        #efficiency_factor = pd.DataFrame(1.0, index=eff_rate.columns, columns=eff_rate.index).transpose()
+        efficiency_factor = pd.Series(1.0, index=eff_rate.columns)
     else:
         # if year is in the future, function returns a df with calculated enhancement-levels based on year 2019
         years_phase1 = min(year - 2019, 2035 - 2019)

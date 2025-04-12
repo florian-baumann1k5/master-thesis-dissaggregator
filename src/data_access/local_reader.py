@@ -292,9 +292,21 @@ def load_power_load_profile(profile: str) -> pd.DataFrame:
 
     return load_profiles
 
+def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the shift load profiles for the given year. 
+    Returns a Multicolumn dataframe: [state, shift_load_profile]
+    """
+    cache_dir = load_config("base_config.yaml")['shift_load_profiles_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
 
 # Pipeline caches
-
 def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
     """
     Loads the consumption data cache for the given year and energy carrier.
@@ -304,7 +316,7 @@ def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
 
     if not os.path.exists(cache_file):
         return None
-    file = pd.read_csv(cache_file)
+    file = pd.read_csv(cache_file, index_col="industry_sector")
 
     return file
 
@@ -317,6 +329,6 @@ def load_consumption_data_with_efficiency_factor_cache(sector: str, energy_carri
 
     if not os.path.exists(cache_file):
         return None
-    file = pd.read_csv(cache_file)
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
 
     return file
