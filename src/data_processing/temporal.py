@@ -7,87 +7,146 @@ from src import logger
 from src.data_access.local_reader import *
 from src.pipeline.pipe_applications import *
 
-def disagg_temporal_industry(energy_carrier: str, year: int, low=0.5):
-    """
-    Disaggregate the consumption data by industry sector and shift load profiles.
-    """
 
-    # 0. validate input
-    if year < 2000 or year > 2050:
-        raise ValueError("Year must be between 2000 and 2050")
-    if energy_carrier not in ["power", "gas"]:
-        raise ValueError("Energy carrier must be either 'power' or 'gas'")
+
+def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5) -> pd.DataFrame:
+    """
+    Calculates the temporal distribution of industrial energy consumption for a
+    given energy carrier and year using standard load profiles. 
+
+    "consumption_data" having the consumption by industry sector and regional id
+        Index = regional_ids
+        Columns = industry_sectors
+
+    "slp" having the shift load profiles by state and year
+        Index: date time timestamps of the year in 15min e.g. 2015-01-01 02:15:00
+        Multicolumns: ["state", "loadprofile"]      
+
     
+    Args:
+        energy_carrier: The energy carrier (e.g., 'power').
+        year: The year for the analysis.
+        low: Parameter for getting shift load profiles (default 0.5).
 
-    #1. get consumption data for inustry sector
-    consumption_data = disagg_applications_efficiency_factor(sector="industry", energy_carrier=energy_carrier, year=year)
-    # 1.1 remove the application dissagg, but still has the eff factor -> df with 40 rows x 29 columns
-    consumption_data = consumption_data.groupby(level=0, axis=1).sum()
-    #1.2 add federal state to the consumption data in a new column "federal_state"
-    consumption_data = consumption_data.assign(federal_state=lambda x: [federal_state_dict().get(int(i[: -3]))
-                                       for i in x.index.astype(str)])
+    Returns:
+        A DataFrame (35040 rows x 11600 columns) with:
+            - index: datetime timestamps
+            - columns: MultiColumn ['regional_id', 'industry_sector']
+        containing the disaggregated consumption time series in 15-min intervals.
+
+    Raises:
+        ValueError: If a NaN value is found in the consumption data after stacking.
+    """
+
+    logger.info(f"Starting disaggregate_temporal_industry for year: {year}")
+
+    # 1. Get consumption data for industry sector and make sure the columns are strings
+    consumption_data.columns = consumption_data.columns.astype(str)
+
+    # 1.2. calculate the total consumption for plausalilty check
+    total_consumption_start = consumption_data.sum().sum()
 
 
-    #2. get shift load profiles
+    # 2. Get Standard Load Profiles
     slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=False)
     slp.index = pd.to_datetime(slp.index)
 
 
-    #3. create dataframe with index of all 15min steps in the year
-    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
-    DF = pd.DataFrame(index=idx)
+    # 3. Perform Disaggregation (Integrated Logic)
+    state_mapping = federal_state_dict()
+    profile_mapping = shift_profile_industry()
+    disaggregated_results = {}
 
 
-    # 3.1 get all states
-    states = federal_state_dict().values()
+    # 4. Filter consumption columns
+    industry_cols = []
+    non_industry_cols = []
+    for col in consumption_data.columns:
+        try:
+            int_col = int(col)
+            if int_col in profile_mapping:
+                 industry_cols.append(col)
+            else:
+                 non_industry_cols.append(col)
+        except ValueError:
+            non_industry_cols.append(col)
+
+    if non_industry_cols:
+        logger.info(f"Info: Excluding non-industry/unmapped columns: {non_industry_cols}")
+    if not industry_cols:
+         logger.error("Error: No valid industry sector columns found in consumption_data.")
 
 
-    # 4. iterate over all states
-    for state in states:
-
-        # 4.1 filter the consumption data for the state and add shift profiles
-        # Filter for the current state
-        sv_lk_wz = consumption_data.loc[consumption_data['federal_state'] == state]
-        sv_lk_wz = sv_lk_wz.drop(columns=['federal_state'])
-        # Fill missing values with 0
-        sv_lk_wz = sv_lk_wz.fillna(0)
-        sv_lk_wz = sv_lk_wz.transpose()
-        # Assign load profiles based on industry index
-        profiles = shift_profile_industry()  # cache function call
-        sv_lk_wz['load_profile'] = [profiles[int(i)] for i in sv_lk_wz.index]
+    consumption_data_industries = consumption_data[industry_cols]
+    consumption_stacked = consumption_data_industries.stack()
+    logger.info(f"Processing {len(consumption_stacked)} regional/industry combinations...")
 
 
-        # 4.2 get shift load profiles for the state
-        sp_bl = slp.loc[:, slp.columns.get_level_values(0) == state]
+    # 5. Iterate through combinations
+    processed_count = 0
+    error_count = 0 # Counts errors leading to skipping
+    for (regional_id, industry_sector_str), annual_consumption in consumption_stacked.items():
+
+        # Check specifically for NaN values and raise an error (Processing continues if annual_consumption is 0.0 or positive)
+        if pd.isna(annual_consumption):
+            error_count += 1 # Increment count before raising
+            # Raise error immediately - stops the whole process
+            raise ValueError(f"NaN value found for annual_consumption at "
+                             f"index ({regional_id}, '{industry_sector_str}'). "
+                             f"Processing cannot continue with NaN values.")
+        try:
+            # Proceed with disaggregation logic (this now includes 0.0 values)
+            state_num = int(regional_id) // 1000
+            state_abbr = state_mapping[state_num]
+            industry_sector_int = int(industry_sector_str)
+            load_profile_name = profile_mapping[industry_sector_int]
+            profile_series = slp[(state_abbr, load_profile_name)]
+
+            # Multiply profile by consumption (if 0.0, result is Series of zeros)
+            disaggregated_series = profile_series * annual_consumption
+
+            disaggregated_results[(regional_id, industry_sector_int)] = disaggregated_series
+            processed_count += 1
+
+        except KeyError as e:
+             # Handle missing keys in mappings or SLP columns
+             if e.args[0] == state_num:
+                  errmsg = f"state number {state_num} (from region {regional_id}) not found in state_mapping"
+             elif e.args[0] == industry_sector_int:
+                  errmsg = f"industry sector {industry_sector_int} not found in profile_mapping"
+             elif isinstance(e.args[0], tuple) and e.args[0] == (state_abbr, load_profile_name):
+                   errmsg = f"SLP column for ({state_abbr}, {load_profile_name}) not found"
+             else:
+                   errmsg = f"Mapping/Selection key not found: {e}"
+             logger.warning(f"Warning: Skipping combination ({regional_id}, {industry_sector_str}). {errmsg}")
+             error_count += 1
+        except Exception as e:
+            # Catch other unexpected errors during calculation
+            logger.warning(f"Warning: An unexpected error occurred for combination ({regional_id}, {industry_sector_str}): {e}")
+            error_count += 1
 
 
-        #4.3 Check the alignment of the time-indizes
-        if not slp.index.equals(idx):
-            mismatched = slp.index.symmetric_difference(idx)
-            raise AssertionError(f"The time indexes are not aligned. Mismatched entries:\n{mismatched}. Could also be the type of the index!")
+    logger.info(f"Disaggregation loop finished. Processed (incl. zeros): {processed_count}, Errors/Skipped: {error_count}")
+
+    # Combine results (includes columns with zeros if annual_consumption was 0)
+    if not disaggregated_results:
+        logger.warning("Warning: No data was successfully processed. Resulting DataFrame will be empty.")
+        empty_cols = pd.MultiIndex(levels=[[],[]], codes=[[],[]], names=['regional_id', 'industry_sector'])
+        return pd.DataFrame(index=slp.index, columns=empty_cols)
+
+    final_df = pd.DataFrame(disaggregated_results)
+    final_df.columns.names = ['regional_id', 'industry_sector']
+
+    # 6. calculate the total consumption for plausalilty check
+    total_consumption_end = final_df.sum().sum()
+    if not np.isclose(total_consumption_end, total_consumption_start):
+        raise ValueError("Warning: Total consumption is not the same as the start! "
+                         f"total_consumption_start: {total_consumption_start}, "
+                         f"total_consumption_end: {total_consumption_end}")
+
+    return final_df
 
 
-        sv_lk_wz_ts = pd.DataFrame(index=idx)
-
-
-        # 4.4 iterate over all columns of the consumption data
-        load_profiles = sv_lk_wz['load_profile'].unique()
-        for load_profile in load_profiles:
-            
-
-
-        
-        
-
-    
-
-
-
-
-
-
-
-    return None
 
 
 def get_shift_load_profiles_by_state_and_year(state: str, low: float = 0.5, year: int = 2015): 
@@ -347,6 +406,7 @@ def get_CTS_power_slp(state, year: int):
 def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preprocessing: bool = False):
     """
     Return the shift load profiles for a given year.
+    The sum of every column (state, load_profile) equals 1.
 
     Args:
         year (int): The year to get the shift load profiles for.
