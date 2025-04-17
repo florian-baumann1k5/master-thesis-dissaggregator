@@ -6,8 +6,9 @@ import datetime
 from src import logger
 from src.data_access.local_reader import *
 from src.pipeline.pipe_applications import *
-
-
+from src.utils.utils import *
+from src.data_processing.temperature import *
+from src.data_processing.consumption import *
 
 def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5) -> pd.DataFrame:
     """
@@ -145,6 +146,41 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
                          f"total_consumption_end: {total_consumption_end}")
 
     return final_df
+
+
+def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+    """
+    Disaggregates the temporal distribution of gas consumption for CTS in a given year.
+
+    Args:
+        consumption_data: DataFrame containing consumption data with columns ['regional_id', 'industry_sector']
+        year: The year for the analysis
+    """
+
+
+    # 1. get the number of hours in the year
+    hours_of_year = get_hours_of_year(year)
+
+
+    # 2. get the temperature allocation
+    daily_temperature_allocation = allocation_temperature(year=year)
+
+
+    # TODO refactor 
+    # disagg_daily_gas_slp_cts(state, temperatur_df, year=year)
+    df =  disagg_daily_gas_slp_cts(gas_consumption=consumption_data, state="BW", temperatur_df=daily_temperature_allocation, year=year)
+
+
+    
+
+    #....
+
+    return None
+
+
+
+
+
 
 
 
@@ -450,3 +486,117 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
     os.makedirs(processed_dir, exist_ok=True)
     combined_slp.to_csv(processed_file)    
 
+
+
+def gas_slp_weekday_params(state: int, year: int):
+    """
+    Return the weekday-parameters of the gas standard load profiles
+
+    Args:
+        state: str
+            must be one of ['BW', 'BY', 'BE', 'BB', 'HB', 'HH', 'HE', 'MV',
+                            'NI', 'NW', 'RP', 'SL', 'SN',' ST', 'SH', 'TH']
+        year: int
+    
+    
+    Returns:
+        pd.DataFrame:
+            index: daytime for every day in the year
+            columns: 
+                ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']: containing true if the day of the year is that day
+                ['FW_<slp_name>']: SLP values see  dict gas_load_profile_parameters_dict()
+    """
+
+
+    
+
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='d')[:-1]
+    df = (pd.DataFrame(data={'Date': idx})
+            .assign(Day=lambda x: pd.DatetimeIndex(x['Date']).date)
+            .assign(DayOfYear=lambda x:
+                    pd.DatetimeIndex(x['Date']).dayofyear.astype(int)))
+
+
+    mask_holiday = []
+    for i in range(0, len(holidays.DE(state=state, years=year))):
+        mask_holiday.append('Null')
+        mask_holiday[i] = ((df['Day'] == [x for x in holidays.DE(state=state,
+                                          years=year).items()][i][0]))
+    hd = mask_holiday[0]
+
+
+    for i in range(1, len(holidays.DE(state=state, years=year))):
+        hd = hd | mask_holiday[i]
+    df['MO'] = df['Date'].apply(lambda x: x.weekday() == 0)
+    df['MO'] = df['MO'] & (~hd)
+    df['DI'] = df['Date'].apply(lambda x: x.weekday() == 1)
+    df['DI'] = df['DI'] & (~hd)
+    df['MI'] = df['Date'].apply(lambda x: x.weekday() == 2)
+    df['MI'] = df['MI'] & (~hd)
+    df['DO'] = df['Date'].apply(lambda x: x.weekday() == 3)
+    df['DO'] = df['DO'] & (~hd)
+    df['FR'] = df['Date'].apply(lambda x: x.weekday() == 4)
+    df['FR'] = df['FR'] & (~hd)
+    df['SA'] = df['Date'].apply(lambda x: x.weekday() == 5)
+    df['SA'] = df['SA'] & (~hd)
+    df['SO'] = df['Date'].apply(lambda x: x.weekday() == 6)
+    df['SO'] = df['SO'] | hd
+    hld = [(datetime.date(int(year), 12, 24)),
+           (datetime.date(int(year), 12, 31))]
+    
+    mask = df['Day'].isin(hld)
+    df.loc[mask, ['MO', 'DI', 'MI', 'DO', 'FR', 'SO']] = False
+    df.loc[mask, 'SA'] = True
+
+
+    par = pd.DataFrame.from_dict(gas_load_profile_parameters_dict())
+    for slp in par.index:
+        df['FW_'+str(slp)] = 0.0
+        for wd in ['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
+            df.loc[df[wd], ['FW_'+str(slp)]] = par.loc[slp, wd]
+    
+    return_df = df.drop(columns=['DayOfYear']).set_index('Day')
+
+    return return_df
+
+
+
+def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFrame):
+    """
+    Returns h-values depending on allocation temperature  for every
+    district.
+
+    Args:
+        slp : str
+            Must be one of ['BA', 'BD', 'BH', 'GA', 'GB', 'HA',
+                            'KO', 'MF', 'MK', 'PD', 'WA']
+        regional_id_list : list of district keys in state e.g. ['11000'] for Berlin
+        temperature_allocation : pd.DataFrame with results from allocation_temperature(year)
+        
+
+    Returns:
+        pd.DataFrame
+    """
+
+
+    # filter temperature_df for the given districts
+    temperature_df_districts = temperature_allocation.copy()[regional_id_list]
+
+    par = gas_load_profile_parameters_dict()
+    A = par['A'][slp]
+    B = par['B'][slp]
+    C = par['C'][slp]
+    D = par['D'][slp]
+    mH = par['mH'][slp]
+    bH = par['bH'][slp]
+    mW = par['mW'][slp]
+    bW = par['bW'][slp]
+
+    # calculate h-values for every district and every day
+    all_dates_of_the_year = temperature_df_districts.index.to_numpy()
+    for district in regional_id_list:
+        for date in all_dates_of_the_year:
+            temperature_df_districts.loc[date, district] = ((A / (1 + pow(B / (temperature_df_districts.loc[date, district] - 40), C)) + D)
+                                     + max(mH * temperature_df_districts.loc[date, district] + bH, mW * temperature_df_districts.loc[date, district] + bW))
+    
+    return temperature_df_districts

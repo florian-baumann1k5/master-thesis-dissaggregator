@@ -37,3 +37,8 @@ shift_load_profiles_cache_file: "shift_load_profiles_{year}.csv"
 shift_load_profiles_cache_dir: "data/processed/temporal/shift_load_profiles_by_year"
 
 
+# Temperature
+temperature_allocation_cache_file: "daily_temperature_allocation_{year}.csv"
+temperature_allocation_cache_dir: "data/processed/temperature/temperature_allocation"
+
+

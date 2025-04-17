@@ -209,6 +209,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
 
     return file
 
+
 # Efficiency rate
 def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame: 
 
@@ -306,6 +307,25 @@ def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     return file
 
 
+# Temperature
+def load_temperature_allocation_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the temperature allocation cache for the given year.
+    Returns:
+        pd.DataFrame:
+            - index: regional_id
+            - columns: temperature per day for a given year
+        if not exists, returns None
+    """
+    cache_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, index_col=0)
+    return file
+    
+
 # Pipeline caches
 def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
     """
@@ -332,3 +352,12 @@ def load_consumption_data_with_efficiency_factor_cache(sector: str, energy_carri
     file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
 
     return file
+
+
+# Others
+def get_all_regional_ids() -> pd.DataFrame:
+    """
+    Returns all regional ids for the given year.
+    """
+    raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
+    return pd.read_csv(raw_file)
