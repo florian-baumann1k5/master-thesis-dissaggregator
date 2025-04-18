@@ -473,7 +473,7 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     data = data_pivot
 
     # normalize the regional_id from 402 (= 2015) to 400 districts (load_config("base_config.yaml")["regional_id_changes_files"])
-    normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=2015)
+    normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=year)
 
     # make the regional_id the index
     normalized_df.set_index('regional_id', inplace=True)
