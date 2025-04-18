@@ -26,13 +26,16 @@ def dict_cts_or_industry_per_industry_sector():
     """
     Defines which industry_sector is a CTS or industry sector
     Returns a dict with two keys: 'industry' and 'cts'. The values are lists of industry_sector codes.
+
+    !!! Warning:
+       - WZ 35 is missing
     """
     return {
-        'industry': list(range(5, 34)), # = [5, 6, ..., 33] 
+        'industry': list(range(5, 34)), # = [5, 6, ..., 33] -> length 29
         'cts': [1, 2, 3, 36, 37, 38, 39, 41, 42, 43, 45, 46, 47, 49, 50, 51, 52,
               53, 55, 56, 58, 59, 60, 61, 62, 63, 64, 65, 66, 68, 69, 70, 71,
               72, 73, 74, 75, 77, 78, 79, 80, 81, 82, 84, 85, 86, 87, 88, 90,
-              91, 92, 93, 94, 95, 96, 97, 98, 99]
+              91, 92, 93, 94, 95, 96, 97, 98, 99] # -> length 58
     }
 
 

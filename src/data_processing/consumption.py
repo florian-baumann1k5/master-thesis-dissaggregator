@@ -12,7 +12,6 @@ from src.data_access.local_reader import *
 from src.data_access.api_reader import *
 from src.utils.utils import *
 from src.data_processing.normalization import *
-from src.data_processing.temporal import *
 # This file contains the functions for the consumption data. Will be used in the pipeline "cunsumption".
 
 def get_ugr_data_ranges(year, force_preprocessing=False):
@@ -888,100 +887,3 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
             ]
 
 
-
-
-# Temperature
-def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperatur_df: pd.DataFrame, year: int):
-    """
-    Disaggregates the daily gas consumption for CTS in a given state and year.
-
-    Args:
-        state: str
-        temperatur_df: pd.DataFrame
-        gas_consumption: pd.DataFrame: gas consumption data for every industry sector (columns) and regional_id (index)
-    
-    Returns:
-        pd.DataFrame
-    """
-
-    # 0. get the number of days in the year
-    days_of_year = get_days_of_year(year)
-
-
-    # 1. transform gas consumption
-    gv_lk = gas_consumption.copy()
-    # add Bundesland column to gv_lk (removeing last 3 digits of region_code and doing lookup in bl_dict to get Bundesland)
-    gv_lk = (gv_lk.assign( federal_state =[federal_state_dict().get(int(x[: -3]))
-                          for x in gv_lk.index.astype(str)]))
-    
-    df = pd.DataFrame(index=range(days_of_year))
-    #filter for the state in the function arguments and transpose df
-    gv_lk = gv_lk.loc[gv_lk['federal_state'] == state].drop(columns=['federal_state']).transpose()
-
-
-    # 2. add SLP column based on industry sectors (see mapping slp_branch_cts_gas())
-    list_ags = gv_lk.columns.astype(str)
-    gv_lk.index = gv_lk.index.astype('int64')
-    gv_lk['SLP'] = [slp_branch_cts_gas()[x] for x in (gv_lk.index)]
-
-
-    # 1. get weekday-parameters of the gas standard load profiles
-    F_wd = (gas_slp_weekday_params(state=state, year=year)
-            .drop(columns=['MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO'])
-            .set_index('Date'))
-
-
-    # 
-    tageswerte = pd.DataFrame(index=F_wd.index)
-    logger.info('... creating state-specific load-profiles')
-    
-
-    # x. iterate over the unique SLPs
-    for slp in gv_lk['SLP'].unique():
-
-
-        F_wd_slp = F_wd[['FW_'+slp]]
-        h_slp = h_value(slp, list_ags, temperatur_df)
-
-
-
-        if (len(h_slp) != len(F_wd_slp)):
-            raise KeyError('The chosen historical weather year and the chosen '
-                           'projected year have mismatching lengths.'
-                           'This could be due to gap years. Please change the '
-                           'historical year in hist_weather_year() in '
-                           'mappings.py to a year of matching length.')
-
-        tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
-                          index=h_slp.index, columns=h_slp.columns)
-        
-        tw_norm = tw/tw.sum()
-        gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns=['SLP'])
-                      .stack().reset_index())
-        tw_lk_wz = pd.DataFrame(index=h_slp.index)
-
-
-        for lk in gv_df['regional_id'].unique():
-            gv_slp = (gv_df.loc[gv_df['regional_id'] == lk]
-                           .drop(columns=['regional_id'])
-                           .set_index('industry_sector').transpose()
-                           .rename(columns=lambda x: str(lk) + '_' + str(x)))
-            tw_lk_wz_slp = (pd.DataFrame(np.multiply(tw_norm[
-                                                     [str(lk)]
-                                                     * len(gv_slp.columns)]
-                                                     .values, gv_slp.values),
-                                         index=tw_norm.index,
-                                         columns=gv_slp.columns))
-            tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
-        tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
-
-
-
-    tageswerte.iloc[:days_of_year] = tageswerte.iloc[days_of_year:].values
-    df = tageswerte.iloc[:days_of_year]
-    df.columns =\
-        pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
-                                   df.columns.str.split('_')])
-    
-
-    return [df, gas_consumption]

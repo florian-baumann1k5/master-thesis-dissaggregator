@@ -3,11 +3,14 @@ base_year: 2015
 
 
 # PIPELINE CACHES
-consumption_data_with_efficiency_factor_cache_file: "con_eff_{sector}_{energy_carrier}_{year}.csv"
+consumption_data_cache_file: "con_{year}_{energy_carrier}.csv"
+consumption_data_cache_dir: "data/processed/pipeline/consumption/consumption_data"
+
+consumption_data_with_efficiency_factor_cache_file: "con_eff_{year}_{sector}_{energy_carrier}.csv"
 consumption_data_with_efficiency_factor_cache_dir: "data/processed/pipeline/applications/disagg_applications_efficiency_factor"
 
-consumption_data_cache_file: "con_{energy_carrier}_{year}.csv"
-consumption_data_cache_dir: "data/processed/pipeline/consumption/consumption_data"
+consumption_disaggregate_temporal_cache_file: "con_disagg_temp_{year}_{sector}_{energy_carrier}.csv"
+consumption_disaggregate_temporal_cache_dir: "data/processed/pipeline/temporal/consumption_disaggregate_temporal"
 
 
 # UGR GENEISIS DATA
@@ -35,6 +38,9 @@ factor_gas_no_selfgen_cache_file: "data/processed/factor_gas_no_selfgen/factor_g
 # temporal
 shift_load_profiles_cache_file: "shift_load_profiles_{year}.csv"
 shift_load_profiles_cache_dir: "data/processed/temporal/shift_load_profiles_by_year"
+
+disagg_daily_gas_slp_cts_cache_file: "disagg_daily_gas_slp_cts_{state}_{year}.csv"
+disagg_daily_gas_slp_cts_cache_dir: "data/processed/temporal/disagg_daily_gas_slp_cts"
 
 
 # Temperature
