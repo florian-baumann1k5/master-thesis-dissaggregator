@@ -1,24 +1,17 @@
 import pandas as pd
 import os
 import numpy as np
-import holidays
-import datetime
 from collections import OrderedDict
 from collections.abc import Iterable
 from typing import Tuple
 
 from src import logger
-from src.configs.config_loader import load_config
-from src.configs.mappings import dict_cts_or_industry_per_industry_sector
-from src.data_access.local_reader import (load_preprocessed_ugr_file_if_exists, 
-                                          load_raw_ugr_data, 
-                                          load_genisis_wz_sector_mapping_file,
-                                          load_activity_driver_consumption,
-                                          load_gas_industry_self_consuption,
-                                          load_gas_industry_self_consuption_cache)
-from src.data_access.api_reader import get_manufacturing_energy_consumption
-from src.utils.utils import fix_region_id
-from src.data_processing.normalization import normalize_region_ids_rows
+from src.configs.config_loader import *
+from src.configs.mappings import *
+from src.data_access.local_reader import *
+from src.data_access.api_reader import *
+from src.utils.utils import *
+from src.data_processing.normalization import *
 # This file contains the functions for the consumption data. Will be used in the pipeline "cunsumption".
 
 def get_ugr_data_ranges(year, force_preprocessing=False):
@@ -480,7 +473,7 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     data = data_pivot
 
     # normalize the regional_id from 402 (= 2015) to 400 districts (load_config("base_config.yaml")["regional_id_changes_files"])
-    normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=2015)
+    normalized_df = normalize_region_ids_rows(data, id_column='regional_id', data_year=year)
 
     # make the regional_id the index
     normalized_df.set_index('regional_id', inplace=True)
@@ -893,8 +886,4 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
             #TODO Petrol , total_petrol_consumption
             ]
 
-
-
-
-    
 
