@@ -56,3 +56,14 @@ def group_industry_sectors(df, mapping_dict=industry_sector_groups()):
     
     # industry_sector 35 is missing in the result_df
     return result_df
+
+
+def translate_application_columns(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
+    """
+    Rename all columns of `df` according to `mapping`.
+    Raises KeyError if any column in df is not present in mapping.
+    """
+    missing = set(df.columns) - set(mapping)
+    if missing:
+        raise KeyError(f"No translation provided for columns: {sorted(missing)}")
+    return df.rename(columns=mapping)

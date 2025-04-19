@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 from src import logger
 from src.configs.config_loader import load_config
 
@@ -276,6 +277,119 @@ def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame:
     }
     # Only rename columns that exist in the DataFrame
     df = df.rename(columns={k: v for k, v in column_rename_map.items() if k in df.columns})
+
+    return df
+
+
+# Load profiles
+def load_power_load_profile(profile: str) -> pd.DataFrame:
+    """
+    Retuns the power load profiles for the given profile.
+    DISS: "4.2.5.2 Standardlastprofile" -> Tabelle A.9
+    """
+
+    raw_file = f"data/raw/temporal/power_load_profiles/39_VDEW_Strom_Repräsentative_Profile_{profile}.xlsx"
+    load_profiles = pd.read_excel(raw_file)
+
+    return load_profiles
+
+def load_gas_load_profile(profile: str) -> pd.DataFrame:
+    """
+    Loads the gas shift load profile for the given profile/slp.
+    """
+
+    raw_file = f"data/raw/temporal/gas_load_profiles/Lastprofil_{profile}.xls"
+    load_profiles = pd.read_excel(raw_file)
+
+    return load_profiles
+
+def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the shift load profiles for the given year. 
+    Returns a Multicolumn dataframe: [state, shift_load_profile]
+    """
+    cache_dir = load_config("base_config.yaml")['shift_load_profiles_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+
+
+
+# Temperature
+def load_temperature_allocation_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the temperature allocation cache for the given year.
+    Returns:
+        pd.DataFrame:
+            - index: regional_id
+            - columns: temperature per day for a given year
+        if not exists, returns None
+    """
+    cache_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, index_col=0)
+    return file
+
+def load_disagg_daily_gas_slp_cts_cache(state: str, year: int) -> pd.DataFrame:
+    """
+    Loads the disaggregated daily gas shift load profiles for the given state and year.
+
+    Returns:
+        pd.DataFrame:
+            MultiIndex columns: [regional_id, industry_sector]
+            index: days of the year
+    """
+    cache_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+    
+# Heat
+def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
+    """
+    Loads the fuel switch share for the given sector and switch_to.
+
+    Args:
+        sector: str
+        switch_to: str
+
+    Returns:
+        pd.DataFrame:
+            - index: WZ
+    """
+
+    SHEET = {
+        "cts": {
+            "power": "Gas2Power CTS 2045",
+        },
+        "industry": {
+            "power":    "Gas2Power industry 2045",
+            "hydrogen": "Gas2Hydrogen industry 2045",
+        },
+    }
+    PATH = 'data/raw/heat/fuel_switch_keys.xlsx'
+
+
+    try:
+        sheet_name = SHEET[sector][switch_to]
+    except KeyError:
+        raise ValueError(
+            f"`switch_to` must be one of {list(SHEET[sector])} for '{sector}'"
+        )
+
+    df = pd.read_excel(PATH, sheet_name=sheet_name, skiprows=1)
+    # TODO: add column/applicationtranslations
 
     return df
 

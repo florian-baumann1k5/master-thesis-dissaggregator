@@ -11,9 +11,15 @@ from src.pipeline.pipe_consumption import *
 from src.pipeline.pipe_applications import *
 from src.data_access.local_reader import *
 from src.data_processing.application import *
+from src.data_processing.temporal import *
+from src.data_processing.temperature import *
+from src.pipeline.pipe_temporal import *
+from src.pipeline.pipe_heat import *
+from src.data_processing.heat import *
 
 
-x = 10
+
+x = 21
 
 
 if x == 1:
@@ -79,9 +85,24 @@ elif x == 16:
     energy_carrier = "power"
     year = 2020
 
-    #df = get_consumption_data_historical(year=2016)
+    df = disaggregate_temporal(year=year, sector=sector, energy_carrier=energy_carrier)
+    print(df)
 
-    df = disagg_applications_efficiency_factor(year=year, sector=sector, energy_carrier=energy_carrier)
+elif x == 20: # disagg_daily_gas_slp_cts
+    
+    year = 2015
+    consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
+    consumption_data = consumption_data.T.groupby(level=0).sum().T
+
+    daily_temperature_allocation = allocation_temperature(year=year)
+
+    df = disagg_daily_gas_slp_cts(gas_consumption=consumption_data, state="NI", temperatur_df=daily_temperature_allocation, year=year)
+    print(df)
+
+elif x == 21:
+    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2015)
+    print(df)
+
 
 else:
     print("x is not 1")
