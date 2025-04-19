@@ -77,7 +77,7 @@ def load_decomposition_factors_power() -> pd.DataFrame:
         
     # Fill missing values for industry_sector 35:
     # First, for 'Strom Eigenerzeugung' missing values become 0
-    df_decom_power['Strom Eigenerzeugung'].fillna(0, inplace=True)
+    df_decom_power['Strom Eigenerzeugung'] = df_decom_power['Strom Eigenerzeugung'].fillna(0)
     # Then fill any remaining missing values with 1
     df_decom_power.fillna(1, inplace=True)
 

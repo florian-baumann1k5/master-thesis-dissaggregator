@@ -45,7 +45,7 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
          consumption_data_with_efficiency_factor = load_consumption_data_with_efficiency_factor_cache(sector=sector, energy_carrier=energy_carrier, year=year)
 
          if consumption_data_with_efficiency_factor is not None:
-            logger.info(f"Loading from cache: result of disagg_applications_efficiency_factor for sector: {sector}, energy_carrier: {energy_carrier}, year: {year}")
+            logger.info(f"Loading from cache: disagg_applications_efficiency_factor(sector={sector}, energy_carrier={energy_carrier}, year={year})")
             return consumption_data_with_efficiency_factor
 
     
@@ -68,11 +68,12 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
 
 
     # 6. save to cache
+    logger.info("Saving to cache...")
     processed_dir = load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_dir']
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_file'].format(sector=sector, energy_carrier=energy_carrier, year=year))
     os.makedirs(processed_dir, exist_ok=True)
     consumption_data_with_efficiency_factor.to_csv(processed_file)
-    logger.info(f"Saving to cache: result of disagg_applications_efficiency_factor for sector: {sector}, energy_carrier: {energy_carrier}, year: {year}")
+    logger.info(f"Cached: disagg_applications_efficiency_factor(sector={sector}, energy_carrier={energy_carrier}, year={year})")
        
 
     return consumption_data_with_efficiency_factor

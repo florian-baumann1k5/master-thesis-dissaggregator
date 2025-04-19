@@ -19,12 +19,13 @@ from src.data_processing.heat import *
 
 
 
-x = 21
+x = 22
 
 
 if x == 1:
 
-    df1 = gas_slp_weekday_params(state="BW", year=2015)
+    #df1 = load_fuel_switch_share(sector="cts", switch_to="power")
+    df1 = load_decomposition_factors_temperature_industry()
     print(df1)
 
 elif x == 2:
@@ -63,7 +64,7 @@ elif x == 10:
     df = get_consumption_data(year=2018, energy_carrier="gas")
 
 elif x == 11:
-    df = project_consumption(year_dataset=2015, year_future=2033)
+    None
 
 elif x == 12:
     df = get_consumption_data_future(year=2033)
@@ -96,6 +97,10 @@ elif x == 20: # disagg_daily_gas_slp_cts
 
 elif x == 21:
     df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2015)
+    print(df)
+
+elif x == 22:
+    df = get_consumption_data(energy_carrier="gas", year=2006, force_preprocessing=True)
     print(df)
 
 

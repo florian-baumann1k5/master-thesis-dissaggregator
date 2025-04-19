@@ -233,45 +233,7 @@ def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFram
         raise ValueError("Consumption sum mismatch between ugr_data_ranges and consumption_by_wz (difference > 0.001%)")
     
     return consumption_by_wz
-
-
-
-def project_consumption(consumption, year_dataset, year_future):
-    """
-    DISS 4.5
-    project energy demand per wz to given year using activity drivers from
-    input files. For industry gross value added (gva) per branch is used, for
-    CTS energy reference area per branch is used, which is derived from
-    projected number of employees
-
-    Projects consumption data from publications to future year using different
-    demand driver per sector. for industry use projected gross value added per
-    branch and for CTS use projected consumption area per branch. drivers are
-    imported from data_in folder.
-    """
-
-    # Validate Inputs: activity drivers are only available for 2015-2050
-    if year_dataset not in range(2015, 2050) or year_future not in range(2015, 2050):
-        raise ValueError("year_dataset must be between 2015 and 2050. Use the historical consumption!")
-    
-    # 2. Get Activity Drivers = Mengeneffekt
-    activity_drivers = load_activity_driver_consumption()
-
-    # 3. group industry sectors
-    #TODO: wieso? df_driver_total = group_industry_sectors(activity_drivers)
-    df_driver_total = activity_drivers
-
-    # 4. normalize activity drivers year_dataset
-    df_driver_norm = df_driver_total.apply(lambda x: x/x.loc[year_dataset])
-
-    # 5. get the wanted year
-    df_driver_norm_year = df_driver_norm.loc[year_future]
-
-    # 6. multiply with consumption
-    consumption_projected = consumption.mul(df_driver_norm_year, axis=0)
-
-    return consumption_projected
-    
+   
 
 
 def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
