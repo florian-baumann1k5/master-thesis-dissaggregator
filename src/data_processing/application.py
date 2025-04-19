@@ -52,7 +52,10 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
         """
         """
 
-    # 3. calidate the output
+    # 3. set indexname
+    df.index.name = "regional_id"
+
+    # 4. validate the output
     new_df_sum = df.sum().sum()
     total_sum = consumption_data.sum().sum()
     msg = (

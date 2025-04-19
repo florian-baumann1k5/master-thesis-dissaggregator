@@ -24,11 +24,8 @@ x = 21
 
 if x == 1:
 
-    df1 = load_efficiency_rate(sector="cts", energy_carrier="power")
+    df1 = gas_slp_weekday_params(state="BW", year=2015)
     print(df1)
-    df2 = load_decomposition_factors_temperature_industry()
-    print(df2)
-
 
 elif x == 2:
     df = get_ugr_data_ranges(year=2021)
@@ -78,12 +75,10 @@ elif x == 14:
     df = get_regional_energy_consumption(year=2015)
 
 elif x == 15:
-    df = load_factor_gas_no_selfgen_cache(year=2015)
+    df = get_CTS_power_slp(state="BW", year=2015)
 
 elif x == 16:
-    sector = "industry"
-    energy_carrier = "power"
-    year = 2020
+    df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
 
     df = disaggregate_temporal(year=year, sector=sector, energy_carrier=energy_carrier)
     print(df)

@@ -1,7 +1,7 @@
 from collections import defaultdict
 import pandas as pd
-
-from src.configs.mappings import industry_sector_groups
+from ast import literal_eval as lit_eval
+from src.configs.mappings import *
 
 def fix_region_id(rid):
     rid = str(rid)
@@ -10,6 +10,7 @@ def fix_region_id(rid):
     return rid[:-3]     # remove last 3 chars
 
 def group_industry_sectors(df, mapping_dict=industry_sector_groups()):
+
     """
     Groups industry sectors in a DataFrame based on predefined ranges in mapping_dict.
     Sums up columns that correspond to ranges (e.g., '10-12' will sum columns '10', '11', '12')
@@ -67,3 +68,35 @@ def translate_application_columns(df: pd.DataFrame, mapping: dict) -> pd.DataFra
     if missing:
         raise KeyError(f"No translation provided for columns: {sorted(missing)}")
     return df.rename(columns=mapping)
+def get_days_of_year(year: int) -> int:
+    """
+    Returns the number of days in a given year.
+    """
+    is_leap = (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
+    return 366 if is_leap else 365
+
+
+def get_hours_of_year(year: int) -> int:
+    """
+    Returns the number of hours in a given year.
+    """
+    is_leap = (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
+    hours = 8784 if is_leap else 8760
+
+    return hours
+
+
+def get_15min_intervals_per_year(year: int) -> int:
+    """
+    Returns the number of 15-minute periods in a given year.
+    35040 for normal years, 35136 for leap years.
+    """
+    is_leap = (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
+    return 35136 if is_leap else 35040
+
+
+def literal_converter(val):
+    try:
+        return lit_eval(val)
+    except (SyntaxError, ValueError):
+        return val

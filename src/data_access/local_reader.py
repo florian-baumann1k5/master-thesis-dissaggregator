@@ -210,6 +210,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
 
     return file
 
+
 # Efficiency rate
 def load_efficiency_rate(sector: str, energy_carrier: str) -> pd.DataFrame: 
 
@@ -396,6 +397,75 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
 # Pipeline caches
 
+    raw_file = f"data/raw/temporal/power_load_profiles/39_VDEW_Strom_Repräsentative_Profile_{profile}.xlsx"
+    load_profiles = pd.read_excel(raw_file)
+
+    return load_profiles
+
+def load_gas_load_profile(profile: str) -> pd.DataFrame:
+    """
+    Loads the gas shift load profile for the given profile/slp.
+    """
+
+    raw_file = f"data/raw/temporal/gas_load_profiles/Lastprofil_{profile}.xls"
+    load_profiles = pd.read_excel(raw_file)
+
+    return load_profiles
+
+def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the shift load profiles for the given year. 
+    Returns a Multicolumn dataframe: [state, shift_load_profile]
+    """
+    cache_dir = load_config("base_config.yaml")['shift_load_profiles_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+
+
+
+# Temperature
+def load_temperature_allocation_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the temperature allocation cache for the given year.
+    Returns:
+        pd.DataFrame:
+            - index: regional_id
+            - columns: temperature per day for a given year
+        if not exists, returns None
+    """
+    cache_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, index_col=0)
+    return file
+
+def load_disagg_daily_gas_slp_cts_cache(state: str, year: int) -> pd.DataFrame:
+    """
+    Loads the disaggregated daily gas shift load profiles for the given state and year.
+
+    Returns:
+        pd.DataFrame:
+            MultiIndex columns: [regional_id, industry_sector]
+            index: days of the year
+    """
+    cache_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+    
+
+# Pipeline caches
 def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
     """
     Loads the consumption data cache for the given year and energy carrier.
@@ -405,7 +475,7 @@ def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
 
     if not os.path.exists(cache_file):
         return None
-    file = pd.read_csv(cache_file)
+    file = pd.read_csv(cache_file, index_col="industry_sector")
 
     return file
 
@@ -418,6 +488,32 @@ def load_consumption_data_with_efficiency_factor_cache(sector: str, energy_carri
 
     if not os.path.exists(cache_file):
         return None
-    file = pd.read_csv(cache_file)
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
 
     return file
+
+def load_consumption_disaggregate_temporal_cache(sector: str, energy_carrier: str, year: int) -> pd.DataFrame:
+    """
+    Loads the consumption data cache with efficiency factor for the given sector and energy carrier.
+
+    Returns:
+        pd.DataFrame:
+            MultiIndex columns: [regional_id, industry_sector]
+            index: days of the year
+    """
+    cache_dir = load_config("base_config.yaml")['consumption_disaggregate_temporal_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['consumption_disaggregate_temporal_cache_file'].format(sector=sector, energy_carrier=energy_carrier, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+
+
+
+# Others
+def get_all_regional_ids() -> pd.DataFrame:
+    """
+    Returns all regional ids for the given year.
+    """
+    raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
+    return pd.read_csv(raw_file)

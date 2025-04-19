@@ -1,5 +1,6 @@
 import pandas as pd
 from src.data_access.openffe_client import get_openffe_data, OpenFFEApiError
+from src.utils.utils import *
 from src import logger
 
 def get_manufacturing_energy_consumption(year: int, spatial_id: int = 15, use_cache: bool = True) -> pd.DataFrame:
@@ -112,6 +113,49 @@ def get_future_employees(year: int, spatial_id: int = 27, use_cache: bool = True
     
     try:
         df = get_openffe_data(query, use_cache=use_cache)
+    except OpenFFEApiError as e:
+        logger.error(f"No data available for year {year}: {str(e)}")
+        raise
+
+    return df
+
+
+def get_temperature_outside_hourly(year: int, temporal_id: int = 12, use_cache: bool = True) -> pd.DataFrame:
+    """
+    Get "Temperatur (outdoor)" data.
+
+    spatial_id = 27 -> Synthese: Soz. Beschäftigte je LK nach WZ und Jahr (2012..2035), Szenario Basis
+    
+    API:
+        internal_id = 1: "stündliche Auflösung"
+        id_region = regional code ( not normalized) 
+        year = year
+        value = number of employees
+    
+    Args:
+        year: The year for which to fetch data
+        spatial_id: The spatial ID to use (default: 18)
+
+    Returns:
+        DataFrame containing energy consumption data. Columns:
+        id_region       = regional code ( not normalized) 
+        year            = year
+        internal_id[0]  = branch code
+        value           = Series with temeratures in hourly resolution
+    
+    """
+
+    # validate Input
+    if 2006 > year > 2019:
+        raise ValueError(f"No temperature outside data available for year {year}")
+
+
+    # building the query
+    query = f"demandregio/demandregio_temporal?id_temporal={temporal_id}&internal_id_1=1&year={year}&year_weather={year}&year_base={year}"
+    logger.info(f"Fetching temperature outside data for year {year}")
+    
+    try:
+        df = get_openffe_data(query, use_cache=use_cache).apply(literal_converter)
     except OpenFFEApiError as e:
         logger.error(f"No data available for year {year}: {str(e)}")
         raise
