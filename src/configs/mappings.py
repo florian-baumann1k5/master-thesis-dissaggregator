@@ -16,11 +16,13 @@ def wz_dict():
             60: '64-66', 61: '68', 62: '69-75', 63: '77-82', 64: '84',
             65: '85', 66: '86-88', 67: '90-99'}
 
+
 def industry_sector_groups():
     """
     Returns a unique list of industry sector groups. (48 groups)
     """
     return list(set(wz_dict().values()))
+
 
 def dict_cts_or_industry_per_industry_sector():
     """
@@ -60,8 +62,6 @@ def shift_profile_industry():
             23: 'S3_WT_SA_SO', 24: 'S3_WT_SA_SO', 25: 'S3_WT', 26: 'S2_WT',
             27: 'S2_WT_SA', 28: 'S2_WT', 29: 'S3_WT', 30: 'S3_WT_SA_SO',
             31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
-
-
 
 def hist_weather_year():
     """
@@ -221,3 +221,33 @@ def load_profiles_cts_power():
             81: 'L0', 82: 'G0', 84: 'G1', 85: 'G1', 86: 'G3', 87: 'G2',
             88: 'H0', 90: 'G0', 91: 'G0', 92: 'G2', 93: 'G2', 94: 'G6',
             95: 'G4', 96: 'G1', 97: 'H0', 98: 'H0', 99: 'G1'}
+
+# Translation
+def translate_application_columns_mapping() -> list:
+    return {
+       # power decomposition
+       'Beleuchtung':                           'lighting',
+       'IKT':                                   'information_communication_technology',
+       'Klimakälte':                            'space_cooling',
+       'Prozesskälte':                          'process_cooling',
+       'Mechanische Energie':                   'mechanical_energy',
+       'Prozesswärme':                          'process_heat',
+       'Raumwärme':                             'space_heating',
+       'Warmwasser':                            'hot_water',
+       'Strom Netzbezug':                       'electricity_grid',
+       'Strom Eigenerzeugung':                  'electricity_self_generation',
+
+       # temperature‑industry decomposition
+       'Prozesswärme <100°C':                   'process_heat_below_100C',
+       'Prozesswärme 100°C-200°C':              'process_heat_100_to_200C',
+       'Prozesswärme 200°C-500°C':              'process_heat_200_to_500C',
+       'Prozesswärme >500°C':                   'process_heat_above_500C',
+
+       # gas decomposition
+       'Anteil Erdgas am Verbrauch aller Gase': 'share_natural_gas_total_gas',
+       'Energetischer Erdgasverbrauch':         'natural_gas_consumption_energetic',
+       'Nichtenergetische Nutzung':             'non_energetic_use',
+
+
+       'WZ': 'industry_sector'
+    }

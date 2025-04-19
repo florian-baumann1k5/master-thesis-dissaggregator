@@ -31,10 +31,9 @@ def get_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
     # 1. load data
     df_fuel_switch = load_fuel_switch_share(sector=sector, switch_to=switch_to)
     # clean data (only keep rows with data)
-    df_fuel_switch = df_fuel_switch.loc[lambda d: d["WZ"].apply(lambda x: isinstance(x, (int, np.integer)))]
+    df_fuel_switch = df_fuel_switch.loc[lambda d: d['industry_sector'].apply(lambda x: isinstance(x, (int, np.integer)))]
     # rename Wz to industry sector and set as index
-    df_fuel_switch = df_fuel_switch.rename(columns={"WZ": "industry_sector"})
-    df_fuel_switch = df_fuel_switch.set_index("industry_sector")
+    df_fuel_switch = df_fuel_switch.set_index('industry_sector')
 
 
     return df_fuel_switch

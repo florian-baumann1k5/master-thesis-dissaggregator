@@ -9,6 +9,7 @@ def fix_region_id(rid):
         rid = "0" + rid  # now 8 chars
     return rid[:-3]     # remove last 3 chars
 
+
 def group_industry_sectors(df, mapping_dict=industry_sector_groups()):
 
     """
@@ -59,15 +60,6 @@ def group_industry_sectors(df, mapping_dict=industry_sector_groups()):
     return result_df
 
 
-def translate_application_columns(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
-    """
-    Rename all columns of `df` according to `mapping`.
-    Raises KeyError if any column in df is not present in mapping.
-    """
-    missing = set(df.columns) - set(mapping)
-    if missing:
-        raise KeyError(f"No translation provided for columns: {sorted(missing)}")
-    return df.rename(columns=mapping)
 def get_days_of_year(year: int) -> int:
     """
     Returns the number of days in a given year.
@@ -100,3 +92,18 @@ def literal_converter(val):
         return lit_eval(val)
     except (SyntaxError, ValueError):
         return val
+
+
+def translate_application_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Rename all columns of `df` according to `mapping`.
+    Raises KeyError if any column in df is not present in mapping.
+    """
+
+    mapping = translate_application_columns_mapping()
+    missing = set(df.columns) - set(mapping)
+    if missing:
+        raise KeyError(f"No translation provided for columns: {sorted(missing)}")
+    
+    df = df.rename(columns=mapping)
+    return df

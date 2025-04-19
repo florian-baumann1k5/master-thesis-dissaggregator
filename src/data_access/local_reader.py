@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from src import logger
 from src.configs.config_loader import load_config
-
+from src.utils.utils import translate_application_columns
 # UGR data
 def load_preprocessed_ugr_file_if_exists(year: int, force_preprocessing: bool) -> pd.DataFrame | None:
     preprocessed_dir = load_config("base_config.yaml")['preprocessed_dir']
@@ -60,8 +60,7 @@ def load_decomposition_factors_power() -> pd.DataFrame:
     Returns:
         pd.DataFrame:
             - index:   industry_sectors (88 unique industry_sectors)
-            - columns: ['Beleuchtung', 'IKT', 'Klimakälte', 'Prozesskälte', 'Mechanische Energie', 'Prozesswärme', 'Raumwärme', 'Warmwasser',
-                        'Strom Netzbezug', 'Strom Eigenerzeugung']
+            - columns: [<applications>]
     """
     # File path (using your helper function)
     file_path = "data/raw/dimensionless/decomposition_factors.xlsx"
@@ -82,19 +81,8 @@ def load_decomposition_factors_power() -> pd.DataFrame:
     # Then fill any remaining missing values with 1
     df_decom_power.fillna(1, inplace=True)
 
-    # rename the columns
-    df_decom_power = df_decom_power.rename(columns={
-        'Beleuchtung': 'lighting',
-        'IKT': 'information_communication_technology',
-        'Klimakälte': 'space_cooling',
-        'Prozesskälte': 'process_cooling',
-        'Mechanische Energie': 'mechanical_energy',
-        'Prozesswärme': 'process_heat',
-        'Raumwärme': 'space_heating',
-        'Warmwasser': 'hot_water',
-        'Strom Netzbezug': 'electricity_grid',
-        'Strom Eigenerzeugung': 'electricity_self_generation'
-    })
+    # translate the columns
+    df_decom_power = translate_application_columns(df_decom_power)
     
     return df_decom_power
 
@@ -126,15 +114,7 @@ def load_decomposition_factors_gas() -> pd.DataFrame:
     df_decom_gas.index.name = 'industry_sectors'
 
     # rename the columns
-    df_decom_gas = df_decom_gas.rename(columns={
-        'Anteil Erdgas am Verbrauch aller Gase': 'share_natural_gas_total_gas',
-        'Energetischer Erdgasverbrauch': 'natural_gas_consumption_energetic',
-        'Nichtenergetische Nutzung': 'non_energetic_use',
-        'Mechanische Energie': 'mechanical_energy',
-        'Prozesswärme': 'process_heat',
-        'Raumwärme': 'space_heating',
-        'Warmwasser': 'hot_water'
-    })
+    df_decom_gas = translate_application_columns(df_decom_gas)
         
 
     return df_decom_gas
@@ -160,14 +140,9 @@ def load_decomposition_factors_temperature_industry() -> pd.DataFrame:
 
     # rename the index to industry_sectors
     df_decom_temp_industry.index.name = 'industry_sectors'
-    
-    # rename the columns
-    df_decom_temp_industry = df_decom_temp_industry.rename(columns={
-        'Prozesswärme <100°C': 'process_heat_below_100C',
-        'Prozesswärme 100°C-200°C': 'process_heat_100_to_200C',
-        'Prozesswärme 200°C-500°C': 'process_heat_200_to_500C',
-        'Prozesswärme >500°C': 'process_heat_above_500C'
-    })
+
+    # translate the columns
+    df_decom_temp_industry = translate_application_columns(df_decom_temp_industry)
     
     return df_decom_temp_industry
 
@@ -390,7 +365,8 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
         )
 
     df = pd.read_excel(PATH, sheet_name=sheet_name, skiprows=1)
-    # TODO: add column/applicationtranslations
+    
+    df = translate_application_columns(df)
 
     return df
 
