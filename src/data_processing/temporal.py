@@ -3,6 +3,8 @@ import pandas as pd
 import holidays
 import datetime
 from datetime import timedelta
+from typing import Dict, Tuple
+
 
 
 from src import logger
@@ -10,6 +12,7 @@ from src.data_access.local_reader import *
 from src.pipeline.pipe_applications import *
 from src.utils.utils import *
 from src.data_processing.temperature import *
+from src.data_processing.consumption import *
 
 
 
@@ -181,6 +184,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
     daily_temperature_allocation = allocation_temperature(year=year)
 
 
+
     df = pd.DataFrame(0, columns=daily_temperature_allocation.columns,
                     index=pd.date_range((str(year) + '-01-01'),
                                         periods=hours_of_year, freq='h'))
@@ -197,6 +201,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
                                     for x in consumption_data.index.astype(str)]))
 
         # filter temperatur_df for the regional codes of the state and save it in t_allo_df
+        daily_temperature_allocation.columns = daily_temperature_allocation.columns.astype(str)
         t_allo_df = daily_temperature_allocation[gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str)]
 
         for col in t_allo_df.columns:
@@ -312,7 +317,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
 
     
 
-            for slp in list(dict.fromkeys(slp_branch_cts_gas().values())):
+            for slp in list(dict.fromkeys(load_profiles_cts_gas().values())):
 
 
                 slp_profil = load_gas_load_profile(slp)
@@ -330,7 +335,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
 
                 # Prepare a dictionary to store the new columns
                 new_cols = {}
-                for wz in [k for k, v in slp_branch_cts_gas().items() if v.startswith(slp)]:
+                for wz in [k for k, v in load_profiles_cts_gas().items() if v.startswith(slp)]:
                     colname = f"{regional_id}_{wz}"
                     new_cols[colname] = tw_df_lk[wz].values * temp_cal['Prozent'].values / 100
 
@@ -349,13 +354,160 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
     return df
 
 
-def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+def disaggregate_temporal_power_CTS2(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+
+
+    total_consumption_start = consumption_data.sum().sum()
+
+
+    # --- 1. Prepare Mappings & Data ---
+    sector_to_slp = load_profiles_cts_power()
+    state_num_map = federal_state_dict()
+
+    # Assume columns are already appropriate integers or convert directly
+    consumption_data.columns = consumption_data.columns.astype(int)
+
+    # Map regional_id to state abbreviation and group regions by state
+    region_to_state = {rid: state_num_map[rid // 1000] for rid in consumption_data.index}
+    state_to_regions = {}
+    for rid, state in region_to_state.items():
+         state_to_regions.setdefault(state, []).append(rid)
+
+    # --- 2. Initialize ---
+    all_results_series = {}
+    slp_cache = {}
+    timestamps = None
+
+    # --- 3. Process by State ---
+    for state, regions_in_state in state_to_regions.items():
+        # Get SLP data (from cache or generate)
+        if state not in slp_cache:
+            slp_df = get_CTS_power_slp(state, year)
+            slp_cache[state] = slp_df
+            if timestamps is None: # Get timestamps from the first successful load
+                 timestamps = slp_df.index
+        else:
+            slp_df = slp_cache[state]
+
+        # Filter consumption data for this state
+        state_consumption = consumption_data.loc[regions_in_state]
+
+        # --- 4. Iterate through sectors & regions for this state ---
+        for sector in state_consumption.columns:
+            slp_name = sector_to_slp.get(sector) # Use .get() for slight safety
+            if slp_name is None or slp_name not in slp_df.columns:
+                # Skip if mapping or profile column is missing
+                continue
+
+            slp_series = slp_df[slp_name]
+            annual_values = state_consumption[sector] # Series: index=regional_id
+
+            for regional_id, annual_consumption in annual_values.items():
+                # Handle zero/NaN consumption - create zero series
+                if pd.isna(annual_consumption) or annual_consumption == 0:
+                     result_series = pd.Series(0.0, index=timestamps, dtype=float)
+                else:
+                     result_series = slp_series * annual_consumption
+
+                all_results_series[(regional_id, sector)] = result_series
+
+    # --- 5. Combine Results ---
+    if not all_results_series:
+        return pd.DataFrame(index=timestamps) # Return empty DF if nothing was processed
+
+    final_df = pd.concat(all_results_series, axis=1)
+
+    # Set multi-index names and sort
+    final_df.columns = pd.MultiIndex.from_tuples(
+        final_df.columns,
+        names=['regional_id', 'industry_sector']
+    )
+    final_df = final_df.sort_index(axis=1)
 
 
 
 
-    return None
+    total_consumption_end = final_df.sum().sum()
+    print(f"Total consumption start: {total_consumption_start}, Total consumption end: {total_consumption_end}")
 
+    return final_df
+
+def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame: 
+    """
+    This is the old function
+    
+    """
+    
+    sv_yearly = consumption_data.assign(BL=lambda x: [federal_state_dict().get(int(i[: -3]))
+                                        for i in x.index.astype(str)])
+    
+
+    total_sum = sv_yearly.drop('BL', axis=1).sum().sum()
+
+    # Create empty 15min-index'ed DataFrame for target year
+    idx = pd.date_range(start=str(year), end=str(year+1), freq='15T')[:-1]
+    DF = pd.DataFrame(index=idx)
+
+    for state in federal_state_dict().values():
+        logger.info('Working on state: {}.'.format(state))
+        sv_lk_wz = (sv_yearly
+                    .loc[lambda x: x['BL'] == state]
+                    .drop(columns=['BL'])
+                    .transpose()
+                    .assign(SLP=lambda x: [load_profiles_cts_power()[int(i)] for i in x.index]))
+
+        logger.info('... creating state-specific load-profiles')
+        slp_bl = get_CTS_power_slp(state, year=year)
+        # Plausibility check:
+        assert slp_bl.index.equals(idx), "The time-indizes are not aligned"
+        # Create 15min-index'ed DataFrames for current state
+
+        sv_lk_wz_ts = pd.DataFrame(index=idx)
+
+
+        logger.info('... assigning load-profiles to WZs')
+        for slp in sv_lk_wz['SLP'].unique():
+            sv_lk = (sv_lk_wz.loc[sv_lk_wz['SLP'] == slp].drop(columns=['SLP']).stack().reset_index())
+
+            # renaming column if neccessary
+            sv_lk.columns = ["regional_id" if col == "level_1" else col for col in sv_lk.columns]
+
+            sv_lk = (sv_lk.assign(LK_WZ=lambda x: x.regional_id.astype(str) + '_' + x.industry_sector.astype(str))
+                     .set_index('LK_WZ')
+                     .drop(['industry_sector', 'regional_id'], axis=1)
+                     .loc[lambda x: x[0] >= 0]
+                     .transpose())
+
+            # Calculate load profile for each LK and WZ
+            lp_lk_wz = (pd.DataFrame(np.multiply(slp_bl[[slp]].values,
+                                                     sv_lk.values),
+                                         index=slp_bl.index,
+                                         columns=sv_lk.columns))
+
+            # Merge intermediate results
+            sv_lk_wz_ts = (sv_lk_wz_ts.merge(lp_lk_wz, left_index=True,
+                                                 right_index=True,
+                                                 suffixes=(False, False)))
+
+
+        # Concatenate the state-wise results
+         # restore MultiIndex as integer tuples
+        sv_lk_wz_ts.columns =\
+                pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+                                           sv_lk_wz_ts.columns.str.split('_')])
+        
+        DF = pd.concat([DF, sv_lk_wz_ts], axis=1)
+        DF.columns = pd.MultiIndex.from_tuples(DF.columns, names=['LK', 'WZ'])
+
+
+    # Plausibility check:
+    msg = ('The sum of yearly consumptions (={:.3f}) and the sum of disaggrega'
+           'ted consumptions (={:.3f}) do not match! Please check algorithm!')
+    disagg_sum = DF.sum().sum()
+    assert np.isclose(total_sum, disagg_sum), msg.format(total_sum, disagg_sum)
+
+    
+    return DF
 
 
 
@@ -528,11 +680,16 @@ def get_CTS_power_slp(state, year: int):
     Returns
     -------
     pd.DataFrame
+        Index:
+        Columns: 
+            unrelevant: ['Day', 'Hour', 'DayOfYear', 'WD', 'SA', 'SU', 'WIZ', 'SOZ', 'UEZ']
+            die SLPs: ['H0', 'L0', 'L1', 'L2', 'G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6']
+        -> the sum of the SLP columns equals ~1
     """
     def Leistung(Tag_Zeit, mask, df, df_SLP):
         u = pd.merge(df[mask], df_SLP[['Hour', Tag_Zeit]], on=['Hour'], how='left')
         v = pd.merge(df, u[['Date', Tag_Zeit]], on=['Date'], how='left')
-        v_filled = v.fillna(0.0)
+        v_filled = v.infer_objects(copy=False).fillna(0.0)
         v_filled = v_filled.infer_objects(copy=False)
         return v_filled[Tag_Zeit]
 
@@ -698,10 +855,10 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
     gv_lk = gv_lk.loc[gv_lk['federal_state'] == state].drop(columns=['federal_state']).transpose()
 
 
-    # 2. add SLP column based on industry sectors (see mapping slp_branch_cts_gas())
+    # 2. add SLP column based on industry sectors (see mapping load_profiles_cts_gas())
     list_ags = gv_lk.columns.astype(str)
     gv_lk.index = gv_lk.index.astype('int64')
-    gv_lk['SLP'] = [slp_branch_cts_gas()[x] for x in (gv_lk.index)]
+    gv_lk['SLP'] = [load_profiles_cts_gas()[x] for x in (gv_lk.index)]
 
 
     # 1. get weekday-parameters of the gas standard load profiles
@@ -734,7 +891,10 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
         tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
                           index=h_slp.index, columns=h_slp.columns)
         
+        
         tw_norm = tw/tw.sum()
+        tw_norm.columns = tw_norm.columns.astype(str)
+
         gv_df = (gv_lk.loc[gv_lk['SLP'] == slp].drop(columns=['SLP'])
                       .stack().reset_index())
         tw_lk_wz = pd.DataFrame(index=h_slp.index)

@@ -145,6 +145,7 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
          consumption_data = load_consumption_data_cache(year=year, energy_carrier=energy_carrier)
 
          if consumption_data is not None:
+            logger.info(f"Loading from cache: result of get_consumption_data for energy_carrier: {energy_carrier}, year: {year}")
             return consumption_data
     
 
@@ -172,7 +173,7 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['consumption_data_cache_file'].format(energy_carrier=energy_carrier, year=year))
     os.makedirs(processed_dir, exist_ok=True)
     consumption_data.to_csv(processed_file)
-
+    logger.info(f"Saving to cache: result of get_consumption_data for energy_carrier: {energy_carrier}, year: {year}")
 
     return consumption_data
 

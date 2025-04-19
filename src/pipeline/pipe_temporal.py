@@ -40,6 +40,10 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
     if sector == "industry":
         consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5)
 
+        # TODO: aus temporal application
+        # if energy_carrier == "gas":
+            #if use_slp_for_sh:
+            # ...
 
     elif sector == "cts":
         if energy_carrier == "gas":  
@@ -51,6 +55,7 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
 
 
     # 2. save to cache
+    logger.info("Saving to cache...")
     processed_dir = load_config("base_config.yaml")['consumption_disaggregate_temporal_cache_dir']
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['consumption_disaggregate_temporal_cache_file'].format(energy_carrier=energy_carrier, year=year, sector=sector))
     os.makedirs(processed_dir, exist_ok=True)

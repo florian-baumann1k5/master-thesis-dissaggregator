@@ -62,6 +62,7 @@ def shift_profile_industry():
             31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
 
 
+
 def hist_weather_year():
     """
     Assign temperature data of a historical year to a future year.
@@ -191,7 +192,7 @@ def gas_load_profile_parameters_dict():
                    'Cooking_HotWater-HKO': 1.0}}
 
 
-def slp_branch_cts_gas():
+def load_profiles_cts_gas():
     """
     Assign a gas load profile (SLP) to each CTS branch by WZ number.
     """
@@ -205,3 +206,18 @@ def slp_branch_cts_gas():
             84: 'KO', 85: 'KO', 86: 'BH', 87: 'KO', 88: 'MF', 90: 'BD',
             91: 'KO', 92: 'BD', 93: 'KO', 94: 'KO', 95: 'MK', 96: 'BD',
             97: 'MF', 98: 'MF', 99: 'KO'}
+
+def load_profiles_cts_power():
+    """
+    Assign a power load profile (SLP) to every CTS branch by WZ number.
+    """
+    return {1: 'L0', 2: 'L0', 3: 'G3', 35: 'G3', 36: 'G3', 37: 'G3',
+            38: 'G3', 39: 'G3', 41: 'G1', 42: 'G1', 43: 'G1', 45: 'G4',
+            46: 'G0', 47: 'G0', 49: 'G3', 50: 'G3', 51: 'G3', 52: 'G3',
+            53: 'G4', 55: 'G2', 56: 'G2', 58: 'G1', 59: 'G0', 60: 'G3',
+            61: 'G3', 62: 'G3', 63: 'G3', 64: 'G1', 65: 'G1', 66: 'G1',
+            68: 'G1', 69: 'G1', 70: 'G1', 71: 'G1', 72: 'G1', 73: 'G1',
+            74: 'G1', 75: 'G1', 77: 'G4', 78: 'G1', 79: 'G4', 80: 'G3',
+            81: 'L0', 82: 'G0', 84: 'G1', 85: 'G1', 86: 'G3', 87: 'G2',
+            88: 'H0', 90: 'G0', 91: 'G0', 92: 'G2', 93: 'G2', 94: 'G6',
+            95: 'G4', 96: 'G1', 97: 'H0', 98: 'H0', 99: 'G1'}

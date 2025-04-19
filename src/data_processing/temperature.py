@@ -130,7 +130,7 @@ def get_temp_outside_hourly_for_regions(year: int):
     datetime_index = pd.date_range(
         start=f'{year}-01-01 00:00:00',
         periods=expected_hours, # Use periods based on calculated hours
-        freq='H' # Hourly frequency
+        freq='h' # Hourly frequency
     )
 
     if len(datetime_index) != expected_hours:
