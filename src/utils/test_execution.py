@@ -11,18 +11,20 @@ from src.pipeline.pipe_consumption import *
 from src.pipeline.pipe_applications import *
 from src.data_access.local_reader import *
 from src.data_processing.application import *
+from src.data_processing.temporal import *
+from src.data_processing.temperature import *
+from src.pipeline.pipe_temporal import *
 
 
-x = 10
+
+
+x = 19
 
 
 if x == 1:
 
-    df1 = load_efficiency_rate(sector="cts", energy_carrier="power")
+    df1 = gas_slp_weekday_params(state="BW", year=2015)
     print(df1)
-    df2 = load_decomposition_factors_temperature_industry()
-    print(df2)
-
 
 elif x == 2:
     df = get_ugr_data_ranges(year=2021)
@@ -72,16 +74,36 @@ elif x == 14:
     df = get_regional_energy_consumption(year=2015)
 
 elif x == 15:
-    df = load_factor_gas_no_selfgen_cache(year=2015)
+    df = get_CTS_power_slp(state="BW", year=2015)
 
 elif x == 16:
-    sector = "industry"
-    energy_carrier = "power"
-    year = 2020
+    df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
 
-    #df = get_consumption_data_historical(year=2016)
+elif x == 17:
+    df = apply_efficiency_factor(consumption_data=None,sector="industry", energy_carrier="gas", year=2015)
 
-    df = disagg_applications_efficiency_factor(year=year, sector=sector, energy_carrier=energy_carrier)
+elif x == 18:
+    df = allocation_temperature(year=2030)
+
+elif x == 19: # pipe_temporal.py
+    year = 2000
+    sector = "cts"
+    energy_carrier = "power"  
+
+    df = disaggregate_temporal(year=year, sector=sector, energy_carrier=energy_carrier)
+    print(df)
+
+elif x == 20:
+    
+    year = 2015
+    consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
+    consumption_data = consumption_data.T.groupby(level=0).sum().T
+
+    daily_temperature_allocation = allocation_temperature(year=year)
+
+    df = disagg_daily_gas_slp_cts(gas_consumption=consumption_data, state="NI", temperatur_df=daily_temperature_allocation, year=year)
+    print(df)
+
 
 else:
     print("x is not 1")
