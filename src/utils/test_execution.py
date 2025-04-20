@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 
 
 
-x = 22
+x = 21
 
 
 if x == 1:
@@ -67,7 +67,7 @@ elif x == 11:
     None
 
 elif x == 12:
-    df = get_consumption_data_future(year=2033)
+    None
 
 elif x == 13:
     df = get_total_gas_industry_self_consuption(2015, force_preprocessing=True)
@@ -96,7 +96,7 @@ elif x == 20: # disagg_daily_gas_slp_cts
     print(df)
 
 elif x == 21:
-    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2015)
+    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2030)
     print(df)
 
 elif x == 22:

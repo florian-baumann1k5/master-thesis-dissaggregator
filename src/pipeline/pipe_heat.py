@@ -42,28 +42,38 @@ def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.Dat
     fuel_switch_projected = projection_fuel_switch_share(df_fuel_switch = df_fuel_switch,
                                                          target_year=year)
 
-    # Stack fuel_switch_projected to create a Series with a MultiIndex (branch, app)
-    # This aligns the scalar multiplication factors with the column structure.
-    # dropna=False can be included if fuel_switch_projected might contain NaNs that should be preserved,
-    # otherwise default dropna=True is usually fine.
+
+    df_gas_switch = pd.DataFrame(index=df_consumption.index,
+                                 columns=df_consumption.columns,
+                                 data=0)
+    
+
+    # 3. Ensure all index and column labels are strings to avoid alignment issues
+    df_consumption.columns = pd.MultiIndex.from_tuples(
+        [(str(b), str(a)) for b, a in df_consumption.columns],
+        names=df_consumption.columns.names
+    )
+    fuel_switch_projected.index = fuel_switch_projected.index.map(str)
+    fuel_switch_projected.columns = fuel_switch_projected.columns.map(str)
+
+    
+    # 5. multiply the fuel switch share with the consumption data
     fs_stacked = fuel_switch_projected.stack(dropna=True)
-
-    # Reindex the stacked Series to match the columns of df_consumption.
-    # This ensures that we only consider (branch, app) pairs present in df_consumption
-    # and assigns a multiplier of 0 to pairs present in df_consumption but not
-    # in fuel_switch_projected, matching the implicit logic of the original loop
-    # and the initialization of df_gas_switch with zeros.
     multiplier_series = fs_stacked.reindex(df_consumption.columns, fill_value=0)
-
-    # Perform the element-wise multiplication using vectorized Pandas operations.
-    # This calculates the final df_gas_switch directly, eliminating the need
-    # for pre-initialization and loops.
     df_gas_switch = df_consumption * multiplier_series
 
-    # Drop columns with all zeros
-    df_gas_switch = df_gas_switch.loc[:, (df_gas_switch != 0).any(axis=0)]
+
+    # 6. Drop columns with all zeros
+    # df_gas_switch = df_gas_switch.loc[:, (df_gas_switch != 0).any(axis=0)]
+    all_zero_cols = df_gas_switch.columns[(df_gas_switch == 0).all(axis=0)]
+    """
+    if len(all_zero_cols) > 0:
+        print("Dropped columns (all zero):")
+        for col in all_zero_cols:
+            print(col)
+    """
+    df_gas_switch = df_gas_switch.drop(columns=all_zero_cols)
 
 
 
-    # TODO: this only works for future consumption data
-    return None
+    return df_gas_switch
