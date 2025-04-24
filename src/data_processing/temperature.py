@@ -1,6 +1,7 @@
 import ast
 import pandas as pd
 import numpy as np
+from datetime import timedelta
 
 from src.configs.mappings import *
 from src.utils.utils import *
@@ -9,7 +10,7 @@ from src.data_processing.normalization import *
 from src.data_access.local_reader import *
 
 
-def allocation_temperature(year: int, force_preprocessing: bool = False):
+def allocation_temperature_by_day(year: int, force_preprocessing: bool = False):
     """
     DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
     old function data.t_allo() -> checked, it is the same output as the new function
@@ -31,7 +32,7 @@ def allocation_temperature(year: int, force_preprocessing: bool = False):
 
     # 1. check if the data is already in the cache
     if not force_preprocessing:
-        daily_temperature_allocation = load_temperature_allocation_cache(year=year)
+        daily_temperature_allocation = load_temperature_allocation_cache(year=year, resolution="day")
 
         if daily_temperature_allocation is not None:
             return daily_temperature_allocation
@@ -69,12 +70,78 @@ def allocation_temperature(year: int, force_preprocessing: bool = False):
 
     # 7. save to cache
     processed_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
-    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year))
+    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year, resolution="day"))
     os.makedirs(processed_dir, exist_ok=True)
     temp_outside_daily_avg.to_csv(processed_file)
 
 
     return temp_outside_daily_avg
+
+
+def allocation_temperature_by_hour(year: int, force_preprocessing: bool = False):
+    """
+    
+    old function data.resample_t_allo() -> checked, it is the same output as the new function
+    Allocate temperature data to a given year.
+
+    Every temp per day is used as the temp for each hour of that day.
+
+    Args:
+        year: int   
+
+    Returns:
+        - a dataframe with the temperature outside in hourly resolution for a given year.
+        - Index is the datetime index hourly
+        - columns are the regional ids
+    """
+
+    # 0. validate input
+    if year < 2000 or year > 2050:
+        raise ValueError(f"Year must be between 2000 and 2050, got {year}")
+    
+
+    # 1. check if the data is already in the cache
+    if not force_preprocessing:
+        hourly_temperature_allocation = load_temperature_allocation_cache(year=year, resolution="hour")
+
+        if hourly_temperature_allocation is not None:
+            return hourly_temperature_allocation
+
+
+    # 2. Get the number of 15-minute intervals in the year (takes into account leap years)
+    periods = get_hours_of_year(year)
+    date = pd.date_range((str(year) + '-01-01'), periods=periods, freq='h')
+
+
+    # 3. Get the temperature outside in hourly resolution for a given year from openffe
+    dayly_temperature_allocation = allocation_temperature_by_day(year=year, force_preprocessing=True)
+
+
+    # 4. Add the last hour of the previous day to the dataframe
+    dayly_temperature_allocation.index = pd.to_datetime(dayly_temperature_allocation.index)
+    last_hour = dayly_temperature_allocation.copy()[-1:]
+    last_hour.index = last_hour.index + timedelta(1)
+    dayly_temperature_allocation = pd.concat([dayly_temperature_allocation, last_hour])
+
+
+    # 5. resample
+    hourly_temperature_allocation = dayly_temperature_allocation.resample('h').ffill()
+    hourly_temperature_allocation = hourly_temperature_allocation[:-1]
+    hourly_temperature_allocation.index = date
+    hourly_temperature_allocation.columns = hourly_temperature_allocation.columns.astype(int)
+
+
+    # 6. save to cache
+    processed_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
+    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year, resolution="hour"))
+    os.makedirs(processed_dir, exist_ok=True)
+    hourly_temperature_allocation.to_csv(processed_file)
+
+
+    return hourly_temperature_allocation
+
+
+
 
 
 def get_temp_outside_hourly_for_regions(year: int):
