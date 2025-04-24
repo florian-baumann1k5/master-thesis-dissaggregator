@@ -4,11 +4,30 @@ from src.data_processing.heat import *
 from src.pipeline.pipe_applications import *
 
 
+
+def temporal_cts_elec_load_from_fuel_switch():
+    """
+    """
+
+    sector = "cts"
+    switch_to = "power"
+    year = 2030
+    state = "BW"
+
+    df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+
+
+    df2 = disagg_temporal_cts_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+
+
+
+    return None
+
+
 def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.DataFrame:
     """
     Determines yearly gas demand per branch and regional id for heat applications
-    that will be replaced by a different fuel in the future.
-    Fuel is specified by parameter 'switch_to'.
+    that will be replaced by power or hydrogen in the future.
 
     Parameters
     ----------
@@ -77,3 +96,36 @@ def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.Dat
 
 
     return df_gas_switch
+
+
+
+def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
+    """
+    """
+
+    # 0. validate inputs
+
+
+
+
+    # 1. create a multicolumn dataframe from the given dataframe and state:
+
+    new_df = make_3level_timeseries(df_gas_switch=df_gas_switch, state=state, year=year)
+    """ new_df is a dataframe with the following columns:
+
+    columns:            ['regional_id', 'industry_sector', 'application']
+    index:              [datetime]: year in 15 min timesteps
+    values:             [float]: 0
+    
+    """
+
+    print(new_df)
+    # 2. 
+
+
+    # get normalized timeseries for temperature dependent and temperature
+    # independent gas demand in CTS
+    heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_cts(detailed=True, state=state, year=year)
+
+    return None
+
