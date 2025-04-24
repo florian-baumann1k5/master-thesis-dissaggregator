@@ -396,7 +396,7 @@ def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
 
 
 # Temperature
-def load_temperature_allocation_cache(year: int) -> pd.DataFrame:
+def load_temperature_allocation_cache(year: int, resolution: str) -> pd.DataFrame:
     """
     Loads the temperature allocation cache for the given year.
     Returns:
@@ -406,7 +406,7 @@ def load_temperature_allocation_cache(year: int) -> pd.DataFrame:
         if not exists, returns None
     """
     cache_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
-    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year))
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year, resolution=resolution))
 
     if not os.path.exists(cache_file):
         return None
