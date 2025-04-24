@@ -19,13 +19,14 @@ from src.data_processing.heat import *
 
 
 
-x = 24
+x = 1
 
 
 if x == 1:
 
     #df1 = load_fuel_switch_share(sector="cts", switch_to="power")
-    df1 = load_decomposition_factors_temperature_industry()
+    df1 = allocation_temperature_by_day(year=2015)
+    df2 = allocation_temperature_by_hour(year=2015)
     print(df1)
 
 elif x == 2:
@@ -90,7 +91,7 @@ elif x == 20: # disagg_daily_gas_slp_cts
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
-    daily_temperature_allocation = allocation_temperature(year=year)
+    daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
     df = disagg_daily_gas_slp_cts(gas_consumption=consumption_data, state="NI", temperatur_df=daily_temperature_allocation, year=year)
     print(df)

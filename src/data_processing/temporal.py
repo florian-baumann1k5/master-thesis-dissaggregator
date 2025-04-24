@@ -180,7 +180,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
 
 
     # 2. get the temperature allocation
-    daily_temperature_allocation = allocation_temperature(year=year)
+    daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
 
     # 3. create a empty dataframe with all regional ids and 15min steps
@@ -950,7 +950,7 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
             Must be one of ['BA', 'BD', 'BH', 'GA', 'GB', 'HA',
                             'KO', 'MF', 'MK', 'PD', 'WA']
         regional_id_list : list of district keys in state e.g. ['11000'] for Berlin
-        temperature_allocation : pd.DataFrame with results from allocation_temperature(year)
+        temperature_allocation : pd.DataFrame with results from allocation_temperature_by_day(year)
         
 
     Returns:
@@ -1015,11 +1015,8 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
     hours_of_year = get_hours_of_year(year)
 
 
-
-
-
     # 2. get the temperature allocation
-    daily_temperature_allocation = allocation_temperature(year=year)
+    daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
 
     # Below 15°C the water heating demand is assumed to be constant
