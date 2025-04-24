@@ -41,7 +41,7 @@ def dict_cts_or_industry_per_industry_sector():
     }
 
 
-def federal_state_dict():
+def federal_state_dict() -> dict:
     """
     Translate the federal state (Bundesland) number to its abbreviation.
     """

@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 
 
 
-x = 21
+x = 24
 
 
 if x == 1:
@@ -79,9 +79,9 @@ elif x == 15:
     df = get_CTS_power_slp(state="BW", year=2015)
 
 elif x == 16:
-    df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
+    #df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
 
-    df = disaggregate_temporal(year=year, sector=sector, energy_carrier=energy_carrier)
+    df = disaggregate_temporal(year=2029, sector="cts", energy_carrier="gas")
     print(df)
 
 elif x == 20: # disagg_daily_gas_slp_cts
@@ -96,11 +96,19 @@ elif x == 20: # disagg_daily_gas_slp_cts
     print(df)
 
 elif x == 21:
-    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2030)
+    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2029)
     print(df)
 
 elif x == 22:
     df = get_consumption_data(energy_carrier="gas", year=2006, force_preprocessing=True)
+    print(df)
+
+elif x == 23:
+    df = temporal_cts_elec_load_from_fuel_switch()
+    print(df)
+
+elif x == 24: # create_heat_norm_cts
+    df = create_heat_norm_cts(state="HH", year=2015)
     print(df)
 
 

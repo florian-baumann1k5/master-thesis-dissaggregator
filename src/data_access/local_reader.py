@@ -334,7 +334,7 @@ def load_disagg_daily_gas_slp_cts_cache(state: str, year: int) -> pd.DataFrame:
 # Heat
 def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
     """
-    Loads the fuel switch share for the given sector and switch_to.
+    Loads the fuel switch share for the given sector and switch_to[power, hydrogen] in the year 2045.
 
     Args:
         sector: str
@@ -378,15 +378,6 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
     return load_profiles
 
-def load_gas_load_profile(profile: str) -> pd.DataFrame:
-    """
-    Loads the gas shift load profile for the given profile/slp.
-    """
-
-    raw_file = f"data/raw/temporal/gas_load_profiles/Lastprofil_{profile}.xls"
-    load_profiles = pd.read_excel(raw_file)
-
-    return load_profiles
 
 def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     """
