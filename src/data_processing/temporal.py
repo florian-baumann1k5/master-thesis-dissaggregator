@@ -155,7 +155,7 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
     return final_df
 
 
-def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
     """
     Disaggregates the temporal distribution of gas consumption for CTS in a given year.
 
@@ -175,8 +175,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
             index: hours of the given year
     """
 
-
-    # 1. get the number of hours in the year
+      # 1. get the number of hours in the year
     hours_of_year = get_hours_of_year(year)
 
 
@@ -184,13 +183,13 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
     daily_temperature_allocation = allocation_temperature(year=year)
 
 
-
+    # 3. create a empty dataframe with all regional ids and 15min steps
     df = pd.DataFrame(0, columns=daily_temperature_allocation.columns,
                     index=pd.date_range((str(year) + '-01-01'),
                                         periods=hours_of_year, freq='h'))
 
-
-    for state in federal_state_dict().values():
+    # 4. iterate over all states
+    for state in state_list:
 
         logger.info(f"Disaggregating gas consumption for state: {state}")
 
@@ -347,90 +346,18 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int) -> pd.Dat
                 df = pd.concat([df, new_cols_df], axis=1)
             df[str(regional_id)] = lk_df.sum(axis=1)
 
+    # 5. drop the regional id consumption columns
     df = df.drop(columns=gv_lk.index.astype(str))
-    df.columns =\
-        pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+
+    # 6. make the columns a multiindex
+    df.columns = pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                     df.columns.str.split('_')])
+    
     return df
 
 
-def disaggregate_temporal_power_CTS2(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
 
 
-    total_consumption_start = consumption_data.sum().sum()
-
-
-    # --- 1. Prepare Mappings & Data ---
-    sector_to_slp = load_profiles_cts_power()
-    state_num_map = federal_state_dict()
-
-    # Assume columns are already appropriate integers or convert directly
-    consumption_data.columns = consumption_data.columns.astype(int)
-
-    # Map regional_id to state abbreviation and group regions by state
-    region_to_state = {rid: state_num_map[rid // 1000] for rid in consumption_data.index}
-    state_to_regions = {}
-    for rid, state in region_to_state.items():
-         state_to_regions.setdefault(state, []).append(rid)
-
-    # --- 2. Initialize ---
-    all_results_series = {}
-    slp_cache = {}
-    timestamps = None
-
-    # --- 3. Process by State ---
-    for state, regions_in_state in state_to_regions.items():
-        # Get SLP data (from cache or generate)
-        if state not in slp_cache:
-            slp_df = get_CTS_power_slp(state, year)
-            slp_cache[state] = slp_df
-            if timestamps is None: # Get timestamps from the first successful load
-                 timestamps = slp_df.index
-        else:
-            slp_df = slp_cache[state]
-
-        # Filter consumption data for this state
-        state_consumption = consumption_data.loc[regions_in_state]
-
-        # --- 4. Iterate through sectors & regions for this state ---
-        for sector in state_consumption.columns:
-            slp_name = sector_to_slp.get(sector) # Use .get() for slight safety
-            if slp_name is None or slp_name not in slp_df.columns:
-                # Skip if mapping or profile column is missing
-                continue
-
-            slp_series = slp_df[slp_name]
-            annual_values = state_consumption[sector] # Series: index=regional_id
-
-            for regional_id, annual_consumption in annual_values.items():
-                # Handle zero/NaN consumption - create zero series
-                if pd.isna(annual_consumption) or annual_consumption == 0:
-                     result_series = pd.Series(0.0, index=timestamps, dtype=float)
-                else:
-                     result_series = slp_series * annual_consumption
-
-                all_results_series[(regional_id, sector)] = result_series
-
-    # --- 5. Combine Results ---
-    if not all_results_series:
-        return pd.DataFrame(index=timestamps) # Return empty DF if nothing was processed
-
-    final_df = pd.concat(all_results_series, axis=1)
-
-    # Set multi-index names and sort
-    final_df.columns = pd.MultiIndex.from_tuples(
-        final_df.columns,
-        names=['regional_id', 'industry_sector']
-    )
-    final_df = final_df.sort_index(axis=1)
-
-
-
-
-    total_consumption_end = final_df.sum().sum()
-    print(f"Total consumption start: {total_consumption_start}, Total consumption end: {total_consumption_end}")
-
-    return final_df
 
 def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame: 
     """
@@ -510,7 +437,7 @@ def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -
     return DF
 
 
-
+# utils
 
 def get_shift_load_profiles_by_state_and_year(state: str, low: float = 0.5, year: int = 2015): 
 
