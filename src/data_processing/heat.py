@@ -1,8 +1,13 @@
 import pandas as pd
 import numpy as np
+
 from src.data_access.local_reader import *
 from src.configs.mappings import *
 from src.data_processing.temporal import *
+from src.data_processing.temperature import *
+
+
+
 def get_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
     """
@@ -153,25 +158,77 @@ def make_3level_timeseries(df_gas_switch: pd.DataFrame, state: str, year: int ) 
 
 def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     """
+    Creates normalised heat demand timeseries for CTS per NUTS-3, and branch
+
+    Args:
+        detailed : bool, default False
+            If True heat demand per branch and disctrict is calculated.
+            Otherwise just the heat demand per district.
+        state : str, default None
+            Specifies state. Only needed if detailed=True. Must by one of the
+            entries of bl_dict().values(),
+            ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
+            'BB', 'MV', 'SN', 'ST', 'TH']
+
+    Returns:
+        heat_norm : pd.DataFrame
+            normalised heat demand
+            index = datetimeindex
+            columns = Districts / (Branches)
+        gas_total : pd.DataFrame
+            total gas consumption
+            index = datetimeindex
+            columns = Districts / (Branches)
+        gas_tempinde : pd.DataFrame
+            gas consumption for temoeratureindependent applications
+            (hot water, process heat, mechanical energy for CTS)
+            index = datetimeindex
+            columns = Districts / (Branches)
     """
+
 
     #1. get the consumption data
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
-    # 2. disaggregate the gas total consumption temporal for one state
+
+    # 2. get total consumption of all applications by regional_id
     state_list = [state]
     gas_total = disagg_temporal_gas_CTS(consumption_data=consumption_data, state_list=state_list, year=year)
 
-    #3. get the gas tempinde
-    gas_tempinde = ( disagg_temporal_gas_CTS_water_by_state(state=state, year=year))
+
+    # 3. get the consumption of ['hot_water', 'mechanical_energy', 'process_heat'] by regional_id
+    gas_tempinde = (disagg_temporal_gas_CTS_water_by_state(state=state, year=year))
     
 
-    # create space heating timeseries: difference between total heat demand
-    # and water heating demand
+    # 4. create space heating timeseries: difference between total heat demand and water heating demand
     heat_norm = (gas_total - gas_tempinde).clip(lower=0)
 
 
+    # 5. get the temperature allocation
+    temp_allo = allocation_temperature_by_hour(year=year)
 
-    return heat_norm
+
+    # 6. clip heat demand above heating threshold
+    heat_total = heat_norm.droplevel(level=1, axis=1)
+    mask = temp_allo[temp_allo > 15].isnull()
+    mask.index = pd.to_datetime(mask.index)
+    mask.columns = mask.columns.astype(int)
+    heat_masked = heat_total[mask]
+    df = heat_masked.fillna(0)
+
+
+    df.columns = heat_norm.columns
+    heat_norm = df.copy()
+
+
+    # 7. normalise (sum per industry sector = 1.0)
+    heat_norm = heat_norm.divide(heat_norm.sum(axis=0), axis=1)
+    heat_norm = heat_norm.fillna(0.0)
+
+    gas_tempinde_norm = gas_tempinde.divide(gas_tempinde.sum(axis=0), axis=1)
+    gas_tempinde_norm = gas_tempinde_norm.fillna(0.0)
+
+
+    return heat_norm, gas_total, gas_tempinde_norm
 
