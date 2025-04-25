@@ -252,14 +252,18 @@ def translate_application_columns_mapping() -> list:
        'WZ': 'industry_sector'
     }
 
-def get_efficiency_level_by_application(key):
+def get_efficiency_level_by_application(application):
     """
+    old fct: get_efficiency_level()
+    
     Returns value for given key from dictionary with efficiencies of
     gas applications.
+
+    Args:
+        application : str
     
-    Returns
-    -------
-    dict
+    Returns:
+        float : efficiency level for given application
 
     """
     eff_gas_dict = {'mechanical_energy': 0.4,
@@ -271,4 +275,7 @@ def get_efficiency_level_by_application(key):
                     'process_heat_above_500C': 0.8,
                     'space_heating': 0.96,
                     'hot_water': 0.96}
-    return eff_gas_dict[key]
+    try:
+        return eff_gas_dict[application]
+    except KeyError:
+        raise ValueError(f"No efficiency level found for application: {application}")

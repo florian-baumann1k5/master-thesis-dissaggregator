@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 
 
 
-x = 1
+x = 23
 
 
 if x == 1:
@@ -109,8 +109,10 @@ elif x == 23:
     print(df)
 
 elif x == 24: # create_heat_norm_cts
-    df = create_heat_norm_cts(state="HH", year=2015)
+    df = create_heat_norm_cts(state="SL", year=2030)
     print(df)
+
+
 
 
 else:

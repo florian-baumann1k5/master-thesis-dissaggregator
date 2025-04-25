@@ -28,7 +28,7 @@ def temporal_cts_elec_load_from_fuel_switch( p_ground=0.36, p_air=0.58, p_water=
     sector = "cts"
     switch_to = "power"
     year = 2030
-    state = "SH"
+    state = "SL"
 
 
     # 0. validate inputs
@@ -44,8 +44,18 @@ def temporal_cts_elec_load_from_fuel_switch( p_ground=0.36, p_air=0.58, p_water=
     df2 = disagg_temporal_cts_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
 
 
-    
+    #3. get efficiency level by application
 
+
+
+
+
+
+
+
+
+
+    print(df2)
 
 
     return None
@@ -202,7 +212,7 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
         )[-3:],
         columns=heat_norm.columns
     )
-    heat_norm = pd.concat([heat_norm, extension]).fillna(method='ffill')
+    heat_norm = pd.concat([heat_norm, extension]).ffill()
 
     heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
 
@@ -218,7 +228,7 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
             freq='15min'
         )[-3:],
         columns=gas_tempinde_norm.columns)
-    gas_tempinde_norm = (pd.concat([gas_tempinde_norm, extension]).fillna(method='ffill'))
+    gas_tempinde_norm = pd.concat([gas_tempinde_norm, extension]).ffill()
 
     gas_tempinde_norm = gas_tempinde_norm.divide(gas_tempinde_norm.sum(), axis=1)
 

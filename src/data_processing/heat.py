@@ -232,3 +232,6 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
 
     return heat_norm, gas_total, gas_tempinde_norm
 
+
+
+

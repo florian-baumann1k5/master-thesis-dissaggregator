@@ -1119,11 +1119,10 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
             temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
             for wz in [k for k, v in load_profiles_cts_gas().items() if v.startswith(slp)]:
                 lk_df[str(regional_id) + '_' + str(wz)] = (tw_df_lk[wz].values
-                                                    * temp_cal['Prozent']
-                                                    .values/100)
+                                                    * temp_cal['Prozent'].values/100)
+                
                 df[str(regional_id) + '_' + str(wz)] = (tw_df_lk[wz].values
-                                                * temp_cal['Prozent']
-                                                .values/100)
+                                                * temp_cal['Prozent'].values/100)
 
 
 
