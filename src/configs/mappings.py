@@ -251,3 +251,24 @@ def translate_application_columns_mapping() -> list:
 
        'WZ': 'industry_sector'
     }
+
+def get_efficiency_level_by_application(key):
+    """
+    Returns value for given key from dictionary with efficiencies of
+    gas applications.
+    
+    Returns
+    -------
+    dict
+
+    """
+    eff_gas_dict = {'mechanical_energy': 0.4,
+                    'non_energetic_use': 0.7,
+                    'process_heat': 0.96,
+                    'process_heat_100_to_200C': 0.9,
+                    'process_heat_200_to_500C': 0.9,
+                    'process_heat_below_100C': 0.96,
+                    'process_heat_above_500C': 0.8,
+                    'space_heating': 0.96,
+                    'hot_water': 0.96}
+    return eff_gas_dict[key]
