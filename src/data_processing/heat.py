@@ -158,7 +158,7 @@ def make_3level_timeseries(df_gas_switch: pd.DataFrame, state: str, year: int ) 
 
 def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     """
-    Creates normalised heat demand timeseries for CTS per NUTS-3, and branch
+    Creates normalised heat demand timeseries for CTS per regional_id, and branch
 
     Args:
         detailed : bool, default False
@@ -173,17 +173,17 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     Returns:
         heat_norm : pd.DataFrame
             normalised heat demand
-            index = datetimeindex
-            columns = Districts / (Branches)
+            index = datetimeindex: hourly
+            columns = [regional_id, industry_sector]
         gas_total : pd.DataFrame
             total gas consumption
-            index = datetimeindex
-            columns = Districts / (Branches)
-        gas_tempinde : pd.DataFrame
+            index = datetimeindex: hourly
+            columns = [regional_id, industry_sector]
+        gas_tempinde_norm : pd.DataFrame
             gas consumption for temoeratureindependent applications
             (hot water, process heat, mechanical energy for CTS)
-            index = datetimeindex
-            columns = Districts / (Branches)
+            index = datetimeindex: hourly
+            columns = [regional_id, industry_sector]
     """
 
 
