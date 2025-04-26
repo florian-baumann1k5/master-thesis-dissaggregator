@@ -16,17 +16,16 @@ from src.data_processing.temperature import *
 from src.pipeline.pipe_temporal import *
 from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
+from src.data_processing.cop import *
 
 
-
-x = 23
+x = 1
 
 
 if x == 1:
 
-    #df1 = load_fuel_switch_share(sector="cts", switch_to="power")
-    df1 = allocation_temperature_by_day(year=2015)
-    df2 = allocation_temperature_by_hour(year=2015)
+
+    df1= cop_ts(year=2050, source="waste heat", delta_t=80)
     print(df1)
 
 elif x == 2:
