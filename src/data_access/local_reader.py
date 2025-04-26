@@ -1,9 +1,13 @@
 import os
 import pandas as pd
 import numpy as np
+from netCDF4 import Dataset
+
 from src import logger
 from src.configs.config_loader import load_config
-from src.utils.utils import translate_application_columns
+from src.utils.utils import translate_application_columns, fix_region_id
+
+
 # UGR data
 def load_preprocessed_ugr_file_if_exists(year: int, force_preprocessing: bool) -> pd.DataFrame | None:
     preprocessed_dir = load_config("base_config.yaml")['preprocessed_dir']
@@ -393,6 +397,33 @@ def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     return file
 
 
+def load_ERA_temperature_data(year: int) -> pd.DataFrame:
+    """
+    Loads the ERA temperature data for the given year.
+    """
+    cache_dir = load_config("base_config.yaml")['era_temperature_data_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['era_temperature_data_cache_file'].format(year=year))
+
+    try:
+        file = Dataset(cache_file, only_use_cftime_datetimes=False,  only_use_python_datetimes=True)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"ERA temperature data for year {year} not found. File not found: {cache_file}")
+        return None
+    
+    return file
+
+
+def load_cop_parameters() -> pd.DataFrame:
+
+    filepath = "data/raw/heat/cop_parameters.csv"
+    try:    
+        data = pd.read_csv(filepath, sep=';', decimal=',', header=0, index_col=0)
+        data.apply(pd.to_numeric, downcast='float')
+    except FileNotFoundError:
+        raise FileNotFoundError(f"COP parameters file not found: {filepath}")
+    
+    return data
+
 
 
 # Temperature
@@ -484,3 +515,28 @@ def get_all_regional_ids() -> pd.DataFrame:
     """
     raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
     return pd.read_csv(raw_file)
+
+
+def load_shapefiles_by_regional_id() -> pd.DataFrame:
+    """
+    Loads the shapefiles for the given year.
+    """
+
+    import shapely.wkt as wkt  # needed for converting strings to MultiPolygons
+    import geopandas as gpd
+
+    raw_file = "data/raw/regional/nuts3_shapefile.csv"
+
+    try:
+        df = pd.read_csv(raw_file)
+    except FileNotFoundError:
+        return None
+
+    # convert strings to MultiPolygons
+    geom = [wkt.loads(mp_str) for mp_str in df.geom_as_text]
+    df = (gpd.GeoDataFrame(df.drop('geom_as_text', axis=1),
+                             crs='EPSG:25832', geometry=geom)
+               .assign(regional_id=lambda x: x.id_ags.apply(fix_region_id))
+               .set_index('regional_id').sort_index(axis=0))
+    
+    return df
