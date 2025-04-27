@@ -162,7 +162,7 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     # and assume that I can use that factor also for gas
     # self gen is only missing for gas, we get the total gas self consumption from JEVI. For power selfgen is already included
     total_gas_self_consuption = get_total_gas_industry_self_consuption(year)
-    consumption_data, factor_power_selfgen, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, load_decomposition_factors_power(), year)
+    consumption_data, factor_power_selfgen, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, load_decomposition_factors_power(), year_for_projection)
 
 
     # 6. fix the industry consumption with iterative approach and resolve consumption to regional_ids
