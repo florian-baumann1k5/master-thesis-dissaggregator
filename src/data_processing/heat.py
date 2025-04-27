@@ -233,5 +233,96 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     return heat_norm, gas_total, gas_tempinde_norm
 
 
+def calculate_tatal_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float, p_air: float, p_water: float) -> pd.DataFrame:
+    """
+    Calculates the total demand for each application in the DataFrame.
 
+    Args:
+        df_temp_gas_switch: pd.DataFrame
+        p_ground: float
+        p_air: float
+        p_water: float
+
+    Returns:
+        pd.DataFrame
+        index: datetimeindex: hourly
+        columns: MultiIndex(levels=[regional_id, industry_sector, application])
+    """
+
+    # 0. validate inputs
+    if p_ground + p_air + p_water != 1:
+        raise ValueError("sum of percentage of ground/air/water heat pumps must be 1")
+    
+
+
+    col = pd.IndexSlice
+
+
+    ## 1. Application: space_heating
+    # 1.1 get efficiency level by application
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application('space_heating'))
+
+    # 1.2 get the COP timeseries for indoor heating --> T=40°C
+    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=40, source='ambient', year=year)
+    assert (air_floor_cop.index.year.unique() == df_heating_switch.index.year.unique()), ("The year of COP ts does not match the year of the heat demand ts")
+
+    # 1.3 calculate the total indoor heating demand
+    df_temp_indoor_heating = (p_ground * (df_heating_switch.div(ground_floor_cop, level=0).fillna(method='ffill'))
+                              + p_air * (df_heating_switch.div(air_floor_cop, level=0).fillna(method='ffill'))
+                              + p_water * (df_heating_switch.div(water_floor_cop, level=0).fillna(method='ffill')))
+    
+
+
+
+    ## 2. Application: hot_water
+    # 2.1 get efficiency level by application
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat']]] * get_efficiency_level_by_application('process_heat'))
+
+    # 2.2 get the COP timeseries for process heating --> T=70°C
+    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=70, source='ambient', year=year)
+
+    # 2.3 calculate the total process heating demand
+    df_temp_process_heat = (p_ground * (df_heating_switch.div(ground_floor_cop, level=0) .fillna(method='ffill'))
+                            + p_air * (df_heating_switch.div(air_floor_cop, level=0).fillna(method='ffill'))
+                            + p_water * (df_heating_switch.div(water_floor_cop, level=0).fillna(method='ffill')))
+    
+
+
+
+    ## 3. Application: hot_water
+    # 3.1 get efficiency level by application
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application('hot_water'))
+
+    # 3.2 get the COP timeseries for warm water  --> T=55°C
+    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=55, source='ambient', year=year)
+
+    # 3.3 calculate the total warm water demand
+    df_temp_warm_water = (p_ground * (df_heating_switch.div(ground_floor_cop, level=0).fillna(method='ffill'))
+                          + p_air * (df_heating_switch.div(air_floor_cop, level=0).fillna(method='ffill'))
+                          + p_water * (df_heating_switch.div(water_floor_cop, level=0).fillna(method='ffill')))
+
+
+
+
+    ## 4. Application: mechanical_energy
+    df_mechanical_switch = ((df_temp_gas_switch
+                                .loc[:, col[:, :, ['mechanical_energy']]]) * (get_efficiency_level_by_application('mechanical_energy') / 0.9))  
+    # HACK! 0.9 = electric motor efficiency
+
+
+
+
+    # 5. add all dataframes together for electric demand per regional_id, industry_sector and application
+    df_temp_elec_from_gas_switch = pd.DataFrame(index=df_temp_gas_switch.index,
+                                                columns=(df_temp_gas_switch.columns),
+                                                data=0)
+    df_temp_elec_from_gas_switch = (df_temp_elec_from_gas_switch
+                                    .add(df_temp_indoor_heating, fill_value=0)
+                                    .add(df_temp_process_heat, fill_value=0)
+                                    .add(df_temp_warm_water, fill_value=0)
+                                    .add(df_mechanical_switch, fill_value=0))
+    
+
+    return df_temp_elec_from_gas_switch
+    
 

@@ -2,10 +2,12 @@ import pandas as pd
 
 from src.data_processing.heat import *
 from src.pipeline.pipe_applications import *
+from src.data_processing.cop import *
 
 
 
-def temporal_cts_elec_load_from_fuel_switch( p_ground=0.36, p_air=0.58, p_water=0.06):
+# CTS:
+def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: str, p_ground=0.36, p_air=0.58, p_water=0.06):
     """
     Converts timeseries of gas demand per NUTS-3 and branch and application to
         electric consumption timeseries. Uses COP timeseries for heat
@@ -24,41 +26,29 @@ def temporal_cts_elec_load_from_fuel_switch( p_ground=0.36, p_air=0.58, p_water=
             SLP for temporal disaggregation of df_gas_switch.
 
     """
-
-    sector = "cts"
-    switch_to = "power"
-    year = 2030
-    state = "SL"
-
-
+    
     # 0. validate inputs
     if p_ground + p_air + p_water != 1:
         raise ValueError("sum of percentage of ground/air/water heat pumps must be 1")
     
+    
 
     # 1. get gas demand for fuel switch
+    sector = "cts"
     df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
 
 
     # 2. disaggregate gas demand for fuel switch
-    df2 = disagg_temporal_cts_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+    df_temp_gas_switch = disagg_temporal_cts_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
 
 
-    #3. get efficiency level by application
+    # 3. calculate total demand
+    df_temp_elec_from_gas_switch = calculate_tatal_demand_cts(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water)
 
+    
 
+    return df_temp_elec_from_gas_switch
 
-
-
-
-
-
-
-
-    print(df2)
-
-
-    return None
 
 
 def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.DataFrame:
@@ -256,3 +246,6 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
 
     return new_df
 
+
+
+# Industry:

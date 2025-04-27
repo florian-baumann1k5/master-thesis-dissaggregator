@@ -347,6 +347,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
             df[str(regional_id)] = lk_df.sum(axis=1)
 
     # 5. drop the regional id consumption columns
+    df.columns = df.columns.astype(str)
     df = df.drop(columns=gv_lk.index.astype(str))
 
     # 6. make the columns a multiindex
@@ -745,6 +746,7 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
     os.makedirs(processed_dir, exist_ok=True)
     combined_slp.to_csv(processed_file)    
 
+
 def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperatur_df: pd.DataFrame, year: int, force_preprocessing: bool = False):
     """
     Disaggregates the daily gas consumption for CTS in a given state and year.
@@ -858,6 +860,8 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
     
 
     # 3. save to cache
+    if df.isna().any().any():
+        raise ValueError("DataFrame contains NaN values")
     processed_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
     os.makedirs(processed_dir, exist_ok=True)
