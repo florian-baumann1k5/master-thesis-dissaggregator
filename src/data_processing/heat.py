@@ -187,7 +187,7 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     """
 
 
-    #1. get the consumption data
+    # 1. get the consumption data
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
@@ -325,4 +325,181 @@ def calculate_tatal_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     return df_temp_elec_from_gas_switch
     
+
+def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.DataFrame:
+    """
+    Creates normalised heat demand timeseries for industry per regional_id, and branch
+    """
+
+
+    #1. get the consumption data
+    consumption_data = disagg_applications_efficiency_factor(sector="industry", energy_carrier="gas", year=year)
+
+
+    # 2. merge the process heat
+    process_columns = [
+        'process_heat_below_100C',
+        'process_heat_100_to_200C',
+        'process_heat_200_to_500C',
+        'process_heat_above_500C'
+    ]
+
+    mask = consumption_data.columns.get_level_values(1).isin(process_columns)
+    process_heat_sum = (consumption_data.loc[:, mask].groupby(level=0, axis=1).sum())
+
+    process_heat_sum.columns = pd.MultiIndex.from_product(
+        [process_heat_sum.columns, ['process_heat']],
+        names=consumption_data.columns.names
+    )
+    consumption_data = consumption_data.drop(columns=consumption_data.columns[mask])
+    consumption_data = pd.concat([consumption_data, process_heat_sum], axis=1).sort_index(axis=1)
+
+
+
+    #2. 
+    col = pd.IndexSlice
+    gv_lk_total = consumption_data.copy()
+    gv_lk_tempinde = consumption_data.loc[:, col[:, ['hot_water', 'mechanical_energy', 'process_heat']]]
+
+
+
+    # 3. get the temperature allocation
+    temp_allo = allocation_temperature_by_day(year=year)
+    # clip at 15 for hot water, below 15°C the water heating demand is assumed
+    # to be constant
+    temperatur_df_clip = temp_allo.clip(15)
+
+
+    # 4. get hours of the year
+    hours_of_year = get_hours_of_year(year)
+
+
+    # 5. 
+    regional_ids = get_regional_ids_by_state(state)
+    
+
+    # 6. new DataFrames for results
+    gas_total = pd.DataFrame(columns=regional_ids, index=pd.date_range((str(year) + '-01-01'), periods=hours_of_year, freq='h'), dtype='float')
+    gas_temp_inde = pd.DataFrame(columns=regional_ids, index=pd.date_range((str(year) + '-01-01'), periods=hours_of_year, freq='h'), dtype='float')
+    
+
+    # 7. get weekday-factors per day
+    F_wd = (gas_slp_weekday_params(state, year=year).set_index('Date')['FW_'+str(slp)]).to_frame()
+    # get h-value per day
+    h_slp = h_value(slp, regional_ids, temp_allo)
+    # get h-value for hot water per day
+    h_slp_water = h_value_water(slp, regional_ids,  temperatur_df_clip)
+
+
+    # 8. multiply h_values and week day values per day
+    tw = pd.DataFrame(np.multiply(h_slp.values, F_wd.values), index=h_slp.index, columns=h_slp.columns.astype(int))
+    tw_water = pd.DataFrame(np.multiply(h_slp_water.values, F_wd.values), index=h_slp_water.index, columns=h_slp_water.columns.astype(int))
+
+
+    # 9. # normalize
+    tw_norm = tw/tw.sum()
+    tw_water_norm = tw_water/tw_water.sum()
+
+
+    #10. set DatetimeIndex and multiply with gas demand per region
+    tw_norm.index = pd.DatetimeIndex(tw_norm.index)
+    tw_water_norm.index = pd.DatetimeIndex(tw_water_norm.index)
+    
+    ts_total = tw_norm.multiply(gv_lk_total.sum(axis=1).loc[regional_ids])
+    ts_water = tw_water_norm.multiply(gv_lk_tempinde.sum(axis=1).loc[regional_ids])
+
+
+
+    # 11. extend by one day because when resampling to hours later, this day is lost otherwise
+    last_day = ts_total.copy()[-1:]
+    last_day.index = last_day.index + timedelta(1)
+    ts_total = pd.concat([ts_total, last_day]).resample('h').ffill()[:-1]
+    # extend tw_water by one day and resample
+    ts_water = pd.concat([ts_water, last_day]).resample('h').ffill()[:-1]
+
+
+    # 12. get temperature dataframe for hourly disaggregation
+    t_allo_df = temp_allo[[i for i in regional_ids]]
+    for col in t_allo_df.columns:
+        t_allo_df[col].values[t_allo_df[col].values < -15] = -15
+        t_allo_df[col].values[(t_allo_df[col].values > -15)
+                              & (t_allo_df[col].values < -10)] = -10
+        t_allo_df[col].values[(t_allo_df[col].values > -10)
+                              & (t_allo_df[col].values < -5)] = -5
+        t_allo_df[col].values[(t_allo_df[col].values > -5)
+                              & (t_allo_df[col].values < 0)] = 0
+        t_allo_df[col].values[(t_allo_df[col].values > 0)
+                              & (t_allo_df[col].values < 5)] = 5
+        t_allo_df[col].values[(t_allo_df[col].values > 5)
+                              & (t_allo_df[col].values < 10)] = 10
+        t_allo_df[col].values[(t_allo_df[col].values > 10)
+                              & (t_allo_df[col].values < 15)] = 15
+        t_allo_df[col].values[(t_allo_df[col].values > 15)
+                              & (t_allo_df[col].values < 20)] = 20
+        t_allo_df[col].values[(t_allo_df[col].values > 20)
+                              & (t_allo_df[col].values < 25)] = 25
+        t_allo_df[col].values[(t_allo_df[col].values > 25)] = 100
+        t_allo_df = t_allo_df.astype('int32')
+    # for tempindependent consumption of ts_water t_allo_df = 100
+    t_allo_water_df = t_allo_df.copy()
+    t_allo_water_df.values[:] = 100 
+
+
+    # 13. rewrite calendar for better data handling later
+    calender_df = (gas_slp_weekday_params(state, year=year)[['Date', 'MO', 'DI', 'MI', 'DO', 'FR', 'SA', 'SO']])
+    # add temperature data to calendar
+    temp_calender_df = (pd.concat([calender_df.reset_index(), t_allo_df.reset_index()], axis=1))
+    temp_calender_water_df = (pd.concat([calender_df.reset_index(), t_allo_water_df.reset_index()], axis=1))
+    # add weekdays to calendar
+    temp_calender_df['Tagestyp'] = 'MO'
+    temp_calender_water_df['Tagestyp'] = 'MO'
+    for typ in ['DI', 'MI', 'DO', 'FR', 'SA', 'SO']:
+        (temp_calender_df.loc[temp_calender_df[typ], 'Tagestyp']) = typ
+        (temp_calender_water_df.loc[temp_calender_water_df[typ], 'Tagestyp']) = typ
+
+
+    # 15. apply gas load profile to total and temperature independent demand
+    def calculate1(temp_cal, regional_id):
+        slp_profil = load_gas_load_profile(slp)
+
+        final_df = pd.DataFrame(columns=regional_ids, index=pd.date_range((str(year) + '-01-01'), periods=hours_of_year, freq='h'), dtype='float')
+
+        temp_cal = temp_cal[['Date', 'Tagestyp', regional_id]].set_index("Date")
+        last_hour = temp_cal.copy()[-1:]
+        last_hour.index = last_hour.index + timedelta(1)
+        temp_cal = pd.concat([temp_cal, last_hour]).resample('h').ffill()[:-1]
+        temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
+        temp_cal = temp_cal.set_index(["Tagestyp", regional_id, 'Stunde'])
+        temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
+
+        final_df[int(regional_id)] = (ts_total[regional_id].values * temp_cal['Prozent'].values/100)
+        return final_df
+
+
+    # 14. iterate over all regions
+    for regional_id in regional_ids:
+
+        gas_total = calculate1(temp_calender_df, regional_id)
+        gas_temp_inde = calculate1(temp_calender_water_df, regional_id)
+
+
+    # 15. create space heating timeseries: difference between total heat demand
+    # and water heating demand
+    heat_norm = (gas_total - gas_temp_inde).clip(lower=0)
+
+
+    # 16. clip heat demand above heating threshold
+    temp_allo = allocation_temperature_by_hour(year=year)[regional_ids]
+    heat_norm = heat_norm[temp_allo[temp_allo > 15].isnull()].fillna(0)
+
+
+    # 17. normalise
+    heat_norm = heat_norm.divide(heat_norm.sum(axis=0), axis=1)
+    gas_tempinde_norm = gas_temp_inde.divide(gas_temp_inde.sum(axis=0), axis=1)
+
+
+    return heat_norm, gas_total, gas_tempinde_norm
+
+
+
 
