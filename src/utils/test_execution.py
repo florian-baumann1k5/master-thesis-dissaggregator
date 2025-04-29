@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-x = 1
+x = 25
 
 
 if x == 1:
@@ -104,14 +104,23 @@ elif x == 22:
     print(df)
 
 elif x == 23:
-    df = temporal_cts_elec_load_from_fuel_switch()
+    switch_to = "power"
+    year = 2025
+    state = "SL"
+    df = temporal_cts_elec_load_from_fuel_switch(year=year, state=state, switch_to=switch_to)
     print(df)
 
-elif x == 24: # create_heat_norm_cts
-    df = create_heat_norm_cts(state="SL", year=2030)
+elif x == 24: # create_heat_norm_cts#
+    df = create_heat_norm_industry(state="SL", year=2030)
     print(df)
 
-
+elif x == 25:
+    switch_to = "power"
+    year = 2025
+    state = "SL"
+    sector = "industry"
+    df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
 
 
 else:
