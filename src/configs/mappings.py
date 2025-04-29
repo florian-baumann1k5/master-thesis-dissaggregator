@@ -250,7 +250,7 @@ def translate_application_columns_mapping() -> list:
        'Energetischer Erdgasverbrauch':         'natural_gas_consumption_energetic',
        'Nichtenergetische Nutzung':             'non_energetic_use',
 
-
+       'Industriekraftwerke':                  'industry_power_plants',
        'WZ': 'industry_sector'
     }
 

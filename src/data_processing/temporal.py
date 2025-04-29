@@ -944,8 +944,7 @@ def gas_slp_weekday_params(state: int, year: int):
 
 def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFrame):
     """
-    Returns h-values depending on allocation temperature  for every
-    district.
+    Returns h-values depending on allocation temperature for every district.
 
     DISS S.80f.
 
@@ -960,6 +959,8 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
     Returns:
         pd.DataFrame
     """
+
+    logger.info(f" calculateing h_value for slp: {slp} and regional_ids: {regional_id_list} ")
 
 
     # filter temperature_df for the given districts
@@ -980,6 +981,7 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
     # calculate h-values for every district and every day
     all_dates_of_the_year = temperature_df_districts.index.to_numpy()
     for district in regional_id_list:
+        logger.info(f"calculateing h_value for district: {district} ")
         for date in all_dates_of_the_year:
             temperature_df_districts.loc[date, district] = ((A / (1 + pow(B / (temperature_df_districts.loc[date, district] - 40), C)) + D)
                                      + max(mH * temperature_df_districts.loc[date, district] + bH, mW * temperature_df_districts.loc[date, district] + bW))
@@ -1237,10 +1239,9 @@ def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: in
     return [df, gv_lk_return]
 
 
-def h_value_water(slp, districts, temperatur_df):
+def h_value_water(slp, regional_id_list, temperatur_df):
     """
-    Returns h-values depending on allocation temperature  for every
-    district.
+    Returns h-values depending on allocation temperature for every district.
 
     Parameter
     -------
@@ -1253,8 +1254,11 @@ def h_value_water(slp, districts, temperatur_df):
     -------
     pd.DataFrame
     """
-
-    temp_df = temperatur_df.copy()[[x for x in districts]]
+    logger.info(f"calculateing h_value_water for slp: {slp} and regional_ids: {regional_id_list} ")
+    
+    temperatur_df.columns = temperatur_df.columns.astype(int)
+    regional_id_list = [int(rid) for rid in regional_id_list]
+    temp_df = temperatur_df.copy()[[x for x in regional_id_list]]
 
 
     # Below 13 °C, the water heating demand is not defined and assumed to stay constant
@@ -1267,9 +1271,9 @@ def h_value_water(slp, districts, temperatur_df):
     mW = par['mW'][slp]
     bW = par['bW'][slp]
 
-    for landkreis in districts:
+    for regional_id in regional_id_list:
         # Vectorized assignment to update the entire column
-        temp_df[landkreis] = D + mW * temp_df[landkreis] + bW
+        temp_df[regional_id] = D + mW * temp_df[regional_id] + bW
     return temp_df
 
 

@@ -209,7 +209,8 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     temp_allo = allocation_temperature_by_hour(year=year)
 
 
-    # 6. clip heat demand above heating threshold
+    # 6. clip heat demand above heating threshold 
+    # DISS Formel 4.15
     heat_total = heat_norm.droplevel(level=1, axis=1)
     mask = temp_allo[temp_allo > 15].isnull()
     mask.index = pd.to_datetime(mask.index)
@@ -334,6 +335,7 @@ def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.Data
 
     #1. get the consumption data
     consumption_data = disagg_applications_efficiency_factor(sector="industry", energy_carrier="gas", year=year)
+    consumption_data.index = consumption_data.index.map(int)
 
 
     # 2. merge the process heat
@@ -459,10 +461,8 @@ def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.Data
 
 
     # 15. apply gas load profile to total and temperature independent demand
-    def calculate1(temp_cal, regional_id):
-        slp_profil = load_gas_load_profile(slp)
-
-        final_df = pd.DataFrame(columns=regional_ids, index=pd.date_range((str(year) + '-01-01'), periods=hours_of_year, freq='h'), dtype='float')
+    def calculate1(temp_cal, regional_id, final_df):
+        logger.info(f"Calculating heat demand for {regional_id}")
 
         temp_cal = temp_cal[['Date', 'Tagestyp', regional_id]].set_index("Date")
         last_hour = temp_cal.copy()[-1:]
@@ -470,17 +470,22 @@ def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.Data
         temp_cal = pd.concat([temp_cal, last_hour]).resample('h').ffill()[:-1]
         temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
         temp_cal = temp_cal.set_index(["Tagestyp", regional_id, 'Stunde'])
-        temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
 
+        slp_profil = load_gas_load_profile(slp)
+        slp_profil = pd.DataFrame(slp_profil.set_index(['Tagestyp', 'Temperatur\nin °C\nkleiner']))
+        slp_profil.columns = pd.to_datetime(slp_profil.columns, format='%H:%M:%S')
+        slp_profil.columns = pd.DatetimeIndex(slp_profil.columns).time
+        slp_profil = slp_profil.stack()
+
+        temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
         final_df[int(regional_id)] = (ts_total[regional_id].values * temp_cal['Prozent'].values/100)
         return final_df
 
 
     # 14. iterate over all regions
     for regional_id in regional_ids:
-
-        gas_total = calculate1(temp_calender_df, regional_id)
-        gas_temp_inde = calculate1(temp_calender_water_df, regional_id)
+        gas_total = calculate1(temp_calender_df, regional_id, gas_total)
+        gas_temp_inde = calculate1(temp_calender_water_df, regional_id, gas_temp_inde)
 
 
     # 15. create space heating timeseries: difference between total heat demand
@@ -489,8 +494,18 @@ def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.Data
 
 
     # 16. clip heat demand above heating threshold
-    temp_allo = allocation_temperature_by_hour(year=year)[regional_ids]
-    heat_norm = heat_norm[temp_allo[temp_allo > 15].isnull()].fillna(0)
+    # DISS Formel 4.15
+    temp_allo_all_regional_ids = allocation_temperature_by_hour(year=year)
+    temp_allo_all_regional_ids.columns = temp_allo_all_regional_ids.columns.map(int)
+    temp_allo_all_regional_ids.index = pd.to_datetime(temp_allo_all_regional_ids.index)
+    temp_allo_all_regional_ids = temp_allo_all_regional_ids[[i for i in regional_ids]]
+
+
+    # set heat demand to 0 if temp_allo_all_regional_ids is higher then 15°C 
+    # = heat_norm_masked = heat_norm[temp_allo_all_regional_ids[temp_allo_all_regional_ids > 15].isnull()].fillna(0)
+    mask = (temp_allo_all_regional_ids < 15)
+    heat_norm_masked = heat_norm.where(mask, other=0)
+    heat_norm = heat_norm_masked
 
 
     # 17. normalise

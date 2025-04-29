@@ -82,6 +82,7 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     """
 
     # 1. load factor_gas_no_selfgen factors
+    logger.info("##### TODO: fix this here. Not for all years the cache is already existing!!!")
     factor_gas_no_selfgen = load_factor_gas_no_selfgen_cache(year)
     factor_gas_selfgen = 1 - factor_gas_no_selfgen
 

@@ -183,7 +183,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
     """
     cache_file = load_config("base_config.yaml")['factor_gas_no_selfgen_cache_file']
     if not os.path.exists(cache_file.format(year=year)):
-        raise FileNotFoundError(f"Factor gas no selfgen cache file for year {year} not found. Run consumption.calculate_self_generation() first.")
+        raise FileNotFoundError(f"Factor gas no selfgen cache file {cache_file.format(year=year)} not found. Run consumption.calculate_self_generation() via get_consumption_data_historical_and_future() first.")
     file = pd.read_csv(cache_file.format(year=year))
     file.set_index('industry_sector', inplace=True)
 

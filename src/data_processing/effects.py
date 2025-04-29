@@ -198,7 +198,7 @@ def apply_activity_driver(consumption: pd.DataFrame, year_dataset: int, year_fut
     """
 
     # Validate Inputs: activity drivers are only available for 2015-2050
-    if year_dataset not in range(2015, 2050) or year_future not in range(2015, 2050):
+    if year_dataset not in range(2015, 2051) or year_future not in range(2015, 2051):
         raise ValueError("year_dataset must be between 2015 and 2050. Use the historical consumption!")
     
     # 2. Get Activity Drivers = Mengeneffekt

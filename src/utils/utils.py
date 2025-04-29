@@ -3,6 +3,7 @@ import pandas as pd
 from ast import literal_eval as lit_eval
 from src.configs.mappings import *
 
+
 def fix_region_id(rid):
     rid = str(rid)
     if len(rid) == 7:
@@ -157,3 +158,35 @@ def group_activity_drivers(df_driver_total, columns):
         new_df['90-99'] = new_df['90-99'] + df_driver_total[i]
 
     return new_df.drop('35', axis=1)
+
+
+def get_regional_ids_by_state(state: str) -> list[int]:
+    """
+    Args:
+        state: two-letter abbreviation of a Bundesland (e.g. 'SH', 'BY', 'NW', etc.)
+
+    Returns:
+        A list of all `regional_id` (as ints) from landkreise_2023.csv
+        whose first digits correspond to that state.
+    """
+    from src.data_access.local_reader import get_all_regional_ids
+
+    # 1. Map abbreviation back to its numeric code
+    inv = {abbr: num for num, abbr in federal_state_dict().items()}
+    state = state.upper()
+    if state not in inv:
+        raise ValueError(f"Unknown state abbreviation: {state!r}")
+
+    code = inv[state]
+
+    # 2. Load the CSV
+    df = get_all_regional_ids()
+
+    # 3. Extract the state-prefix by integer division
+    #    (drops the last three digits)
+    df["state_code"] = df["regional_id"] // 1000
+
+    # 4. Filter and return the full regional_ids
+    mask = df["state_code"] == code
+    return df.loc[mask, "regional_id"].tolist()
+
