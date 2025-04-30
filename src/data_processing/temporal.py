@@ -447,7 +447,7 @@ def get_shift_load_profiles_by_state_and_year(state: str, low: float = 0.5, year
     ('normalized' means that the sum over all time steps equals to one).
 
     DISS 4.4.1
-    = shift_load_profile_generator()
+    old function: shift_load_profile_generator()
 
     Args:
         state : str

@@ -6,6 +6,7 @@ from src.data_processing.cop import *
 
 
 
+
 # CTS:
 def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: str, p_ground=0.36, p_air=0.58, p_water=0.06):
     """
@@ -293,7 +294,7 @@ def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_t
 
 
 
-def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
+def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, low: float = 0.5) -> pd.DataFrame:
     """
     Temporally disaggregates industry gas demand, which will be switched to
     electricity or hydrogen, by state.
@@ -339,74 +340,58 @@ def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str
     heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_industry(state=state, year=year)
 
 
-
-    # 3. heat_norm: transform it into a 15-minute resolution using interpolation and normalize
-    """ interpolation:
-    00:00 → 10.0
-    00:15 → NaN
-    00:30 → NaN
-    00:45 → NaN
-    01:00 → 11.0
-    ->
-    00:00 → 10.0
-    00:15 → 10.25
-    00:30 → 10.5
-    00:45 → 10.75
-    01:00 → 11.0
-    """
-    heat_norm = (heat_norm
-        .resample('15min')
-        .asfreq()
-        .interpolate(method='linear', limit_direction='forward', axis=0)
-    )
-    extension = pd.DataFrame(
-        index=pd.date_range(
-            heat_norm.index[-1:].values[0],
-            periods=4,
-            freq='15min'
-        )[-3:],
-        columns=heat_norm.columns
-    )
-    heat_norm = pd.concat([heat_norm, extension]).ffill()
-
-    heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
+    # 3. get shift load profiles
+    # troughput values for the helper function, used for industrial disagg
+    sp_bl = get_shift_load_profiles_by_state_and_year(state, low, year=year)
 
 
-    # 4.gas_tempinde_norm: transform it into a 15-minute resolution using interpolation and normalize
-    gas_tempinde_norm = (gas_tempinde_norm
-        .resample('15min').asfreq()
-        .interpolate(method='linear', limit_direction='forward', axis=0))
-    extension = pd.DataFrame(
-        index=pd.date_range(gas_tempinde_norm.index[-1:]
-            .values[0],
-            periods=4,
-            freq='15min'
-        )[-3:],
-        columns=gas_tempinde_norm.columns)
-    gas_tempinde_norm = pd.concat([gas_tempinde_norm, extension]).ffill()
+    # 4. create time index
+    time_index_15min = pd.date_range(start=f"{year}", end=f"{year + 1}", freq="15T")[:-1]
 
-    gas_tempinde_norm = gas_tempinde_norm.divide(gas_tempinde_norm.sum(), axis=1)
 
+
+    # 5. get normalized timeseries for temperature dependent gas demand for
+    # industrial indoor heating, approximated with cts indoor heat with gas SLP 'KO'
+    if 'space_heating' in df_gas_switch.columns.unique(level=1):
+        heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_industry(state=state, slp='KO', year=year)
+        # upsample heat_norm to quarter hours and interpolate, then normalize
+        heat_norm = (heat_norm.resample('15T').asfreq().interpolate(method='linear', limit_direction='forward', axis=0))
+        # extend DataFrame by 3 more periods
+        extension = pd.DataFrame(index=pd.date_range(heat_norm.index[-1:].values[0], periods=4, freq='15T')[-3:], columns=heat_norm.columns)
+        heat_norm = pd.concat([heat_norm, extension]).fillna(method='ffill')
+        # normalize
+        heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
+        assert heat_norm.index.equals(time_index_15min), "The time-indizes are not aligned"
+
+
+
+    # start assigning disaggregated demands to columns of new_df by multiplying
+    # shift_load_profiles with yearly demands per region, branch and app
+    assert sp_bl.index.equals(time_index_15min), "The time-indizes are not aligned"
+    # nuts-3 (lk) per state
+
+
+    # 5. get shift load profiles for industry
+    shift_profile_industry_dict = shift_profile_industry()
 
 
     # 5. create temp disaggregated gas demands per nuts-3, branch and app
-    all_regional_ids = new_df.columns.get_level_values(0).unique()
-    for regional_id in all_regional_ids:
+    for regional_id in new_df.columns.get_level_values(0).unique():
 
-        df_switch_region = df_gas_switch.loc[regional_id]
-        for industry_sector in df_switch_region.index.get_level_values(0).unique():
+        for industry_sector in (df_gas_switch.loc[regional_id].index.get_level_values(0).unique()):
             
-            df_switch_branch = df_switch_region.loc[industry_sector]
-            for app in df_switch_branch.index:
+            for app in df_gas_switch.loc[regional_id][industry_sector].index:
 
                 if app == 'space_heating':
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm[regional_id, int(industry_sector)]))
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm[regional_id]))
                 else:
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (gas_tempinde_norm[regional_id, int(industry_sector)]))
+                    new_df.loc[:, (regional_id, industry_sector, app)] = (df_gas_switch.loc[regional_id][industry_sector, app] * sp_bl[shift_profile_industry_dict[int(industry_sector)]])
         
 
-    # 6. drop all columns that have only nan values
-    new_df.dropna(axis=1, how='all', inplace=True)
+    # drop all columns with only zeros
+    new_df = new_df.loc[:, (new_df != 0).any(axis=0)]
+    # drop all columns that have only nan values
+    new_df = new_df.dropna(axis=1, how='all')
 
 
     return new_df
