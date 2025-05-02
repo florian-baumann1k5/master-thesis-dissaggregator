@@ -41,9 +41,9 @@ def cop_ts(sink_t: float = 40, source: str = 'ambient', delta_t: float = None, c
     """
 
     # 0. validate input
-    if source not in ['ambient', 'waste heat']:
-       raise ValueError("'source' needs to be in ['ambient', 'waste heat'].")
-    if source == "waste heat":
+    if source not in ['ambient', 'waste_heat']:
+       raise ValueError("'source' needs to be in ['ambient', 'waste_heat'].")
+    if source == "waste_heat":
         assert isinstance(delta_t, (int, float)), ("'delta_t' needs to be a number.")
     
 
@@ -119,15 +119,13 @@ def cop_ts(sink_t: float = 40, source: str = 'ambient', delta_t: float = None, c
     else:
         
         # temperature difference between source and sink
-        delta_t = pd.DataFrame(index=ground_t.index,
-                               columns=ground_t.columns,
-                               data=delta_t)
+        delta_t = pd.DataFrame(index=ground_t.index, columns=ground_t.columns, data=delta_t)
         # create cop timeseries based on temperature difference between source
         # and sink. use regression function from Arpagaus et al. (2018)
         # "Review - High temperature heat pumps: Market overview, state of
         #  the art, research Status, refrigerants, and application potentials",
         # Energy, 2018
-        high_temp_hp_cop = 68.455*(delta_t.pow(-0.76))
+        high_temp_hp_cop = 68.455 * (delta_t.pow(-0.76))
 
         high_temp_hp_cop.columns = high_temp_hp_cop.columns.astype(int)
 

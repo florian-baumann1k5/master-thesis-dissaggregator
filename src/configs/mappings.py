@@ -251,7 +251,7 @@ def translate_application_columns_mapping() -> list:
        'Nichtenergetische Nutzung':             'non_energetic_use',
 
        'Industriekraftwerke':                  'industry_power_plants',
-       'WZ': 'industry_sector'
+       'WZ':                                    'industry_sector'
     }
 
 def get_efficiency_level_by_application(application):

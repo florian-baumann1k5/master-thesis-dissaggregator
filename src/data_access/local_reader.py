@@ -356,7 +356,8 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
         "industry": {
             "power":    "Gas2Power industry 2045",
             "hydrogen": "Gas2Hydrogen industry 2045",
-        },
+            "electrode": "Gas2Power industry electrode",
+        }
     }
     PATH = 'data/raw/heat/fuel_switch_keys.xlsx'
 
@@ -376,12 +377,6 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
 
 # Pipeline caches
-
-    raw_file = f"data/raw/temporal/power_load_profiles/39_VDEW_Strom_Repräsentative_Profile_{profile}.xlsx"
-    load_profiles = pd.read_excel(raw_file)
-
-    return load_profiles
-
 
 def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     """
@@ -423,6 +418,8 @@ def load_cop_parameters() -> pd.DataFrame:
         raise FileNotFoundError(f"COP parameters file not found: {filepath}")
     
     return data
+
+
 
 
 

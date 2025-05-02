@@ -5,6 +5,7 @@ from src.data_access.local_reader import *
 from src.configs.mappings import *
 from src.data_processing.temporal import *
 from src.data_processing.temperature import *
+from src.data_processing.cop import *
 
 
 
@@ -234,7 +235,7 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     return heat_norm, gas_total, gas_tempinde_norm
 
 
-def calculate_tatal_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float, p_air: float, p_water: float) -> pd.DataFrame:
+def calculate_tatal_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float, p_air: float, p_water: float, year: int) -> pd.DataFrame:
     """
     Calculates the total demand for each application in the DataFrame.
 
@@ -516,5 +517,11 @@ def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.Data
     return heat_norm, gas_total, gas_tempinde_norm
 
 
+def calculate_tatal_demand_industry(df_temp_gas_switch: pd.DataFrame, state: str, year: int, low: float = 0.5) -> pd.DataFrame:
+    """
+    Calculates the total demand for industry per regional_id, and branch
+    """
 
+
+    return None
 
