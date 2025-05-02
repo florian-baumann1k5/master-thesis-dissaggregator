@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-x = 25
+x = 26
 
 
 if x == 1:
@@ -115,13 +115,22 @@ elif x == 24: # create_heat_norm_cts#
     print(df)
 
 elif x == 25:
-    switch_to = "power"
-    year = 2025
+    switch_to = "hydrogen"
+    year = 2030
     state = "SL"
     sector = "industry"
-    df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
-    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
 
+    #df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+    #df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+    #print(df_gas_switch)
+    df_gas_switch = temporal_industry_elec_load_from_fuel_switch(state=state, switch_to=switch_to, year=year)
+
+
+elif x == 26:
+    year = 2030
+    state = "SL"
+    df = hydrogen(year=year)
+    print(df)
 
 else:
     print("x is not 1")
