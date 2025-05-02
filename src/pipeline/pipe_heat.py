@@ -44,85 +44,11 @@ def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: st
 
 
     # 3. calculate total demand
-    df_temp_elec_from_gas_switch = calculate_tatal_demand_cts(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water, year=year)
+    df_temp_elec_from_gas_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water, year=year)
 
     
 
     return df_temp_elec_from_gas_switch
-
-
-def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.DataFrame:
-    """
-    Determines yearly gas demand per branch and regional id for heat applications
-    that will be replaced by power or hydrogen in the future.
-
-    Args:
-        sector : str
-            must be one of ['cts', 'industry']
-        switch_to: str
-            must be one of ['power', 'hydrogen']
-
-    Returns:
-        pd.DataFrame:
-            index: regional_id
-            columns: [industry_sector, application]
-            values: gas demand that needs to be replaced by power or hydrogen
-
-    """
-
-    # 0. validate inputs
-    if sector not in ['cts', 'industry']:
-        raise ValueError(f"Invalid sector: {sector}")
-    if switch_to not in ['power', 'hydrogen']:
-        raise ValueError(f"Invalid switch_to: {switch_to}")
-
-
-    # 1. load consumption data by application and wz and region
-    df_consumption = disagg_applications_efficiency_factor(year=year, energy_carrier="gas", sector=sector)
-
-
-    # 1. load data
-    df_fuel_switch = get_fuel_switch_share(sector=sector, switch_to=switch_to)
-
-
-    # 2. project fuel switch share to year
-    fuel_switch_projected = projection_fuel_switch_share(df_fuel_switch = df_fuel_switch,
-                                                         target_year=year)
-
-
-    df_gas_switch = pd.DataFrame(index=df_consumption.index,
-                                 columns=df_consumption.columns,
-                                 data=0)
-    
-
-    # 3. Ensure all index and column labels are strings to avoid alignment issues
-    df_consumption.columns = pd.MultiIndex.from_tuples(
-        [(str(b), str(a)) for b, a in df_consumption.columns],
-        names=df_consumption.columns.names
-    )
-    fuel_switch_projected.index = fuel_switch_projected.index.map(str)
-    fuel_switch_projected.columns = fuel_switch_projected.columns.map(str)
-
-    
-    # 5. multiply the fuel switch share with the consumption data
-    fs_stacked = fuel_switch_projected.stack(dropna=True)
-    multiplier_series = fs_stacked.reindex(df_consumption.columns, fill_value=0)
-    df_gas_switch = df_consumption * multiplier_series
-
-
-    # 6. Drop columns with all zeros
-    # df_gas_switch = df_gas_switch.loc[:, (df_gas_switch != 0).any(axis=0)]
-    all_zero_cols = df_gas_switch.columns[(df_gas_switch == 0).all(axis=0)]
-    """
-    if len(all_zero_cols) > 0:
-        print("Dropped columns (all zero):")
-        for col in all_zero_cols:
-            print(col)
-    """
-    df_gas_switch = df_gas_switch.drop(columns=all_zero_cols)
-
-
-    return df_gas_switch
 
 
 def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
@@ -247,6 +173,7 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
 
 
 
+
 # Industry:
 def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_to: str, p_ground=0.36, p_air=0.58, p_water=0.06):
     """
@@ -283,174 +210,20 @@ def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_t
     df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
 
 
-    
-
-
     # 4. load fuel switch share for power electrode
     df_electrode = load_fuel_switch_share(sector="industry", switch_to="electrode")
     df_electrode = (df_electrode.loc[[isinstance(x, int) for x in df_electrode["industry_sector"]]].set_index("industry_sector").copy())
     df_electrode.index = df_electrode.index.astype(str)
 
 
-
     # 3. calculate total demand
-    #df_temp_elec_from_gas_switch = calculate_tatal_demand_industry(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water)
+    df_temp_elec_from_gas_switch = calculate_total_demand_industry(df_temp_gas_switch=df_temp_gas_switch, year=year, p_ground=p_ground, p_air=p_air, p_water=p_water, df_electrode=df_electrode)
 
 
-
-
-    # 4. create index slicer for data selection
-    col = pd.IndexSlice
-
-    # create new DataFrame for results
-    df_temp_elec_from_gas_switch = pd.DataFrame(index=df_temp_gas_switch.index, columns=(df_temp_gas_switch.columns), data=0)
-
-
-
-    ## 1. Application: space_heating = get the COP timeseries for indoor heating --> T=40°C
+    # Drop columns with all zeros
+    df_temp_elec_from_gas_switch = df_temp_elec_from_gas_switch.loc[:, (df_temp_elec_from_gas_switch != 0).any(axis=0)]
     
-    # 1.1 load COP timeseries
-    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=40, source='ambient', year=year)
-    # assert that the years of COP TS and year of df_temp are aligned
-    assert (air_floor_cop.index.year.unique() == df_temp_gas_switch.index.year.unique()), ("The year of COP ts does not match the year of the heat demand ts")
-
-    # select indoor heating demand to be converted to electric demand with cop.
-    # use efficiency to convert from gas to heat.
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application('space_heating'))
-    df_temp_hp_heating = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
-                          + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
-                          + p_water * (df_hp_heat.div(water_floor_cop, level=0).fillna(method='ffill')))
-    
-
-
-
-    ## 2. Application2: process_heat
-    # = get the COP timeseries for low temperature process heat --> T=80°C
-    
-    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=80, source='ambient', year=year)
-    # select low temperature heat to be converted to electric demand with cop
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat_below_100C']]] * get_efficiency_level_by_application('process_heat_below_100C'))
-    df_temp_hp_low_heat = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
-                           + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
-                           + p_water * (df_hp_heat.div(water_floor_cop, level=0).fillna(method='ffill')))
-
-
-
-
-    ## 3 Application: process_heat_100_to_200C
-    
-    #  get the COP timeseries for high temperature process heat
-    # Use 2 heat pumps to reach this high temperature level
-    # 3.1: 1st stage: T_sink = 60°C
-    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=60, source='ambient', year=year)
-    # select heat demand to be converted to electric demand with cop
-    """ 
-    TODO FLO hier ist iwio ein bug df_hp_heat = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] * get_efficiency_level_by_application('process_heat_100_to_200C')).multiply((1-df_electrode['process_heat_100_to_200C']), axis=1, level=1))
-    """
-
-    # Extract the relevant temperature-based gas switch data
-    df_selected = df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]]
-
-    # Get efficiency level for that application
-    efficiency = get_efficiency_level_by_application('process_heat_100_to_200C')
-
-    # Apply efficiency to energy demand
-    df_scaled = df_selected * efficiency
-
-    # Reduce by the electrode share
-    df_hp_heat = df_scaled.multiply(1 - df_electrode['process_heat_100_to_200C'], axis=1, level=1)
-
-
-
-
-    df_temp_hp_medium_heat_stage1 = (p_ground * (df_hp_heat .div(ground_floor_cop, level=0).fillna(method='ffill'))
-                                     + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
-                                     + p_water * (df_hp_heat.div(water_floor_cop, level=0).fillna(method='ffill')))
-    # 3.2: 2nd stage: use heat from first stage
-    # T_sink = 120°C, T_source = 60°C delta_T = 60°C
-    high_temp_hp_cop = cop_ts(source='waste_heat', delta_t=60, year=year)
-    high_temp_hp_cop = high_temp_hp_cop[0]
-    # select heat to be converted to electric demand with cop
-    df_temp_hp_medium_heat_stage2 = (df_hp_heat.div(high_temp_hp_cop, level=0).fillna(method='ffill'))
-    # add energy consumption of both stages
-    df_temp_hp_medium_heat = (df_temp_hp_medium_heat_stage1.add(df_temp_hp_medium_heat_stage2,  fill_value=0))
-
-
-
-
-    ## 4. Application: process_heat_200_to_500C
-    
-    # calculate electric demand for electrode heaters
-    df_electrode_switch_200 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] 
-                                * get_efficiency_level_by_application('process_heat_100_to_200C'))
-                           .multiply((df_electrode['process_heat_100_to_200C']),  axis=1, level=1) 
-                           / 0.98)  # HACK! 0.98 = electrode heater efficiency
-    
-    df_electrode_switch_500 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_200_to_500C']]]
-                                * get_efficiency_level_by_application('process_heat_200_to_500C'))
-                               .multiply((df_electrode['process_heat_200_to_500C']), axis=1, level=1)
-                               / 0.98)  # HACK! 0.98 = electrode heater efficiency
-    df_electrode_switch = df_electrode_switch_200.join(df_electrode_switch_500)
-
-
-
-
-    ## 5. Application: warm_water
-
-    # get the COP timeseries for warm water  --> T=55°C
-    air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=55, source='ambient', year=year)
-
-    # select warm water heat to be converted to electric demand with cop
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application('hot_water'))
-    df_temp_warm_water = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
-                          + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
-                          + p_water * (df_hp_heat.div(water_floor_cop, level=0).fillna(method='ffill')))
-
-
-
-
-
-    ## 6. Application: mechanical_energy
-    #  select Mechanical Energy
-    df_mechanical_switch = ((df_temp_gas_switch.loc[:, col[:, :, ['mechanical_energy']]])
-                            * (get_efficiency_level_by_application('mechanical_energy')
-                            / 0.9))  # HACK! 0.9 = electric motor efficiency
-
-
-
-
-
-
-
-    # add all dataframes together for electric demand per nuts3, branch and app
-    # Check for NaN values in each dataframe before adding them
-    dataframes_to_check = [
-        df_temp_elec_from_gas_switch, df_temp_hp_heating, df_temp_hp_low_heat,
-        df_temp_hp_medium_heat, df_temp_warm_water, df_mechanical_switch, df_electrode_switch
-    ]
-    
-    for i, df in enumerate(dataframes_to_check):
-        if df.isna().any().any():
-            print(f"Warning: NaN values found in dataframe {i} before addition")
-    
-    # Add all dataframes together for electric demand per nuts3, branch and app
-    df_temp_elec_from_gas_switch = (df_temp_elec_from_gas_switch
-                                    .add(df_temp_hp_heating, fill_value=0)
-                                    .add(df_temp_hp_low_heat, fill_value=0)
-                                    .add(df_temp_hp_medium_heat, fill_value=0)
-                                    .add(df_temp_warm_water, fill_value=0)
-                                    .add(df_mechanical_switch, fill_value=0)
-                                    .add(df_electrode_switch, fill_value=0))
-    
-    # Verify no NaN values in final result
-    if df_temp_elec_from_gas_switch.isna().any().any():
-        print("Warning: NaN values found in final combined dataframe")
-    
-
-    return df_temp_elec_from_gas_switch, df_temp_hp_medium_heat, df_electrode_switch
-
-
-
+    return df_temp_elec_from_gas_switch
 
 
 def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, low: float = 0.5) -> pd.DataFrame:
@@ -512,7 +285,6 @@ def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str
     # 5. get normalized timeseries for temperature dependent gas demand for
     # industrial indoor heating, approximated with cts indoor heat with gas SLP 'KO'
     if 'space_heating' in df_gas_switch.columns.unique(level=1):
-        heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_industry(state=state, slp='KO', year=year)
         # upsample heat_norm to quarter hours and interpolate, then normalize
         heat_norm = (heat_norm.resample('15T').asfreq().interpolate(method='linear', limit_direction='forward', axis=0))
         # extend DataFrame by 3 more periods
@@ -549,8 +321,7 @@ def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str
 
     # drop all columns with only zeros
     new_df = new_df.loc[:, (new_df != 0).any(axis=0)]
-    # drop all columns that have only nan values
-    new_df = new_df.dropna(axis=1, how='all')
+
 
 
     return new_df
@@ -558,4 +329,94 @@ def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str
 
 
 
+# hydrogen after switch
+def hydrogen(year: int) -> pd.DataFrame:
+    """
+    Determines hydrogen consumption to replace gas consumption.
+    """
     
+    df_gas_switch = sector_fuel_switch_fom_gas(sector="industry", switch_to="hydrogen", year=year)
+
+    df_hydro = hydrogen_after_switch(df_gas_switch=df_gas_switch)
+
+    # Remove columns with only zeros
+    df_hydro = df_hydro.loc[:, (df_hydro != 0).any(axis=0)]
+    return df_hydro
+
+
+
+
+
+# calculate the gas that has to be switched
+def sector_fuel_switch_fom_gas(sector: str, switch_to: str, year: int) -> pd.DataFrame:
+    """
+    Determines yearly gas demand per branch and regional id for heat applications
+    that will be replaced by power or hydrogen in the future.
+
+    Args:
+        sector : str
+            must be one of ['cts', 'industry']
+        switch_to: str
+            must be one of ['power', 'hydrogen']
+
+    Returns:
+        pd.DataFrame:
+            index: regional_id
+            columns: [industry_sector, application]
+            values: gas demand that needs to be replaced by power or hydrogen
+
+    """
+
+    # 0. validate inputs
+    if sector not in ['cts', 'industry']:
+        raise ValueError(f"Invalid sector: {sector}")
+    if switch_to not in ['power', 'hydrogen']:
+        raise ValueError(f"Invalid switch_to: {switch_to}")
+
+
+    # 1. load consumption data by application and wz and region
+    df_consumption = disagg_applications_efficiency_factor(year=year, energy_carrier="gas", sector=sector)
+
+
+    # 1. load data
+    df_fuel_switch = get_fuel_switch_share(sector=sector, switch_to=switch_to)
+
+
+    # 2. project fuel switch share to year
+    fuel_switch_projected = projection_fuel_switch_share(df_fuel_switch = df_fuel_switch,
+                                                         target_year=year)
+
+
+    df_gas_switch = pd.DataFrame(index=df_consumption.index,
+                                 columns=df_consumption.columns,
+                                 data=0)
+    
+
+    # 3. Ensure all index and column labels are strings to avoid alignment issues
+    df_consumption.columns = pd.MultiIndex.from_tuples(
+        [(str(b), str(a)) for b, a in df_consumption.columns],
+        names=df_consumption.columns.names
+    )
+    fuel_switch_projected.index = fuel_switch_projected.index.map(str)
+    fuel_switch_projected.columns = fuel_switch_projected.columns.map(str)
+
+    
+    # 5. multiply the fuel switch share with the consumption data
+    fs_stacked = fuel_switch_projected.stack(dropna=True)
+    multiplier_series = fs_stacked.reindex(df_consumption.columns, fill_value=0)
+    df_gas_switch = df_consumption * multiplier_series
+
+
+    # 6. Drop columns with all zeros
+    # df_gas_switch = df_gas_switch.loc[:, (df_gas_switch != 0).any(axis=0)]
+    #all_zero_cols = df_gas_switch.columns[(df_gas_switch == 0).all(axis=0)]
+    """
+    if len(all_zero_cols) > 0:
+        print("Dropped columns (all zero):")
+        for col in all_zero_cols:
+            print(col)
+    """
+    #df_gas_switch = df_gas_switch.drop(columns=all_zero_cols)
+
+
+    return df_gas_switch
