@@ -530,3 +530,63 @@ def load_shapefiles_by_regional_id() -> pd.DataFrame:
                .set_index('regional_id').sort_index(axis=0))
     
     return df
+
+
+# Electric Vehicles
+def load_registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Loads the registered electric vehicles by regional id for the given year.
+    From the Kraftfahrt-Bundesamt: https://www.kba.de/DE/Statistik/Produktkatalog/produkte/Fahrzeuge/fz1_b_uebersicht.html
+    Normalised to 399 regional_ids
+
+    Args:
+        year: int
+
+    Returns:
+        pd.DataFrame:
+            - index: regional_id (int)
+            - columns: number_of_registered_evs (int)
+    """
+    raw_file = f"data/raw/electric_vehicles/registered_evs_by_regional_id/registered_evs_{year}.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Registered electric vehicles by regional id for year {year} not found. File not found: {raw_file}")
+    
+
+    df = pd.read_csv(raw_file, dtype=str)
+
+    # Remove the dot in 'number_of_registered_evs' and convert to int
+    df['number_of_registered_evs'] = df['number_of_registered_evs'].str.replace('.', '', regex=False).astype(int)
+    # Convert 'regional_id' to int
+    df['regional_id'] = df['regional_id'].astype(int)
+
+    # Set 'regional_id' as the index
+    df.set_index('regional_id', inplace=True)
+    return df
+
+def load_avg_km_by_car() -> pd.DataFrame:
+    """
+    Loads the average km by car for 2003-2023 in germany.
+    Source: https://de.statista.com/statistik/daten/studie/251743/umfrage/durchschnittliche-fahrleistung-von-personenkraftwagen-in-deutschland/
+    with data from the "Deutsche Automobil Treuhand (DAT) Report"s
+
+    """
+    raw_file = "data/raw/electric_vehicles/avg_km_by_car.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Average km by car not found. File not found: {raw_file}")
+    
+    df = pd.read_csv(raw_file)
+
+    # Convert to int
+    df['year'] = df['year'].astype(int)
+    df['avg_km_per_ev'] = df['avg_km_per_ev'].astype(int)
+
+    df.set_index('year', inplace=True)
+
+    
+    return df
+
+
+
+
