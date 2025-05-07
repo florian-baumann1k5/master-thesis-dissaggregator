@@ -21,7 +21,6 @@ def load_raw_ugr_data() -> pd.DataFrame:
     raw_file = load_config("base_config.yaml")['ugr_genisis_data_file'] 
     return pd.read_csv(raw_file, delimiter=';')
 
-
 def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this a config function
     raw_file = "src/configs/genisis_wz_dict.csv"
     return pd.read_csv(raw_file)
@@ -375,9 +374,6 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
     return df
 
-
-# Pipeline caches
-
 def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     """
     Loads the shift load profiles for the given year. 
@@ -390,7 +386,6 @@ def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
         return None
     file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
     return file
-
 
 def load_ERA_temperature_data(year: int) -> pd.DataFrame:
     """
@@ -406,7 +401,6 @@ def load_ERA_temperature_data(year: int) -> pd.DataFrame:
         return None
     
     return file
-
 
 def load_cop_parameters() -> pd.DataFrame:
 
@@ -512,7 +506,6 @@ def get_all_regional_ids() -> pd.DataFrame:
     """
     raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
     return pd.read_csv(raw_file)
-
 
 def load_shapefiles_by_regional_id() -> pd.DataFrame:
     """
