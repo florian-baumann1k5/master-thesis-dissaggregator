@@ -29,6 +29,7 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
         consumption_disaggregate_temporal = load_consumption_disaggregate_temporal_cache(sector=sector, energy_carrier=energy_carrier, year=year)
 
         if consumption_disaggregate_temporal is not None:
+            logger.info(f"Loading from cache: disaggregate_temporal(sector={sector}, energy_carrier={energy_carrier}, year={year})")
             return consumption_disaggregate_temporal
 
 

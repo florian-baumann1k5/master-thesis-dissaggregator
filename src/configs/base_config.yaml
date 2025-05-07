@@ -44,7 +44,10 @@ disagg_daily_gas_slp_cts_cache_dir: "data/processed/temporal/disagg_daily_gas_sl
 
 
 # Temperature
-temperature_allocation_cache_file: "daily_temperature_allocation_{year}.csv"
+temperature_allocation_cache_file: "temperature_allocation_{year}_by_{resolution}.csv"
 temperature_allocation_cache_dir: "data/processed/temperature/temperature_allocation"
 
 
+# Heat
+era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
+era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"

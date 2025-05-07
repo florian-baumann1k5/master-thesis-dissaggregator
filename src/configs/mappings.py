@@ -16,11 +16,13 @@ def wz_dict():
             60: '64-66', 61: '68', 62: '69-75', 63: '77-82', 64: '84',
             65: '85', 66: '86-88', 67: '90-99'}
 
+
 def industry_sector_groups():
     """
     Returns a unique list of industry sector groups. (48 groups)
     """
     return list(set(wz_dict().values()))
+
 
 def dict_cts_or_industry_per_industry_sector():
     """
@@ -39,7 +41,7 @@ def dict_cts_or_industry_per_industry_sector():
     }
 
 
-def federal_state_dict():
+def federal_state_dict() -> dict:
     """
     Translate the federal state (Bundesland) number to its abbreviation.
     """
@@ -61,8 +63,6 @@ def shift_profile_industry():
             27: 'S2_WT_SA', 28: 'S2_WT', 29: 'S3_WT', 30: 'S3_WT_SA_SO',
             31: 'S1_WT_SA', 32: 'S3_WT_SA_SO', 33: 'S2_WT_SA'}
 
-
-
 def hist_weather_year():
     """
     Assign temperature data of a historical year to a future year.
@@ -78,6 +78,8 @@ def hist_weather_year():
             2040: 2012, 2041: 2017, 2042: 2018, 2043: 2007, 2044: 2008,
             2045: 2009, 2046: 2010, 2047: 2011, 2048: 2012, 2049: 2013,
             2050: 2014}
+
+
 
 
 def gas_load_profile_parameters_dict():
@@ -221,3 +223,61 @@ def load_profiles_cts_power():
             81: 'L0', 82: 'G0', 84: 'G1', 85: 'G1', 86: 'G3', 87: 'G2',
             88: 'H0', 90: 'G0', 91: 'G0', 92: 'G2', 93: 'G2', 94: 'G6',
             95: 'G4', 96: 'G1', 97: 'H0', 98: 'H0', 99: 'G1'}
+
+# Translation
+def translate_application_columns_mapping() -> list:
+    return {
+       # power decomposition
+       'Beleuchtung':                           'lighting',
+       'IKT':                                   'information_communication_technology',
+       'Klimakälte':                            'space_cooling',
+       'Prozesskälte':                          'process_cooling',
+       'Mechanische Energie':                   'mechanical_energy',
+       'Prozesswärme':                          'process_heat',
+       'Raumwärme':                             'space_heating',
+       'Warmwasser':                            'hot_water',
+       'Strom Netzbezug':                       'electricity_grid',
+       'Strom Eigenerzeugung':                  'electricity_self_generation',
+
+       # temperature‑industry decomposition
+       'Prozesswärme <100°C':                   'process_heat_below_100C',
+       'Prozesswärme 100°C-200°C':              'process_heat_100_to_200C',
+       'Prozesswärme 200°C-500°C':              'process_heat_200_to_500C',
+       'Prozesswärme >500°C':                   'process_heat_above_500C',
+
+       # gas decomposition
+       'Anteil Erdgas am Verbrauch aller Gase': 'share_natural_gas_total_gas',
+       'Energetischer Erdgasverbrauch':         'natural_gas_consumption_energetic',
+       'Nichtenergetische Nutzung':             'non_energetic_use',
+
+       'Industriekraftwerke':                  'industry_power_plants',
+       'WZ':                                    'industry_sector'
+    }
+
+def get_efficiency_level_by_application(application):
+    """
+    old fct: get_efficiency_level()
+    
+    Returns value for given key from dictionary with efficiencies of
+    gas applications.
+
+    Args:
+        application : str
+    
+    Returns:
+        float : efficiency level for given application
+
+    """
+    eff_gas_dict = {'mechanical_energy': 0.4,
+                    'non_energetic_use': 0.7,
+                    'process_heat': 0.96,
+                    'process_heat_100_to_200C': 0.9,
+                    'process_heat_200_to_500C': 0.9,
+                    'process_heat_below_100C': 0.96,
+                    'process_heat_above_500C': 0.8,
+                    'space_heating': 0.96,
+                    'hot_water': 0.96}
+    try:
+        return eff_gas_dict[application]
+    except KeyError:
+        raise ValueError(f"No efficiency level found for application: {application}")

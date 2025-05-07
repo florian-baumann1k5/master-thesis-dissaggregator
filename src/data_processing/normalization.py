@@ -130,3 +130,20 @@ def normalize_region_ids_columns(df, dataset_year, target_year=None):
     df = df.groupby(level=0, axis=1).sum()
 
     return df
+
+
+def normalize_region_ids_average(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    This function only is applied in cop_ts().
+
+    merging the two columns 16063 and 16056 into one column built by averaging the two.
+
+    The data input is from the year 2019 -> 401 regional_ids. but we are now working with 400 regional_ids (year 2021 ff).
+    """
+    
+    
+    df[16063] = (df[16063] + df[16056]) / 2
+    df = df.drop(columns=[16056])
+
+
+    return df

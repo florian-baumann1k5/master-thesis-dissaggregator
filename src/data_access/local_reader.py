@@ -1,7 +1,12 @@
 import os
 import pandas as pd
+import numpy as np
+from netCDF4 import Dataset
+
 from src import logger
 from src.configs.config_loader import load_config
+from src.utils.utils import translate_application_columns, fix_region_id
+
 
 # UGR data
 def load_preprocessed_ugr_file_if_exists(year: int, force_preprocessing: bool) -> pd.DataFrame | None:
@@ -59,8 +64,7 @@ def load_decomposition_factors_power() -> pd.DataFrame:
     Returns:
         pd.DataFrame:
             - index:   industry_sectors (88 unique industry_sectors)
-            - columns: ['Beleuchtung', 'IKT', 'Klimakälte', 'Prozesskälte', 'Mechanische Energie', 'Prozesswärme', 'Raumwärme', 'Warmwasser',
-                        'Strom Netzbezug', 'Strom Eigenerzeugung']
+            - columns: [<applications>]
     """
     # File path (using your helper function)
     file_path = "data/raw/dimensionless/decomposition_factors.xlsx"
@@ -77,23 +81,12 @@ def load_decomposition_factors_power() -> pd.DataFrame:
         
     # Fill missing values for industry_sector 35:
     # First, for 'Strom Eigenerzeugung' missing values become 0
-    df_decom_power['Strom Eigenerzeugung'].fillna(0, inplace=True)
+    df_decom_power['Strom Eigenerzeugung'] = df_decom_power['Strom Eigenerzeugung'].fillna(0)
     # Then fill any remaining missing values with 1
     df_decom_power.fillna(1, inplace=True)
 
-    # rename the columns
-    df_decom_power = df_decom_power.rename(columns={
-        'Beleuchtung': 'lighting',
-        'IKT': 'information_communication_technology',
-        'Klimakälte': 'space_cooling',
-        'Prozesskälte': 'process_cooling',
-        'Mechanische Energie': 'mechanical_energy',
-        'Prozesswärme': 'process_heat',
-        'Raumwärme': 'space_heating',
-        'Warmwasser': 'hot_water',
-        'Strom Netzbezug': 'electricity_grid',
-        'Strom Eigenerzeugung': 'electricity_self_generation'
-    })
+    # translate the columns
+    df_decom_power = translate_application_columns(df_decom_power)
     
     return df_decom_power
 
@@ -125,15 +118,7 @@ def load_decomposition_factors_gas() -> pd.DataFrame:
     df_decom_gas.index.name = 'industry_sectors'
 
     # rename the columns
-    df_decom_gas = df_decom_gas.rename(columns={
-        'Anteil Erdgas am Verbrauch aller Gase': 'share_natural_gas_total_gas',
-        'Energetischer Erdgasverbrauch': 'natural_gas_consumption_energetic',
-        'Nichtenergetische Nutzung': 'non_energetic_use',
-        'Mechanische Energie': 'mechanical_energy',
-        'Prozesswärme': 'process_heat',
-        'Raumwärme': 'space_heating',
-        'Warmwasser': 'hot_water'
-    })
+    df_decom_gas = translate_application_columns(df_decom_gas)
         
 
     return df_decom_gas
@@ -159,14 +144,9 @@ def load_decomposition_factors_temperature_industry() -> pd.DataFrame:
 
     # rename the index to industry_sectors
     df_decom_temp_industry.index.name = 'industry_sectors'
-    
-    # rename the columns
-    df_decom_temp_industry = df_decom_temp_industry.rename(columns={
-        'Prozesswärme <100°C': 'process_heat_below_100C',
-        'Prozesswärme 100°C-200°C': 'process_heat_100_to_200C',
-        'Prozesswärme 200°C-500°C': 'process_heat_200_to_500C',
-        'Prozesswärme >500°C': 'process_heat_above_500C'
-    })
+
+    # translate the columns
+    df_decom_temp_industry = translate_application_columns(df_decom_temp_industry)
     
     return df_decom_temp_industry
 
@@ -203,7 +183,7 @@ def load_factor_gas_no_selfgen_cache(year: int) -> pd.DataFrame:
     """
     cache_file = load_config("base_config.yaml")['factor_gas_no_selfgen_cache_file']
     if not os.path.exists(cache_file.format(year=year)):
-        raise FileNotFoundError(f"Factor gas no selfgen cache file for year {year} not found. Run consumption.calculate_self_generation() first.")
+        raise FileNotFoundError(f"Factor gas no selfgen cache file {cache_file.format(year=year)} not found. Run consumption.calculate_self_generation() via get_consumption_data_historical_and_future() first.")
     file = pd.read_csv(cache_file.format(year=year))
     file.set_index('industry_sector', inplace=True)
 
@@ -355,6 +335,130 @@ def load_disagg_daily_gas_slp_cts_cache(state: str, year: int) -> pd.DataFrame:
     return file
 
     
+# Heat
+def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
+    """
+    Loads the fuel switch share for the given sector and switch_to[power, hydrogen] in the year 2045.
+
+    Args:
+        sector: str
+        switch_to: str
+
+    Returns:
+        pd.DataFrame:
+            - index: WZ
+    """
+
+    SHEET = {
+        "cts": {
+            "power": "Gas2Power CTS 2045",
+        },
+        "industry": {
+            "power":    "Gas2Power industry 2045",
+            "hydrogen": "Gas2Hydrogen industry 2045",
+            "electrode": "Gas2Power industry electrode",
+        }
+    }
+    PATH = 'data/raw/heat/fuel_switch_keys.xlsx'
+
+
+    try:
+        sheet_name = SHEET[sector][switch_to]
+    except KeyError:
+        raise ValueError(
+            f"`switch_to` must be one of {list(SHEET[sector])} for '{sector}'"
+        )
+
+    df = pd.read_excel(PATH, sheet_name=sheet_name, skiprows=1)
+    
+    df = translate_application_columns(df)
+
+    return df
+
+
+# Pipeline caches
+
+def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
+    """
+    Loads the shift load profiles for the given year. 
+    Returns a Multicolumn dataframe: [state, shift_load_profile]
+    """
+    cache_dir = load_config("base_config.yaml")['shift_load_profiles_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+
+def load_ERA_temperature_data(year: int) -> pd.DataFrame:
+    """
+    Loads the ERA temperature data for the given year.
+    """
+    cache_dir = load_config("base_config.yaml")['era_temperature_data_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['era_temperature_data_cache_file'].format(year=year))
+
+    try:
+        file = Dataset(cache_file, only_use_cftime_datetimes=False,  only_use_python_datetimes=True)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"ERA temperature data for year {year} not found. File not found: {cache_file}")
+        return None
+    
+    return file
+
+
+def load_cop_parameters() -> pd.DataFrame:
+
+    filepath = "data/raw/heat/cop_parameters.csv"
+    try:    
+        data = pd.read_csv(filepath, sep=';', decimal=',', header=0, index_col=0)
+        data.apply(pd.to_numeric, downcast='float')
+    except FileNotFoundError:
+        raise FileNotFoundError(f"COP parameters file not found: {filepath}")
+    
+    return data
+
+
+
+
+
+# Temperature
+def load_temperature_allocation_cache(year: int, resolution: str) -> pd.DataFrame:
+    """
+    Loads the temperature allocation cache for the given year.
+    Returns:
+        pd.DataFrame:
+            - index: regional_id
+            - columns: temperature per day for a given year
+        if not exists, returns None
+    """
+    cache_dir = load_config("base_config.yaml")['temperature_allocation_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temperature_allocation_cache_file'].format(year=year, resolution=resolution))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, index_col=0)
+    return file
+
+def load_disagg_daily_gas_slp_cts_cache(state: str, year: int) -> pd.DataFrame:
+    """
+    Loads the disaggregated daily gas shift load profiles for the given state and year.
+
+    Returns:
+        pd.DataFrame:
+            MultiIndex columns: [regional_id, industry_sector]
+            index: days of the year
+    """
+    cache_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
+
+    if not os.path.exists(cache_file):
+        return None
+    file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
+    return file
+
+    
 
 # Pipeline caches
 def load_consumption_data_cache(year: int, energy_carrier: str) -> pd.DataFrame:
@@ -408,3 +512,28 @@ def get_all_regional_ids() -> pd.DataFrame:
     """
     raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
     return pd.read_csv(raw_file)
+
+
+def load_shapefiles_by_regional_id() -> pd.DataFrame:
+    """
+    Loads the shapefiles for the given year.
+    """
+
+    import shapely.wkt as wkt  # needed for converting strings to MultiPolygons
+    import geopandas as gpd
+
+    raw_file = "data/raw/regional/nuts3_shapefile.csv"
+
+    try:
+        df = pd.read_csv(raw_file)
+    except FileNotFoundError:
+        return None
+
+    # convert strings to MultiPolygons
+    geom = [wkt.loads(mp_str) for mp_str in df.geom_as_text]
+    df = (gpd.GeoDataFrame(df.drop('geom_as_text', axis=1),
+                             crs='EPSG:25832', geometry=geom)
+               .assign(regional_id=lambda x: x.id_ags.apply(fix_region_id))
+               .set_index('regional_id').sort_index(axis=0))
+    
+    return df

@@ -14,16 +14,18 @@ from src.data_processing.application import *
 from src.data_processing.temporal import *
 from src.data_processing.temperature import *
 from src.pipeline.pipe_temporal import *
+from src.pipeline.pipe_heat import *
+from src.data_processing.heat import *
+from src.data_processing.cop import *
 
 
-
-
-x = 19
+x = 26
 
 
 if x == 1:
 
-    df1 = gas_slp_weekday_params(state="BW", year=2015)
+
+    df1= cop_ts(year=2050, source="waste heat", delta_t=80)
     print(df1)
 
 elif x == 2:
@@ -62,10 +64,10 @@ elif x == 10:
     df = get_consumption_data(year=2018, energy_carrier="gas")
 
 elif x == 11:
-    df = project_consumption(year_dataset=2015, year_future=2033)
+    None
 
 elif x == 12:
-    df = get_consumption_data_future(year=2033)
+    None
 
 elif x == 13:
     df = get_total_gas_industry_self_consuption(2015, force_preprocessing=True)
@@ -77,33 +79,58 @@ elif x == 15:
     df = get_CTS_power_slp(state="BW", year=2015)
 
 elif x == 16:
-    df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
+    #df = disaggregate_temporal_industry(energy_carrier="power", year=2015)
 
-elif x == 17:
-    df = apply_efficiency_factor(consumption_data=None,sector="industry", energy_carrier="gas", year=2015)
-
-elif x == 18:
-    df = allocation_temperature(year=2030)
-
-elif x == 19: # pipe_temporal.py
-    year = 2000
-    sector = "cts"
-    energy_carrier = "power"  
-
-    df = disaggregate_temporal(year=year, sector=sector, energy_carrier=energy_carrier)
+    df = disaggregate_temporal(year=2029, sector="cts", energy_carrier="gas")
     print(df)
 
-elif x == 20:
+elif x == 20: # disagg_daily_gas_slp_cts
     
     year = 2015
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
-    daily_temperature_allocation = allocation_temperature(year=year)
+    daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
     df = disagg_daily_gas_slp_cts(gas_consumption=consumption_data, state="NI", temperatur_df=daily_temperature_allocation, year=year)
     print(df)
 
+elif x == 21:
+    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2029)
+    print(df)
+
+elif x == 22:
+    df = get_consumption_data(energy_carrier="gas", year=2006, force_preprocessing=True)
+    print(df)
+
+elif x == 23:
+    switch_to = "power"
+    year = 2025
+    state = "SL"
+    df = temporal_cts_elec_load_from_fuel_switch(year=year, state=state, switch_to=switch_to)
+    print(df)
+
+elif x == 24: # create_heat_norm_cts#
+    df = create_heat_norm_industry(state="SL", year=2030)
+    print(df)
+
+elif x == 25:
+    switch_to = "hydrogen"
+    year = 2030
+    state = "SL"
+    sector = "industry"
+
+    #df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+    #df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+    #print(df_gas_switch)
+    df_gas_switch = temporal_industry_elec_load_from_fuel_switch(state=state, switch_to=switch_to, year=year)
+
+
+elif x == 26:
+    year = 2030
+    state = "SL"
+    df = hydrogen(year=year)
+    print(df)
 
 else:
     print("x is not 1")
