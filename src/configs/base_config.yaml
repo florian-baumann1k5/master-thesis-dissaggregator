@@ -51,3 +51,7 @@ temperature_allocation_cache_dir: "data/processed/temperature/temperature_alloca
 # Heat
 era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
 era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"
+
+
+# Electric Vehicles
+last_year_existing_registration_data: 2024

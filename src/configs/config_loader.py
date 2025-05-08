@@ -2,7 +2,7 @@ import os
 import yaml
 
 
-def load_config(config_filename: str) -> dict:
+def load_config(config_filename: str = "base_config.yaml") -> dict:
     """
     Load a YAML configuration file from the configs folder and return it as a dictionary.
 
