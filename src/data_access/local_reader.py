@@ -587,6 +587,15 @@ def load_avg_km_by_car() -> pd.DataFrame:
     
     return df
 
+def load_future_ev_stock_s2() -> pd.DataFrame:
+    """
+    Loads the future ev stock szenarios for 2025-2045 in Mio.
 
+    """
+    raw_file = "data/raw/electric_vehicles/predicted_evs_s2.csv"
 
+    df = pd.read_csv(raw_file)
+    df['year'] = df['year'].astype(int)
+    df.set_index('year', inplace=True)
+    return df
 

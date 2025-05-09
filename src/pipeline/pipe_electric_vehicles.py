@@ -46,6 +46,7 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     return ev_consumption 
 
 
+
 def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     """
     xxx
@@ -65,29 +66,74 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
     # 2. calculate the new number of electric vehicles in the year
     # political target: 15mio electric vehicles by 2030
-    number_of_evs = ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
+    number_of_evs = s1_future_ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
 
 
     # 3. dissaggregate the total consumption into region_ids
-    # 3.1 get normalized ev distribution by region
-    ev_distribution_by_region = normalized_ev_distribution_by_region(year=LAST_YEAR_EXISTING_DATA)
-
-    # 3.2 get the number of evs by region for the given future year
-    number_of_evs_by_region = number_of_evs * ev_distribution_by_region
-    # rename the column "ev_share" to "number_of_evs"
-    number_of_evs_by_region = number_of_evs_by_region.rename(columns={"ev_share": "number_of_registered_evs"})
+    number_of_evs_by_region = regional_dissaggregation_evs(evs_germany=number_of_evs)
 
 
 
-    # 3. load consumption data
+    # 4. load consumption data
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
 
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
-    # 3. calculate the consumption
+    # 5. calculate the consumption
     ev_consumption = calculate_electric_vehicle_consumption(number_of_registered_evs=number_of_evs_by_region, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
     return ev_consumption
+
+
+def future_2_electric_vehicle_consumption(year: int, szenario: str) -> pd.DataFrame:
+    """
+    xxx
+
+    Predicted EV market penetration based on different szenarios.
+
+    Args:
+        year: int
+            Year to load the data for
+        szenario: str
+            Szenario to load the data for [trend,ambit,regio]
+
+    Returns:
+        pd.DataFrame: DataFrame with the registered electric vehicles by regional id for the given year
+            Columns:
+                - regional_id: int
+                    The regional id
+                - number_of_registered_evs: float
+                    The number of registered electric vehicles
+    """
+
+    # 0. validate input
+    if year < LAST_YEAR_EXISTING_DATA or year > 2045:
+        raise ValueError("Year must be between 2000 and 2050, year is " + str(year))
+    if szenario not in ["ambit", "trend", "regio"]:
+        raise ValueError("Szenario must be in ['ambit', 'trend', 'regio']")
+    
+    
+    # 1. calculate the new number of electric vehicles in the year
+    # political target: 15mio electric vehicles (E-autos, nicht LKW) by 2030
+    number_of_evs = s2_future_ev_stock(year=year, szenario=szenario)
+
+
+    # 2. dissaggregate the total consumption into region_ids
+    number_of_evs_by_region = regional_dissaggregation_evs(evs_germany=number_of_evs)
+
+
+    # 3. load consumption data
+    avg_km_per_ev = calculate_avg_km_by_car(year=year)
+    avg_mwh_per_km = calculate_avg_mwh_per_km()
+
+
+    # 4. calculate the consumption
+    ev_consumption = calculate_electric_vehicle_consumption(number_of_registered_evs=number_of_evs_by_region, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
+
+
+
+    return ev_consumption
+
 
 

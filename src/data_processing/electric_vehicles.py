@@ -114,7 +114,7 @@ def calculate_existing_ev_stock(year: int) -> int:
     return existing_ev_stock
 
 
-def ev_stock_15mio_by_2030(year,
+def s1_future_ev_stock_15mio_by_2030(year,
              baseline_year=2025,
              baseline_ev=1.6e6,
              total_stock=49e6):
@@ -162,13 +162,12 @@ def ev_stock_15mio_by_2030(year,
         return EV_GOAL + (total_stock - EV_GOAL) * (year - YEAR_Goal) / (YEAR_FINAL - YEAR_Goal)
 
 
-def normalized_ev_distribution_by_region(year: int) -> pd.DataFrame:
+def normalized_ev_distribution_by_region() -> pd.DataFrame:
     """
     Load the normalized number of electric vehicles distribution by region for the given year.
 
     Args:
-        year: int
-            Year to load the data for
+        -
 
     Returns:
         pd.DataFrame
@@ -179,6 +178,7 @@ def normalized_ev_distribution_by_region(year: int) -> pd.DataFrame:
                 - ev_share: float
                     The share of electric vehicles in the region
     """
+    year = load_config()["last_year_existing_registration_data"]
 
     # 1. load total number of registered electric vehicles by region
     evs_by_region = registered_electric_vehicles_by_regional_id(year=year)
@@ -197,4 +197,78 @@ def normalized_ev_distribution_by_region(year: int) -> pd.DataFrame:
     return ev_share_by_region
 
 
+def s2_future_ev_stock(year: int, szenario: str) -> pd.DataFrame:
+    """
+    Load the future ev stock for the given year and szenario.
 
+    Args:
+        year: int
+            Year to load the data for
+        szenario: str
+            Szenario to load the data for
+
+    Returns:
+        float
+    """
+
+    # 1. load data
+    data = load_future_ev_stock_s2()
+
+    # 3. validate scenario
+    scenarios = data.columns.tolist()
+    if szenario not in scenarios:
+        raise ValueError(f"Szenario must be one of {scenarios} but is {szenario!r}")
+    
+    # 4. validate year bounds
+    start_year = data.index.min()
+    end_year = data.index.max()
+    if year < start_year or year > end_year:
+        raise ValueError(f"Year must be between {start_year} and {end_year} but is {year}")
+    
+    # 5. reindex to every year & interpolate by index (i.e. by the year values)
+    full_index = pd.RangeIndex(start_year, end_year + 1, name=data.index.name or "year")
+    annual_df = (
+        data
+        .reindex(full_index)            # insert missing years
+        .interpolate(method="index")    # linear interpolation weighted by year gaps
+    )
+    
+   # 6. extract the single-year, single-scenario result
+    annual_ev_stock = annual_df.at[year, szenario]
+
+
+    return annual_ev_stock
+
+
+def regional_dissaggregation_evs(evs_germany:pd.DataFrame) -> pd.DataFrame:
+    """
+    Dissaggregate the total number of electric vehicles in Germany to the regional level.
+
+    Args:
+        evs_germany: float
+        
+
+    Returns:
+        pd.DataFrame
+            index: regional_id
+            columns: number_of_registered_evs per region
+    """
+    
+    # 1. get the normalized regional distribution of EVs 
+    ev_distribution_by_region = normalized_ev_distribution_by_region()
+
+
+    # 2. get the number of evs by region for the given future year
+    number_of_evs_by_region = evs_germany * ev_distribution_by_region
+
+    # 3. rename the column "ev_share" to "number_of_evs"
+    number_of_evs_by_region = number_of_evs_by_region.rename(columns={"ev_share": "number_of_registered_evs"})
+
+
+    # 4. validation
+    if not np.isclose(number_of_evs_by_region.sum(), evs_germany):
+        raise ValueError("The sum of the evs by region is not equal to the total number of evs in Germany")
+
+
+    return number_of_evs_by_region
+    
