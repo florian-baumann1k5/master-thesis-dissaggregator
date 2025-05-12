@@ -7,6 +7,7 @@ from src import logger
 # used to project consumption data and employees
 
 # apply_efficiency_factor = Effizienzeffekt
+# apply_activity_driver = Mengeneffekt (= project consumption data into the future)
 
 def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_carrier: str, year: int) -> pd.DataFrame: #TODO: add petrol
     """

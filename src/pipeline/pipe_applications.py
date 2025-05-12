@@ -15,8 +15,8 @@ disagg_applications_efficiency_factor()
 def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame: #TODO
     """
     equals spacial.disagg_applications_eff() in old code
-    TODO: currently it just uses the employees as coinsumption since iterative regional dissaggregation is not implemented yet
 
+    Takes the current consumption data and dissaggragates it for applications and applies efficiency enhancement factors
     
 
     Args:

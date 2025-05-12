@@ -8,7 +8,7 @@ from src.data_processing.effects import *
 # Pipeline functions combining the data_processing functions to generate wanted the data
 
 
-# main function (with cache)
+# main function with cache and energy carrier
 def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Get consumption data for a specific year.
@@ -165,20 +165,15 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     consumption_data, factor_power_selfgen, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, load_decomposition_factors_power(), year_for_projection)
 
 
-    # 6. fix the industry consumption with iterative approach and resolve consumption to regional_ids
+    # 6. fix the industry consumption with iterative approach and dissaggregate the consumption to regional_ids
     # get regional energy consumption from JEVI
     regional_energy_consumption_jevi = get_regional_energy_consumption(year)
 
 
     # 7. calculate the regional energy consumption iteratively
-    """
-    !!! using "calculate_regional_energy_consumption" would be the cleaner and more efficient approach, but for now we are using the old dissaggregator approch
-    consumption_data_power = calculate_regional_energy_consumption(consumption_data, 'power', year, regional_energy_consumption_jevi, employees)
-    consumption_data_gas = calculate_regional_energy_consumption(consumption_data.loc[:, 'gas[MWh]'], year, regional_energy_consumption_jevi, employees)
-    consumption_data_petrol = calculate_regional_energy_consumption(consumption_data.loc[:, 'petrol[MWh]'], year, regional_energy_consumption_jevi, employees)
-    """
     # the old dissaggregator approach: returns the total consumption for power, gas and petrol per regional_id and industry_sector
     consumption_data_power, consumption_data_gas = calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr=consumption_data, regional_energy_consumption_jevi=regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids=employees)
+    
     consumption_data_power.index.name = 'industry_sector'
     consumption_data_gas.index.name = 'industry_sector'
     consumption_data_power.columns.name = 'regional_id'

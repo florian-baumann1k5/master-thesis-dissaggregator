@@ -19,13 +19,13 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-x = 26
+x = 1
 
 
 if x == 1:
 
 
-    df1= cop_ts(year=2050, source="waste heat", delta_t=80)
+    df1= load_decomposition_factors_temperature_industry()
     print(df1)
 
 elif x == 2:

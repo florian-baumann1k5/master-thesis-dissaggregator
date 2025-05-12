@@ -584,10 +584,12 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     spez_gv.columns = spez_gv.columns.astype(int)
     spez_gv.rename(columns={0: 'spez. GV'}, inplace=True)
     spez_gv = spez_gv.sort_index().sort_index(axis=1)
+
     spez_sv =  pd.DataFrame(sector_energy_consumption_ugr['power_incl_selfgen[MWh]']  / total_employees_per_sector)
     spez_sv.columns = spez_sv.columns.astype(int)
     spez_sv.rename(columns={0: 'spez. SV'}, inplace=True)
     spez_sv = spez_sv.sort_index().sort_index(axis=1)
+
 
     # UGR data total
     df_ec = pd.DataFrame({
@@ -600,8 +602,8 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
 
 
 
-    #1. calculate the specific demand per industry sector and regional_id
-    # this is the old dissaggregator code
+    ##### calculate the specific demand per industry sector and regional_id with the old dissaggregator code #####
+
 
     # ======= START DATA PREPARATION =======
     # build dataframe with absolute elec and gas demand per district,

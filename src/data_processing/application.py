@@ -226,7 +226,6 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         pd.DataFrame: Application dissaggregation factors
     """
 
-    # 1. load decomposition factors and validate inputs
     if energy_carrier == "gas" and sector == "industry":
         decomp_temp = load_decomposition_factors_temperature_industry()
         decomp_gas = load_decomposition_factors_gas()
