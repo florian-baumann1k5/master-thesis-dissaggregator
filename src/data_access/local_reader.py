@@ -599,3 +599,32 @@ def load_future_ev_stock_s2() -> pd.DataFrame:
     df.set_index('year', inplace=True)
     return df
 
+def load_historical_vehicle_consumption_ugr_by_energy_carrier() -> pd.DataFrame:
+    """
+    Loads the historical ev stock for the given year.
+    
+    Source it the UGR Table "85521-15: Energieverbrauch im Straßenverkehr, Energieträger in tiefer Gliederung, Deutschland, 2014 bis 2022"
+
+    Data needs to be preprocessed to be in the correct format and cannot be copied 1:1 from the UGR:
+        - add seperator ";"
+        - replace comma with dot for decimal conversion
+
+    Args:
+        -
+
+    Returns:
+        pd.DataFrame:
+            - index: year
+            - columns: ev_consumption (int)
+    """
+    raw_file = f"data/raw/electric_vehicles/ugr_85521-15_priv_households_energy_carrier_mobility.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Historical ev stock not found. File not found: {raw_file}")
+    
+
+    df = pd.read_csv(raw_file, sep=';')
+
+    return df
+    
+

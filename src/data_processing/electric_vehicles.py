@@ -277,14 +277,178 @@ def regional_dissaggregation_evs(evs_germany:pd.DataFrame) -> pd.DataFrame:
     return number_of_evs_by_region
     
 
+# S3
+FIRST_YEAR_EXISTING_DATA_UGR = load_config()["first_year_existing_fuel_consumption_ugr"]
+LAST_YEAR_EXISTING_DATA_UGR = load_config()["last_year_existing_fuel_consumption_ugr"]
 
-def historival_ev_stock_ugr(year: int) -> pd.DataFrame:
+def get_historical_vehicle_consumption_ugr_by_energy_carrier(year: int) -> pd.DataFrame:
     """
-    Load the historical ev stock for the given year.
+    Returns a DataFrame with the energy consumption of private households by energy carrier for a given year.
+
+    Data is sourced from the UGR Table "85521-15: Energieverbrauch im Straßenverkehr, Energieträger in tiefer Gliederung, Deutschland, 2014 bis 2022"
+
+    Args:
+        year (int): The year for which to return the data.
+
+    Returns:
+        pd.DataFrame: 
+            - index: year
+            - columns: energy carriers [petrol[mwh], diesel[mwh], natural_gas[mwh], liquefied_petroleum_gas[mwh], bioethanol[mwh], biodiesel[mwh], biogas[mwh], power[mwh]] 
+            - values: consumption in MWh
     """
 
-    # 1. load data
-    df = load_historical_ev_stock_ugr(year=year)
+    
+
+    # 0. validate year - must be between 2014 and 2022
+    if year < FIRST_YEAR_EXISTING_DATA_UGR or year > LAST_YEAR_EXISTING_DATA_UGR:
+        raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_UGR} and {LAST_YEAR_EXISTING_DATA_UGR} but is {year}")
+
+    # 1. Load the raw data
+    df = load_historical_vehicle_consumption_ugr_by_energy_carrier()
+
+
+    # 2. Filter for private households and allowed energy carriers
+    df = df[df["Merkmal_1"] == "Private Haushalte"]
+
+
+    # 3. Convert consumption from TJ to MWh
+    # Replace comma with dot for decimal conversion, then convert to float
+    df["Wert"] = df["Wert"].astype(float) * 1000 / 3.6
+
+
+    # 4. Map German energy carrier names to English
+    carrier_map = {
+        "Benzin": "petrol[mwh]",
+        "Bioethanol": "bioethanol[mwh]",
+        "Diesel": "diesel[mwh]",
+        "Biodiesel": "biodiesel[mwh]",
+        "Erdgas": "natural_gas[mwh]",
+        "Flüssiggas (Autogas)": "liquefied_petroleum_gas[mwh]",
+        "Biogas (Biomethan)": "biogas[mwh]",
+        "Strom": "power[mwh]"
+    }
+    df = df[df["Merkmal_2"].isin(carrier_map.keys())]
+    df["energy_carrier"] = df["Merkmal_2"].map(carrier_map)
+
+
+    # 5. Pivot the table (all years in index)
+    result = df.pivot_table(
+        index="Jahr",
+        columns="energy_carrier",
+        values="Wert",
+        aggfunc="first"
+    )
+    # Ensure the index is named 'year' and is of type int
+    result.index.name = "year"
+    result.index = result.index.astype(int)
+
+    # 6. Filter for the requested year after pivoting
+    if year not in result.index:
+        raise ValueError(f"Year {year} not found in the data.")
+    result = result.loc[[year]]
+
+
+    return result
+
+
+
+def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: int = 2045, force_preprocessing: bool = False) -> pd.DataFrame:
+    """
+    Returns a DataFrame with the energy consumption of private households by energy carrier for a given year.
+
+    The assumptions:
+        1. the consumption for all energy_carriers  will be zero by 2045  exept for power[mwh]
+        2. the consumption data of all erergy carriers will be transfered to power consumption
+        3. the transition will happen in a linear way
+        4. the total consumption will be the same for every year 
+
+
+    Warning:
+        - get_historical_vehicle_consumption_ugr_by_energy_carrier() 
+            - must return a dataframe with the column "power[mwh]"
+            - must contain only one row
+
+
+    Args:
+        year: int
+            The year for which to return the data.
+        force_preprocessing: bool
+            If True, the function is not getting the data from the cache but is recalculating it
+
+    Returns:
+        pd.DataFrame: 
+            - index: year
+            - columns: energy carriers [petrol[mwh], diesel[mwh], natural_gas[mwh], liquefied_petroleum_gas[mwh], bioethanol[mwh], biodiesel[mwh], biogas[mwh], power[mwh]] 
+            - values: consumption in MWh
+    """
+
+    # 0. validate input: must be between last year of existing data and 2045
+    if year < LAST_YEAR_EXISTING_DATA_UGR or year > 2045:
+        raise ValueError(f"Year must be between {LAST_YEAR_EXISTING_DATA_UGR} and 2045 but is {year}")
+    
+    # 0.1 Load config and get results from cache if available
+    config = load_config("base_config.yaml")
+    processed_dir = config["s3_future_ev_consumption_cache_dir"]
+    processed_file = config["s3_future_ev_consumption_cache_file"]
+    preprocessed_file_path = f"{processed_dir}/{processed_file}"
+    if not force_preprocessing and os.path.exists(preprocessed_file_path):
+        final_df = pd.read_csv(preprocessed_file_path, index_col=0)
+        final_df = final_df.loc[[year]]
+        return final_df
+
+
+    # 1. load last year of existing data & validate it
+    historic_consumption_df = get_historical_vehicle_consumption_ugr_by_energy_carrier(LAST_YEAR_EXISTING_DATA_UGR)
+    if historic_consumption_df.shape[0] != 1:
+        raise ValueError("`historic_consumption_df` must contain exactly one row")
+    if "power[mwh]" not in historic_consumption_df.columns:
+        raise ValueError("power[mwh] not found in historic_consumption_df columns")
+
+
+    # 2. extract basics
+    row = historic_consumption_df.iloc[0]
+    other_cols = [c for c in historic_consumption_df.columns if c != "power[mwh]"]
+    # calculate the total consumption u.a. for plausability check
+    base_total = row.sum()
+
+
+    # 3. skeleton with historic_consumption_df & end rows
+    skeleton = pd.DataFrame(index=[LAST_YEAR_EXISTING_DATA_UGR, end_year],
+                            columns=historic_consumption_df.columns,
+                            dtype=float)
+    skeleton.loc[LAST_YEAR_EXISTING_DATA_UGR] = row
+    skeleton.loc[end_year, other_cols] = 0.0
+    skeleton.loc[end_year, "power[mwh]"] = np.nan
+
+
+    # 4. reindex full range and interpolate linearly
+    full = skeleton.reindex(range(LAST_YEAR_EXISTING_DATA_UGR, end_year + 1))
+    full = full.interpolate(method="linear", axis=0)
+
+
+    # 5. compute power so each year's total equals base_total
+    full["power[mwh]"] = base_total - full[other_cols].sum(axis=1)
+    final_df =  full.round(3)
+
+
+    # 6. pausability check
+    final_total = full.sum(axis=1).values
+    totals_ok = np.isclose(final_total, base_total)
+    if not totals_ok.all():
+        bad_years = full.index[~totals_ok].tolist()
+        raise ValueError(f"Plausibility check failed: total consumption mismatch in years {bad_years}.")
+    
+
+    # 7. save to cache
+    os.makedirs(processed_dir, exist_ok=True)
+    final_df.to_csv(preprocessed_file_path)
+
+
+    # 8. filter for the requested year
+    final_df = final_df.loc[[year]]
+
+
+    return final_df
 
 
 
