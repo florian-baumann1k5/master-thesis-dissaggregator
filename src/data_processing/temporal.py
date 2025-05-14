@@ -328,7 +328,6 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
                     slp_profil.columns).time
                 slp_profil = slp_profil.stack()
 
-                # TODO FLO REF: deiser code block gibt es genau so 3x inder datei
                 # First, compute the 'Prozent' column
                 temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
 

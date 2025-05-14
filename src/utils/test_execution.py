@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-x = 1
+x = 12
 
 
 if x == 1:
@@ -67,13 +67,13 @@ elif x == 11:
     None
 
 elif x == 12:
-    None
+    df = disaggregate_temporal(year=2035, sector="cts", energy_carrier="gas")
 
 elif x == 13:
     df = get_total_gas_industry_self_consuption(2015, force_preprocessing=True)
 
 elif x == 14:
-    df = get_regional_energy_consumption(year=2015)
+    df = get_consumption_data_historical_and_future(year=2035)
 
 elif x == 15:
     df = get_CTS_power_slp(state="BW", year=2015)
