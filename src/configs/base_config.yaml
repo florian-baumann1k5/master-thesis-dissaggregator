@@ -62,3 +62,6 @@ last_year_existing_fuel_consumption_ugr: 2022
 
 s3_future_ev_consumption_cache_dir: "data/processed/electric_vehicles/s3_future_ev_consumption"
 s3_future_ev_consumption_cache_file: "s3_future_ev_consumption.csv"
+
+electric_vehicle_consumption_by_regional_id_cache_dir: "data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id"
+electric_vehicle_consumption_by_regional_id_cache_file: "electric_vehicle_consumption_by_regional_id_{year}_{szenario}_{s2_szenario}.csv"
