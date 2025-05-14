@@ -217,8 +217,8 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
             raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_UGR} and 2045 but is {year}")
     else:
         raise ValueError("szenario must be in ['KVB_1', 'KVB_2', 'UGR']")
-    if szenario == "KVB_2" and s2_szenario not in ["ambit", "trend", "regio"]:
-        raise ValueError("s2_szenario must be in ['ambit', 'trend', 'regio']")
+    if szenario == "KVB_2" and s2_szenario not in ["ambit", "trend", "regio", None]:
+        raise ValueError(f"s2_szenario must be in ['ambit', 'trend', 'regio'] but is {s2_szenario}")
 
 
     # 0.1 check the cache

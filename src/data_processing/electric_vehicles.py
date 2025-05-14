@@ -171,7 +171,7 @@ def s1_future_ev_stock_15mio_by_2030(year,
         return EV_GOAL + (total_stock - EV_GOAL) * (year - YEAR_Goal) / (YEAR_FINAL - YEAR_Goal)
 
 
-def normalized_ev_distribution_by_region() -> pd.DataFrame:
+def get_normalized_ev_distribution_by_region() -> pd.DataFrame:
     """
     Load the normalized number of electric vehicles distribution by region for the given year.
 
@@ -265,7 +265,7 @@ def regional_dissaggregation_ev_consumption(ev_consumption: float) -> pd.DataFra
     """
     
     # 1. get the normalized regional distribution of EVs 
-    ev_distribution_by_region = normalized_ev_distribution_by_region()
+    ev_distribution_by_region = get_normalized_ev_distribution_by_region()
 
 
     # 2. get the number of evs by region for the given future year
@@ -457,4 +457,48 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
     return final_df
 
 
+# ev charging profile
 
+def get_normalized_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+    """
+    Load the normalized ev charging profile for the given type and day type.
+    """
+
+    # 0. validate input
+    if type not in ["h1", "h2", "h3", "h4", "h5", "h6", "total"]:
+        raise ValueError(f"Type must be one of ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'total'] but is {type}")
+    if day_type not in ["workday", "weekend"]:
+        raise ValueError(f"Day type must be one of ['workday', 'weekend'] but is {day_type}")
+
+    # 1. load data
+    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type)
+
+    # 2. normalize the data
+    ev_charging_profile_normalized = ev_charging_profile / ev_charging_profile.values.sum().sum()
+
+    # 3. rename the columns of the dataframe: 
+    ev_charging_profile_normalized.rename(columns={
+        "home_charging[kw/car]":"home_charging",
+        "work_charging[kw/car]":"work_charging",
+        "public_charging[kw/car]":"public_charging"
+    }, inplace=True)
+
+    # 3. validate the result
+    if not np.isclose(ev_charging_profile_normalized.sum().sum(), 1.0):
+        raise ValueError("The sum of the ev charging profile is not 1!")
+    if ev_charging_profile_normalized.isnull().any().any():
+        raise ValueError("There are nan values in the ev charging profile!")
+
+
+    return ev_charging_profile_normalized
+
+
+
+def disaggregate_temporal_ev_consumption(ev_consumption: pd.DataFrame, ev_charging_profile: pd.DataFrame) -> pd.DataFrame:
+    """
+    Disaggregate the ev consumption by charging profile.
+    """
+
+    # 1. validate input
+    
+    return None
