@@ -18,8 +18,9 @@ from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
 from src.data_processing.cop import *
 from src.data_processing.electric_vehicles import *
+from src.pipeline.pipe_electric_vehicles import *
 
-x = 28
+x = 29
 
 
 if x == 1:
@@ -139,6 +140,10 @@ elif x == 27:
 
 elif x == 28:
     df = get_future_vehicle_consumption_ugr_by_energy_carrier(year=2030)
+    print(df)
+
+elif x == 29:
+    df = s1_2_electric_vehicle_consumption(year=2022)
     print(df)
 
 else:
