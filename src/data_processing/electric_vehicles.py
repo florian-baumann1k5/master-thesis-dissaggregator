@@ -1,6 +1,8 @@
 import pandas as pd
 from src.data_access.local_reader import *
 
+
+
 def calculate_electric_vehicle_consumption(number_of_registered_evs: pd.DataFrame, avg_km_per_ev: int, avg_mwh_per_km: float) -> pd.DataFrame:
     """
     Calculate the consumption of electric vehicles.
@@ -26,6 +28,7 @@ def calculate_electric_vehicle_consumption(number_of_registered_evs: pd.DataFram
 
 
     return ev_consumption
+
 
 def calculate_avg_km_by_car(year: int) -> int:
     """
@@ -64,6 +67,7 @@ def calculate_avg_mwh_per_km() -> int:
     avg_mwh_per_km = 0.00021
 
     return avg_mwh_per_km
+
 
 def registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     """
@@ -272,3 +276,15 @@ def regional_dissaggregation_evs(evs_germany:pd.DataFrame) -> pd.DataFrame:
 
     return number_of_evs_by_region
     
+
+
+def historival_ev_stock_ugr(year: int) -> pd.DataFrame:
+    """
+    Load the historical ev stock for the given year.
+    """
+
+    # 1. load data
+    df = load_historical_ev_stock_ugr(year=year)
+
+
+
