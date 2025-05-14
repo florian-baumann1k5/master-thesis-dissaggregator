@@ -746,6 +746,8 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
     os.makedirs(processed_dir, exist_ok=True)
     combined_slp.to_csv(processed_file)    
 
+    return combined_slp
+
 
 def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperatur_df: pd.DataFrame, year: int, force_preprocessing: bool = False):
     """
