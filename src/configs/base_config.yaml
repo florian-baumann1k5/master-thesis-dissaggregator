@@ -54,6 +54,7 @@ era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"
 
 
 # Electric Vehicles
+first_year_existing_registration_data: 2007
 last_year_existing_registration_data: 2024
 
 first_year_existing_fuel_consumption_ugr: 2014

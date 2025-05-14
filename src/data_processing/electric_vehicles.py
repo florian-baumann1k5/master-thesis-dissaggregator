@@ -3,30 +3,35 @@ from src.data_access.local_reader import *
 
 
 
-def calculate_electric_vehicle_consumption(number_of_registered_evs: pd.DataFrame, avg_km_per_ev: int, avg_mwh_per_km: float) -> pd.DataFrame:
+def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km_per_ev: int, avg_mwh_per_km: float) -> pd.DataFrame:
     """
     Calculate the consumption of electric vehicles.
+    TODO: description
     """
+
 
     # 1. calculate the total consumption per ev
     avg_consumption_per_ev_per_year_in_mwh = avg_km_per_ev * avg_mwh_per_km
 
+
     # 2. calculate the total consumption
-    ev_consumption = avg_consumption_per_ev_per_year_in_mwh * number_of_registered_evs
+    ev_consumption = avg_consumption_per_ev_per_year_in_mwh * data_in
 
-    # 3. rename the column in the dataframe
-    ev_consumption.rename(columns={'number_of_registered_evs': 'ev_consumption[mwh]'}, inplace=True)
+    # 3. check if the data is a dataframe
+    if isinstance(data_in, pd.DataFrame):
+        # 3. rename the column in the dataframe
+        ev_consumption.rename(columns={'number_of_registered_evs': 'ev_consumption[mwh]'}, inplace=True)
 
-    # 4. make the ev_consumption[mwh] column float
-    ev_consumption['ev_consumption[mwh]'] = ev_consumption['ev_consumption[mwh]'].astype(float)
+        # 4. make the ev_consumption[mwh] column float
+        ev_consumption['ev_consumption[mwh]'] = ev_consumption['ev_consumption[mwh]'].astype(float)
 
-    # 5. check for nan and 0 values
-    if ev_consumption.isnull().any().any():
-        raise ValueError("NaN values found in ev total consumption")
-    if ev_consumption.eq(0).any().any():
-        raise ValueError("0 values found in ev total consumption")
-
-
+        # 5. check for nan and 0 values
+        if ev_consumption.isnull().any().any():
+            raise ValueError("NaN values found in ev total consumption")
+        if ev_consumption.eq(0).any().any():
+            raise ValueError("0 values found in ev total consumption")
+        
+    
     return ev_consumption
 
 
@@ -237,25 +242,26 @@ def s2_future_ev_stock(year: int, szenario: str) -> pd.DataFrame:
         .interpolate(method="index")    # linear interpolation weighted by year gaps
     )
     
-   # 6. extract the single-year, single-scenario result
+    # 6. extract the single-year, single-scenario result
     annual_ev_stock = annual_df.at[year, szenario]
 
 
     return annual_ev_stock
 
 
-def regional_dissaggregation_evs(evs_germany:pd.DataFrame) -> pd.DataFrame:
+def regional_dissaggregation_ev_consumption(ev_consumption: float) -> pd.DataFrame:
     """
     Dissaggregate the total number of electric vehicles in Germany to the regional level.
 
     Args:
-        evs_germany: float
+        ev_consumption: pd.DataFrame
+            with the column "power[mwh]"
         
 
     Returns:
         pd.DataFrame
             index: regional_id
-            columns: number_of_registered_evs per region
+            columns: power[mwh] per region
     """
     
     # 1. get the normalized regional distribution of EVs 
@@ -263,18 +269,18 @@ def regional_dissaggregation_evs(evs_germany:pd.DataFrame) -> pd.DataFrame:
 
 
     # 2. get the number of evs by region for the given future year
-    number_of_evs_by_region = evs_germany * ev_distribution_by_region
+    ev_consumption_by_region = ev_consumption * ev_distribution_by_region
 
     # 3. rename the column "ev_share" to "number_of_evs"
-    number_of_evs_by_region = number_of_evs_by_region.rename(columns={"ev_share": "number_of_registered_evs"})
+    ev_consumption_by_region = ev_consumption_by_region.rename(columns={"ev_share": "power[mwh]"})
 
 
     # 4. validation
-    if not np.isclose(number_of_evs_by_region.sum(), evs_germany):
+    if not np.isclose(ev_consumption_by_region.sum(), ev_consumption):
         raise ValueError("The sum of the evs by region is not equal to the total number of evs in Germany")
 
 
-    return number_of_evs_by_region
+    return ev_consumption_by_region
     
 
 # S3
