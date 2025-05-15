@@ -777,7 +777,7 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
 
     # 1. transform gas consumption
     gv_lk = gas_consumption.copy()
-    # add Bundesland column to gv_lk (removeing last 3 digits of region_code and doing lookup in bl_dict to get Bundesland)
+    # add Bundesland column to gv_lk (removeing last 3 digits of region_code and doing lookup in federal_state_dict() to get Bundesland)
     gv_lk = (gv_lk.assign( federal_state =[federal_state_dict().get(int(x[: -3]))
                           for x in gv_lk.index.astype(str)]))
     

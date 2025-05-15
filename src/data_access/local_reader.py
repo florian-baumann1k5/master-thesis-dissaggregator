@@ -632,7 +632,7 @@ def load_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
     """
     Loads the ev load profile for the given type.
     """
-    raw_file = f"data/processed/electric_vehicles/ev_charging_profiles/ev_charging_profile_{type}_{day_type}.csv"
+    raw_file = f"data/raw/electric_vehicles/ev_charging_profiles/ev_charging_profile_{type}_{day_type}.csv"
 
     if not os.path.exists(raw_file):
         raise FileNotFoundError(f"Ev charging profile not found. File not found: {raw_file}")

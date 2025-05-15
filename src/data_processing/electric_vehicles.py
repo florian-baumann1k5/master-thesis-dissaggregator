@@ -1,5 +1,9 @@
 import pandas as pd
 from src.data_access.local_reader import *
+from src.utils.utils import *
+import datetime
+
+
 
 
 
@@ -20,10 +24,10 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
     # 3. check if the data is a dataframe
     if isinstance(data_in, pd.DataFrame):
         # 3. rename the column in the dataframe
-        ev_consumption.rename(columns={'number_of_registered_evs': 'ev_consumption[mwh]'}, inplace=True)
+        ev_consumption.rename(columns={'number_of_registered_evs': 'power[mwh]'}, inplace=True)
 
         # 4. make the ev_consumption[mwh] column float
-        ev_consumption['ev_consumption[mwh]'] = ev_consumption['ev_consumption[mwh]'].astype(float)
+        ev_consumption['power[mwh]'] = ev_consumption['power[mwh]'].astype(float)
 
         # 5. check for nan and 0 values
         if ev_consumption.isnull().any().any():
@@ -459,9 +463,16 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
 
 # ev charging profile
 
-def get_normalized_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
     """
     Load the normalized ev charging profile for the given type and day type.
+
+    Args:
+        type: str
+            The type of the ev charging profile ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'total']
+        day_type: str
+            The day type of the ev charging profile ['workday', 'weekend']
+
     """
 
     # 0. validate input
@@ -473,6 +484,9 @@ def get_normalized_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame
     # 1. load data
     ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type)
 
+    # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
+    ev_charging_profile = ev_charging_profile.iloc[:-1]
+
     # 2. normalize the data
     ev_charging_profile_normalized = ev_charging_profile / ev_charging_profile.values.sum().sum()
 
@@ -482,6 +496,9 @@ def get_normalized_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame
         "work_charging[kw/car]":"work_charging",
         "public_charging[kw/car]":"public_charging"
     }, inplace=True)
+
+
+
 
     # 3. validate the result
     if not np.isclose(ev_charging_profile_normalized.sum().sum(), 1.0):
@@ -494,11 +511,167 @@ def get_normalized_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame
 
 
 
-def disaggregate_temporal_ev_consumption(ev_consumption: pd.DataFrame, ev_charging_profile: pd.DataFrame) -> pd.DataFrame:
+def disaggregate_temporal_ev_consumption_for_state(ev_consumption_by_regional_id: pd.DataFrame, state: str, year: int, yearly_charging_profile: pd.DataFrame) -> pd.DataFrame:
     """
-    Disaggregate the ev consumption by charging profile.
+    Disaggregate the ev consumption by charging profile over the year in 10min steps.
+
+    Args:
+        ev_consumption_by_regional_id: pd.DataFrame
+            The ev consumption by regional id
+        state: str
+            The state of the ev consumption
+        year: int
+            The year of the ev consumption
     """
 
-    # 1. validate input
+    # 0. validate input
+    if state not in federal_state_dict().values():
+        raise ValueError(f"state must be in {federal_state_dict().values()}")
+
+
+    # 1. filter regional_ids for the given state
+    ev_consumption = ev_consumption_by_regional_id.loc[
+        [federal_state_dict().get(int(str(x)[:-3])) == state for x in ev_consumption_by_regional_id.index]
+    ]
     
-    return None
+
+
+
+    
+    
+
+    # 5. iterate over every regional_id and disaggregate the ev consumption by yearly_charging_profile
+    # 5.1. create a list of the disaggregated profiles
+    regional_profiles_list = []
+    regional_ids = []
+
+    # 5.2. iterate over every regional_id 
+    for regional_id, row in ev_consumption.iterrows():
+        total_regional_consumption_mwh = row['power[mwh]']
+        
+        # Multiply the normalized profile by the total consumption for this region
+        # This scales the distribution to the region's total annual consumption
+        disaggregated_regional_consumption = yearly_charging_profile * total_regional_consumption_mwh
+        
+        regional_profiles_list.append(disaggregated_regional_consumption)
+        regional_ids.append(regional_id)
+
+    # Concatenate all regional profiles into a single DataFrame
+    # 6. The 'keys' argument creates the top level of the MultiIndex for columns
+    if not regional_profiles_list:
+        # Return an empty DataFrame with appropriate structure if ev_consumption was empty
+        ev_consumption_by_regional_id_temporal = pd.DataFrame(index=yearly_charging_profile.index)
+        ev_consumption_by_regional_id_temporal.columns = pd.MultiIndex.from_tuples([], names=['regional_id', 'charging_location'])
+        return ev_consumption_by_regional_id_temporal
+
+
+    # 7. concatenate the disaggregated profiles
+    ev_consumption_by_regional_id_temporal = pd.concat(regional_profiles_list, axis=1, keys=regional_ids)
+    
+
+    # 8. Name the levels of the column MultiIndex for clarity
+    ev_consumption_by_regional_id_temporal.columns.names = ['regional_id', 'charging_location']
+    
+
+    # 9. validate the result
+    if not np.isclose(ev_consumption_by_regional_id_temporal.sum().sum(), ev_consumption.sum().sum()):
+        raise ValueError("The sum of the ev consumption by regional id temporal is not equal to the sum of the ev consumption by regional id!")
+
+
+    return ev_consumption_by_regional_id_temporal
+
+
+
+
+
+
+def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataFrame:
+    """
+    Generate the yearly charging profile for the given state and year.
+
+    TODO: description & cleanup
+    """
+
+
+    #2. build the mask
+    mask = create_weekday_workday_holiday_mask(state=state, year=year)
+
+
+    # 3. load the charging profiles
+    ev_charging_profile_workday = get_normalized_daily_ev_charging_profile(type="total", day_type="workday")
+    ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile(type="total", day_type="weekend")
+
+
+    # 0. Multiply the charging profiles by 1,000,000
+    #    (as per user request, values won't be "that small" temporarily)
+    profile_workday_scaled = ev_charging_profile_workday 
+    profile_weekend_scaled = ev_charging_profile_weekend
+
+    # Convert string time index of daily profiles to datetime.time objects for easier lookup
+    profile_workday_scaled.index = pd.to_datetime(profile_workday_scaled.index, format='%H:%M:%S').time
+    profile_weekend_scaled.index = pd.to_datetime(profile_weekend_scaled.index, format='%H:%M:%S').time
+
+    # 1. Build a DataFrame of a year in 10-minute steps
+    start_datetime = datetime.datetime(year, 1, 1, 0, 0, 0)
+    end_datetime = datetime.datetime(year, 12, 31, 23, 50, 0)
+    yearly_index = pd.date_range(start=start_datetime, end=end_datetime, freq='10min')
+    
+    yearly_load_profile = pd.DataFrame(index=yearly_index, columns=profile_workday_scaled.columns)
+    yearly_load_profile.index.name = 'datetime'
+
+    # 2. Fill this DataFrame with the correct values: for each day in mask, select the appropriate scaled daily profile
+    print("Filling yearly load profile...")
+    for day_date_ts, day_mask_info in mask.iterrows():
+        # day_date_ts is a Timestamp object from the mask's index
+        day_date_obj = day_date_ts.date() # Convert to datetime.date for comparison if needed
+
+        # Select the appropriate scaled daily profile
+        if day_mask_info['workday']:
+            active_daily_profile = profile_workday_scaled
+        elif day_mask_info['weekend_holiday']: # Ensure this covers all non-workdays
+            active_daily_profile = profile_weekend_scaled
+        else:
+            print(f"Warning: Day {day_date_obj} is neither workday nor weekend_holiday in mask. Using weekend profile as fallback.")
+            active_daily_profile = profile_weekend_scaled
+
+
+        # Get all timestamps in the yearly_load_profile for the current day_date_obj
+        # Efficiently slice the part of yearly_load_profile for the current day
+        current_day_timestamps_in_yearly_profile = yearly_load_profile.loc[yearly_load_profile.index.date == day_date_obj].index
+        
+        if not current_day_timestamps_in_yearly_profile.empty:
+            # Assign values from the selected daily profile
+            # The .values assignment works if rows are aligned (144 per day)
+            try:
+                yearly_load_profile.loc[current_day_timestamps_in_yearly_profile] = active_daily_profile.values
+            except Exception as e:
+                # Fallback to row-by-row if shapes mismatch or other issues (slower)
+                print(f"Direct assignment failed for {day_date_obj}, falling back. Error: {e}")
+                for ts in current_day_timestamps_in_yearly_profile:
+                    time_obj = ts.time() # datetime.time object
+                    yearly_load_profile.loc[ts] = active_daily_profile.loc[time_obj]
+        else:
+            print(f"Warning: No timestamps found in yearly_profile for {day_date_obj}. Mask date might be out of range or year mismatch.")
+
+
+    # 3. Normalize all values so the sum of all values equals 1,000,000
+    print("Normalizing final yearly profile...")
+    # Sum of all values in the dataframe (sum over all columns, then sum these totals)
+    current_total_sum = yearly_load_profile.sum().sum()
+    
+    if current_total_sum == 0:
+        print("Warning: Total sum of the yearly profile is 0. Cannot normalize.")
+        # Handle this case, e.g., by returning the zero DataFrame or raising an error
+    else:
+        yearly_load_profile = (yearly_load_profile / current_total_sum)
+
+    
+    # 4. set the index to the datetime index
+    yearly_load_profile.index = pd.to_datetime(yearly_load_profile.index)
+        
+    # 5. verification
+    final_sum = yearly_load_profile.sum().sum()
+    if not np.isclose(final_sum, 1.0):
+        raise ValueError(f"Final sum after normalization is not 1.0 but {final_sum}")
+
+    return yearly_load_profile

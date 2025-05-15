@@ -6,14 +6,14 @@ from src.configs.mappings import *
 from src.configs.config_loader import load_config
 
 
-FIRST_YEAR_EXISTING_DATA_KVB = load_config()["first_year_existing_registration_data"]
-LAST_YEAR_EXISTING_DATA_KVB = load_config()["last_year_existing_registration_data"]
+FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data"]
+LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data"]
 FIRST_YEAR_EXISTING_DATA_UGR = load_config()["first_year_existing_fuel_consumption_ugr"]
 LAST_YEAR_EXISTING_DATA_UGR = load_config()["last_year_existing_fuel_consumption_ugr"]
 
 
 
-# Szenario 1 & 2: via KVB -> registered Vehicle stock
+# Szenario 1 & 2: via KBA -> registered Vehicle stock
 def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame: 
     """
     Loads the registered electric vehicles by regional id for the given year in the past
@@ -33,8 +33,8 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     """
 
     # 0. validate input
-    if year < FIRST_YEAR_EXISTING_DATA_KVB or year > LAST_YEAR_EXISTING_DATA_KVB:
-        raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KVB} and {LAST_YEAR_EXISTING_DATA_KVB} but is {year}")
+    if year < FIRST_YEAR_EXISTING_DATA_KBA or year > LAST_YEAR_EXISTING_DATA_KBA:
+        raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KBA} and {LAST_YEAR_EXISTING_DATA_KBA} but is {year}")
 
     # 1. load data
     number_of_registered_evs = registered_electric_vehicles_by_regional_id(year=year)
@@ -56,17 +56,17 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     """
 
     # 0. validate input
-    if year < LAST_YEAR_EXISTING_DATA_KVB or year > 2045:
+    if year < LAST_YEAR_EXISTING_DATA_KBA or year > 2045:
         raise ValueError("Year must be between 2000 and 2050, year is " + str(year))
     
     # 1. load data
-    existing_ev_stock = calculate_existing_ev_stock(year=LAST_YEAR_EXISTING_DATA_KVB)
+    existing_ev_stock = calculate_existing_ev_stock(year=LAST_YEAR_EXISTING_DATA_KBA)
     total_existing_car_stock = get_total_car_stock()
 
 
     # 2. calculate the new number of electric vehicles in the year
     # political target: 15mio electric vehicles by 2030
-    number_of_evs = s1_future_ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA_KVB, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
+    number_of_evs = s1_future_ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA_KBA, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
 
 
     # 3. load consumption data
@@ -106,8 +106,8 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     """
 
     # 0. validate input
-    if year < LAST_YEAR_EXISTING_DATA_KVB or year > 2045:
-        raise ValueError("Year must be between {LAST_YEAR_EXISTING_DATA_KVB} and 2045, year is " + str(year))
+    if year < LAST_YEAR_EXISTING_DATA_KBA or year > 2045:
+        raise ValueError("Year must be between {LAST_YEAR_EXISTING_DATA_KBA} and 2045, year is " + str(year))
     if szenario not in ["ambit", "trend", "regio"]:
         raise ValueError("Szenario must be in ['ambit', 'trend', 'regio']")
     
@@ -140,16 +140,16 @@ def s1_2_electric_vehicle_consumption(year: int, szenario: str, s2_szenario: str
     """
 
     # 0. validate input
-    if year < FIRST_YEAR_EXISTING_DATA_KVB or year > 2045:
-        raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KVB} and 2045 but is {year}")
+    if year < FIRST_YEAR_EXISTING_DATA_KBA or year > 2045:
+        raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KBA} and 2045 but is {year}")
     
     # 1. load data
-    if year <= LAST_YEAR_EXISTING_DATA_KVB:
+    if year <= LAST_YEAR_EXISTING_DATA_KBA:
         ev_consumption_by_region = historical_electric_vehicle_consumption(year=year)
-    elif year > LAST_YEAR_EXISTING_DATA_KVB:
-        if szenario == "KVB_1":
+    elif year > LAST_YEAR_EXISTING_DATA_KBA:
+        if szenario == "KBA_1":
             ev_consumption_by_region = future_1_electric_vehicle_consumption(year=year)
-        elif szenario == "KVB_2":
+        elif szenario == "KBA_2":
             ev_consumption_by_region = future_2_electric_vehicle_consumption(year=year, szenario=s2_szenario)
 
 
@@ -203,21 +203,45 @@ def s3_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 
 # Main function combining s1, s2 and s3
-def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_szenario: str = None) -> pd.DataFrame:
+def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_szenario: str = None, force_preprocessing: bool = False) -> pd.DataFrame:
     """
-    Loads the registered electric vehicles by regional id for the given year in the past
+    Loads the registered electric vehicles by regional id for the given year in the past or future
+
+    Covers the following szenarios:
+        - KBA: based on registered electric vehicles in Germany from "Kraftfahrt-Bundesamt"
+            - historical data: registered electric vehicles by regional id
+            - KBA_1: future data based on political target 15mio EVs by 2030
+            - KBA_2: future data based on different szenarios from literature
+        - UGR: based on fuel consumption in Germany from "Umweltökonomische Gesamtrechnung"
+            - UGR: 
+        - all szenarios predict 2045 only EVs
+
+    Args:
+        year: int
+            Year to load the data for
+        szenario: str
+            Szenario to load the data for
+        s2_szenario: str
+            Szenario to load the data for
+        force_preprocessing: bool
+            If True, the data will be preprocessed even if the cache file exists
+
+    Returns:
+        pd.DataFrame: DataFrame with the registered electric vehicles by regional id for the given year
+            - index: regional_id
+            - columns: power[mwh]
     """
 
     # 0. validate input
-    if szenario == "KVB_1" or szenario == "KVB_2":
-        if year < FIRST_YEAR_EXISTING_DATA_KVB or year > 2045:
-            raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KVB} and 2045 but is {year}")        
+    if szenario == "KBA_1" or szenario == "KBA_2":
+        if year < FIRST_YEAR_EXISTING_DATA_KBA or year > 2045:
+            raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_KBA} and 2045 but is {year}")        
     elif szenario == "UGR":
         if year < FIRST_YEAR_EXISTING_DATA_UGR or year > 2045:
             raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_UGR} and 2045 but is {year}")
     else:
-        raise ValueError("szenario must be in ['KVB_1', 'KVB_2', 'UGR']")
-    if szenario == "KVB_2" and s2_szenario not in ["ambit", "trend", "regio", None]:
+        raise ValueError("szenario must be in ['KBA_1', 'KBA_2', 'UGR']")
+    if szenario == "KBA_2" and s2_szenario not in ["ambit", "trend", "regio", None]:
         raise ValueError(f"s2_szenario must be in ['ambit', 'trend', 'regio'] but is {s2_szenario}")
 
 
@@ -225,19 +249,26 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
     cache_dir = load_config("base_config.yaml")['electric_vehicle_consumption_by_regional_id_cache_dir']
     cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['electric_vehicle_consumption_by_regional_id_cache_file'].format(year=year, szenario=szenario, s2_szenario=s2_szenario))
 
-    if os.path.exists(cache_file):
+    if os.path.exists(cache_file) and not force_preprocessing:
         logger.info(f"Load electric_vehicle_consumption_by_regional_id from cache for year: {year}, szenario: {szenario}, s2_szenario: {s2_szenario}")
-        return pd.read_csv(cache_file)
+        ev_consumption_by_region =  pd.read_csv(cache_file)
+        ev_consumption_by_region.set_index("regional_id", inplace=True)
+        return ev_consumption_by_region
 
 
     # 1. load the data
-    # KVB Szenario
-    if "KVB" in szenario:
+    # KBA Szenario
+    if "KBA" in szenario:
         ev_consumption_by_region = s1_2_electric_vehicle_consumption(year=year, szenario=szenario, s2_szenario=s2_szenario)
         
     # UGR Szenario
     elif "UGR" in szenario:
         ev_consumption_by_region = s3_electric_vehicle_consumption(year=year)
+
+
+    # 2. set the index to regional_id
+    if "regional_id" in ev_consumption_by_region.columns:
+        ev_consumption_by_region.set_index("regional_id", inplace=True)
 
 
     # 2. save the data to the cache
@@ -246,6 +277,7 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
     os.makedirs(cache_dir, exist_ok=True)
     logger.info(f"Save electric_vehicle_consumption_by_regional_id to cache for year: {year}, szenario: {szenario}, s2_szenario: {s2_szenario}")
     ev_consumption_by_region.to_csv(cache_file)    
+
 
     return ev_consumption_by_region
 
