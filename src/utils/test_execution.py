@@ -17,9 +17,10 @@ from src.pipeline.pipe_temporal import *
 from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
 from src.data_processing.cop import *
+from src.data_processing.electric_vehicles import *
+from src.pipeline.pipe_ev_regional_consumption import *
 
-
-x = 26
+x = 29
 
 
 if x == 1:
@@ -130,6 +131,19 @@ elif x == 26:
     year = 2030
     state = "SL"
     df = hydrogen(year=year)
+    print(df)
+
+
+elif x == 27:
+    df = get_historical_vehicle_consumption_ugr_by_energy_carrier(year=2021)
+    print(df)
+
+elif x == 28:
+    df = get_future_vehicle_consumption_ugr_by_energy_carrier(year=2030)
+    print(df)
+
+elif x == 29:
+    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="UGR")
     print(df)
 
 else:

@@ -2,7 +2,7 @@ from collections import defaultdict
 import pandas as pd
 from ast import literal_eval as lit_eval
 from src.configs.mappings import *
-
+import holidays
 
 def fix_region_id(rid):
     rid = str(rid)
@@ -190,3 +190,86 @@ def get_regional_ids_by_state(state: str) -> list[int]:
     mask = df["state_code"] == code
     return df.loc[mask, "regional_id"].tolist()
 
+
+
+def create_weekday_workday_holiday_mask(state: str, year: int) -> pd.DataFrame:
+    """
+    Creates a DataFrame mask for a given German state and year, indicating
+    workdays, weekends, holidays, and the type of day.
+
+    Args:
+        state (str): The 2-letter abbreviation for the German state
+                          (e.g., "TH" for Thüringen, "BY" for Bayern).
+        year (int): The year for which to create the mask.
+
+    Returns:
+        pd.DataFrame: A DataFrame with a DatetimeIndex covering all days of
+                      the specified year and five columns:
+                      - "workday" (bool): True if the day is a standard workday
+                                          (not a weekend or holiday).
+                      - "weekend" (bool): True if the day is a Saturday or Sunday.
+                      - "holiday" (bool): True if the day is a public holiday.
+                      - "weekend_holiday" (bool): True if the day is a Saturday,
+                                                  Sunday, or a public holiday.
+                      - "day" (str): The lowercase name of the day of the week
+                                     (e.g., "monday", "tuesday") or "holiday"
+                                     if it's a public holiday.
+    Raises:
+        ValueError: If the provided state is not a valid German state
+                    abbreviation recognized by the holidays library, or if the
+                    year is invalid.
+    """
+
+    # 1. Generate a DatetimeIndex for all days in the specified year
+    try:
+        start_date = pd.Timestamp(f"{year}-01-01")
+        end_date = pd.Timestamp(f"{year}-12-31")
+    except ValueError:
+        raise ValueError(f"Invalid year provided: {year}")
+
+    dates_in_year = pd.date_range(start=start_date, end=end_date, freq='D')
+
+    # 2. Initialize the DataFrame with the date index
+    df = pd.DataFrame(index=dates_in_year)
+    df.index.name = 'date'
+
+    # 3. Get public holidays for the specified German state and year
+    upper_state = state.upper()
+    try:
+        german_holidays_obj = holidays.DE(state=upper_state, years=year)
+    except KeyError:
+        valid_states = holidays.Germany.subdivisions
+        raise ValueError(
+            f"Invalid German state abbreviation: '{state}'. "
+            f"Valid abbreviations are: {valid_states}"
+        )
+
+    # 4. Populate the "holiday" column (NEW)
+    # True if the day is a public holiday.
+    # df.index contains pd.Timestamp; german_holidays_obj contains datetime.date.
+    df['holiday'] = [ts.date() in german_holidays_obj for ts in df.index]
+
+    # 5. Determine day of the week and populate "weekend" column (NEW)
+    # day_of_week_num: Monday=0, Tuesday=1, ..., Sunday=6
+    df['day_of_week_num'] = df.index.dayofweek
+    is_saturday = (df['day_of_week_num'] == 5)
+    is_sunday = (df['day_of_week_num'] == 6)
+    df['weekend'] = is_saturday | is_sunday
+
+    # 6. Populate the "weekend_holiday" column (uses new 'weekend' and 'holiday' columns)
+    # True if the day is a Saturday, Sunday, or a public holiday.
+    df['weekend_holiday'] = df['weekend'] | df['holiday']
+
+    # 7. Populate the "workday" column
+    # A workday is any day that is NOT a weekend or a holiday.
+    df['workday'] = ~df['weekend_holiday']
+
+    # 8. Populate the "day" column (uses new 'holiday' column)
+    # Contains the lowercase name of the day of the week or "holiday".
+    # Holiday status takes precedence.
+    df['day'] = df.index.day_name().str.lower()
+    df.loc[df['holiday'], 'day'] = 'holiday' # If it's a holiday, mark as 'holiday'
+
+    # 9. Return the DataFrame with the required columns in a specific order
+    final_columns = ['workday', 'weekend', 'holiday', 'weekend_holiday', 'day']
+    return df[final_columns]
