@@ -48,13 +48,13 @@ elif x == 7:
     print(df)
 
 elif x == 8:
-    df = get_normalized_ev_charging_profile(type="total", day_type="weekend")
+    df = get_future_vehicle_consumption_ugr_by_energy_carrier(year=2036)
     print(df)
 
 elif x == 9:
-    year = 2035
-    szenario = "KBA_2"
-    s2_szenario = "regio"
+    year = 2045
+    szenario = "UGR"
+    s2_szenario = None
     df = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario=szenario, s2_szenario=s2_szenario)
     print(df)
 
