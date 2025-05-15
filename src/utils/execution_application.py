@@ -19,12 +19,14 @@ from src.data_processing.cop import *
 
 
 
-def consumption_data():
+def application_data():
     
-    year = 2045
-    energy_carrier = "petrol"
+    year = 2019
+    energy_carrier = "gas"
     force_preprocessing = True
-    df = get_consumption_data(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
+    sector = "industry"
+
+    df = disagg_applications_efficiency_factor(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
     print(df)
 
@@ -32,6 +34,6 @@ def consumption_data():
 
 
 
-consumption_data()
+application_data()
 
 

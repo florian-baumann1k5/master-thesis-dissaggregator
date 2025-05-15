@@ -150,6 +150,23 @@ def load_decomposition_factors_temperature_industry() -> pd.DataFrame:
     
     return df_decom_temp_industry
 
+def load_decomposition_factors_petrol() -> pd.DataFrame:
+    """
+    Load the decomposition factors for the energy carriers petrol.
+
+    Returns:
+        pd.DataFrame:
+            - index: industry_sectors
+            - columns: applications
+    """
+    raw_file = "data/raw/dimensionless/decomposition_factors_petrol.csv"
+
+    df = pd.read_csv(raw_file)
+    df.set_index('industry_sectors', inplace=True)
+
+
+    return df
+
 
 # gas self consumption
 def load_gas_industry_self_consuption(year: int) -> pd.DataFrame:

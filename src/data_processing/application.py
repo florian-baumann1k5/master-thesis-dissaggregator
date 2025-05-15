@@ -48,8 +48,12 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
         """
 
     elif energy_carrier == "petrol":
-        df = disagg_applications_petrol(consumption_data, decomp) # TODO: add petrol
+        df = disagg_applications_petrol(consumption_data, decomp)
+        """ petrol industry
+        400 rows x 290 columns
         """
+        """ petrol cts
+        400 rows x 290 columns
         """
 
     # 3. set indexname
@@ -124,7 +128,7 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     400 rows x 704 columns: 400 regions x 704 (industry sectors x applications)
     """
 
-    # 5. Efficient fill: loop only over industry sectors    for industry in industry_sectors:
+    # 5. Efficient fill: loop only over industry sectors
     for industry in industry_sectors:
         sector_consumption = consumption_data_no_selfgen[industry]  # Series: index = regions
         app_shares = decomp_gas_temp.loc[industry]               # Series: index = applications
@@ -193,10 +197,15 @@ def disagg_applications_default(consumption_data, decomp):
     return new_df
 
 
-def disagg_applications_petrol(): #TODO: add petrol
+def disagg_applications_petrol(consumption_data: pd.DataFrame, decomp: pd.DataFrame) -> pd.DataFrame:
     """
     Perfrom dissagregation based on applications of the final energy usage
     """
+
+
+
+
+
     return None
 
 
@@ -288,6 +297,15 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         # drop unneeded columns
         decomp = decomp.drop(columns={"electricity_grid", "electricity_self_generation"})
     
+    elif energy_carrier == "petrol" and sector == "industry":
+        decomp = load_decomposition_factors_petrol()
+        industry_sectors = dict_cts_or_industry_per_industry_sector()['industry']
+        decomp = decomp.loc[decomp.index.intersection(industry_sectors)]
+        
+    elif energy_carrier == "petrol" and sector == "cts":
+        decomp = load_decomposition_factors_petrol()
+        cts_sectors = dict_cts_or_industry_per_industry_sector()['cts']
+        decomp = decomp.loc[decomp.index.intersection(cts_sectors)]
     else:
         raise ValueError(f"Energy carrier {energy_carrier} and/or industry {sector} not supported")
     
