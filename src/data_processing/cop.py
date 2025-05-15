@@ -48,15 +48,6 @@ def cop_ts(sink_t: float = 40, source: str = 'ambient', delta_t: float = None, c
     
 
     # 1. get weather year
-    #TODO: check if this is fine so:
-    """ orginal Code:
-    base_year = year
-    if year > 2018:
-        # ERA temperature data is only available for 2008-2018
-        year = hist_weather_year().get(year)
-    aber in hist year wird auf jahre gemapped die nicht in ERA temperature daten enthalten sind. e.g. 2019 wird auf 2007 gemapped. -> bug
-    """
-    #TODO: meine Lösung:
     base_year = year
     if year > 2018:
         # ERA temperature data is only available for 2008-2018

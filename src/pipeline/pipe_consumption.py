@@ -31,9 +31,10 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
             return consumption_data
     
 
-    # 2. get the consumption data: historical or projected in the future
-    consumption_data_power, consumption_data_gas = get_consumption_data_historical_and_future(year)
 
+
+    # 2. get the consumption data: historical or projected in the future
+    consumption_data_power, consumption_data_gas, consumption_data_petrol = get_consumption_data_historical_and_future(year)
 
 
     # 3. return the correct consumption data for the energy carrier
@@ -41,15 +42,19 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
         consumption_data = consumption_data_power
     elif energy_carrier == "gas":
         consumption_data = consumption_data_gas
-    #TODO Petrol: 
-    # elif energy_carrier == "petrol":
-    #     return consumption_data_petrol
+    elif energy_carrier == "petrol":
+        consumption_data = consumption_data_petrol
     else:
-        raise ValueError("Energy carrier must be 'power' or 'gas' or 'petrol'")    
+        raise ValueError("Energy carrier must be 'power' or 'gas' or 'petrol'")   
+
+    
+    # validation: check if there are no NaN values
+    if consumption_data.isnull().any().any():
+        raise ValueError("consumption_data contains NaN values")
     
 
     # 4. save to cache
-    logger.info("Saving to cache...")
+    logger.info(f"Saving consumption data {energy_carrier} for year {year} to cache...")
     processed_dir = load_config("base_config.yaml")['consumption_data_cache_dir']
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['consumption_data_cache_file'].format(energy_carrier=energy_carrier, year=year))
     os.makedirs(processed_dir, exist_ok=True)
@@ -104,7 +109,7 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
                 - index: industry_sectors 88
                 - columns: regional_ids 400
 
-        ->     3 dfs: consumption for power, gas, petrol for years 2000-2018
+        ->     3 dfs: consumption for power, gas, petrol for years 2000-2050
                 400 columns = regional_id
                 88 columns = industry_sectors
     """
@@ -134,18 +139,15 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
 
     if year_for_projection is not None:
         # apply activity drivers (Mengeneffekt) to project the consumption into the future
-        ugr_data = apply_activity_driver(ugr_data_ranges, ugr_genisis_year_end, year_for_projection)
+        ugr_data_ranges = apply_activity_driver(ugr_data_ranges, ugr_genisis_year_end, year_for_projection)
 
 
-    # 2. resolve the industry ranges
+    # 2. resolve the industry_sector range ranges by employees
     employees = get_employees_per_industry_sector_and_regional_ids(year)
 
 
     # 3. resolve the ugr data ranges by employees
     ugr_data = resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges, employees)
-
-
-
 
 
     # 4. fix gas: original source (GENISIS) gives sum of natural gas and other gases use factor from sheet to get natural gas only
@@ -162,25 +164,38 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     # and assume that I can use that factor also for gas
     # self gen is only missing for gas, we get the total gas self consumption from JEVI. For power selfgen is already included
     total_gas_self_consuption = get_total_gas_industry_self_consuption(year)
-    consumption_data, factor_power_selfgen, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, load_decomposition_factors_power(), year_for_projection)
+    decomposition_factors_power = load_decomposition_factors_power()
+    consumption_data, factor_power_selfgen, factor_gas_no_selfgen = calculate_self_generation(ugr_data, total_gas_self_consuption, decomposition_factors_power, year_for_projection)
 
 
     # 6. fix the industry consumption with iterative approach and dissaggregate the consumption to regional_ids
-    # get regional energy consumption from JEVI
+    # 6.1 get regional energy consumption from JEVI
     regional_energy_consumption_jevi = get_regional_energy_consumption(year)
 
-
-    # 7. calculate the regional energy consumption iteratively
+    # 6.2 calculate the regional energy consumption iteratively
     # the old dissaggregator approach: returns the total consumption for power, gas and petrol per regional_id and industry_sector
-    consumption_data_power, consumption_data_gas = calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr=consumption_data, regional_energy_consumption_jevi=regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids=employees)
+    consumption_data_power, consumption_data_gas, consumption_data_petrol = calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr=consumption_data, regional_energy_consumption_jevi=regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids=employees)
     
+    # 6.3 set the index and columns names
     consumption_data_power.index.name = 'industry_sector'
     consumption_data_gas.index.name = 'industry_sector'
+    consumption_data_petrol.index.name = 'industry_sector'
     consumption_data_power.columns.name = 'regional_id'
     consumption_data_gas.columns.name = 'regional_id'
+    consumption_data_petrol.columns.name = 'regional_id'
 
 
-    return consumption_data_power, consumption_data_gas
+    # validation: check if there are no NaN values
+    if consumption_data_power.isnull().any().any():
+        raise ValueError("consumption_data_power contains NaN values")
+    if consumption_data_gas.isnull().any().any():
+        raise ValueError("consumption_data_gas contains NaN values")
+    if consumption_data_petrol.isnull().any().any():
+        raise ValueError("consumption_data_petrol contains NaN values")
+
+
+
+    return consumption_data_power, consumption_data_gas, consumption_data_petrol
 
 
 

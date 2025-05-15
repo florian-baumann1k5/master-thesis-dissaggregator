@@ -51,7 +51,7 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
 
     
     # 2. get consumption data dissaggregated by industry sector and regional_id for a year and energy carrier[power, gas]
-    consumption_data_sectors_regional = get_consumption_data(year=year, energy_carrier=energy_carrier)
+    consumption_data_sectors_regional = get_consumption_data(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
 
     # 3. filter for relevant sector:
