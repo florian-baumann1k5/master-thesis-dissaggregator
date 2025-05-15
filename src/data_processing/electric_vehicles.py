@@ -370,7 +370,7 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
         1. the consumption for all energy_carriers  will be zero by 2045  exept for power[mwh]
         2. the consumption data of all erergy carriers will be transfered to power consumption
         3. the transition will happen in a linear way
-        4. the total consumption will be the same for every year 
+        4. the total driven distance will be the same for every year (efficency factor)
 
 
     Warning:
@@ -384,10 +384,12 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
             The year for which to return the data.
         force_preprocessing: bool
             If True, the function is not getting the data from the cache but is recalculating it
+        end_year: int
+            The year to which the data is projected zero for all energy carriers except power[mwh]
 
     Returns:
         pd.DataFrame: 
-            - index: year
+            - index: requested year
             - columns: energy carriers [petrol[mwh], diesel[mwh], natural_gas[mwh], liquefied_petroleum_gas[mwh], bioethanol[mwh], biodiesel[mwh], biogas[mwh], power[mwh]] 
             - values: consumption in MWh
     """
@@ -396,11 +398,15 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
     if year < LAST_YEAR_EXISTING_DATA_UGR or year > 2045:
         raise ValueError(f"Year must be between {LAST_YEAR_EXISTING_DATA_UGR} and 2045 but is {year}")
     
+
     # 0.1 Load config and get results from cache if available
+    base_year = LAST_YEAR_EXISTING_DATA_UGR
+
     config = load_config("base_config.yaml")
     processed_dir = config["s3_future_ev_consumption_cache_dir"]
     processed_file = config["s3_future_ev_consumption_cache_file"]
     preprocessed_file_path = f"{processed_dir}/{processed_file}"
+
     if not force_preprocessing and os.path.exists(preprocessed_file_path):
         final_df = pd.read_csv(preprocessed_file_path, index_col=0)
         final_df = final_df.loc[[year]]
@@ -413,52 +419,140 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
         raise ValueError("`historic_consumption_df` must contain exactly one row")
     if "power[mwh]" not in historic_consumption_df.columns:
         raise ValueError("power[mwh] not found in historic_consumption_df columns")
+    if historic_consumption_df.index.name != "year":
+        raise ValueError("year not found in historic_consumption_df index")
 
 
-    # 2. extract basics
-    row = historic_consumption_df.iloc[0]
-    other_cols = [c for c in historic_consumption_df.columns if c != "power[mwh]"]
-    # calculate the total consumption u.a. for plausability check
-    base_total = row.sum()
+    # 2. Identify fuels and set efficiencies
+    fuel_cols = [col for col in historic_consumption_df.columns if col not in ('year', 'power[mwh]')]
+    efficiency = {
+        'biodiesel[mwh]': 0.37,
+        'bioethanol[mwh]': 0.38,
+        'biogas[mwh]': 0.39,
+        'diesel[mwh]': 0.37,
+        'liquefied_petroleum_gas[mwh]': 0.36,
+        'natural_gas[mwh]': 0.39,
+        'petrol[mwh]': 0.38,
+    }
+
+    # Capture the original base_year values
+    orig = historic_consumption_df.loc[base_year]
 
 
-    # 3. skeleton with historic_consumption_df & end rows
-    skeleton = pd.DataFrame(index=[LAST_YEAR_EXISTING_DATA_UGR, end_year],
-                            columns=historic_consumption_df.columns,
-                            dtype=float)
-    skeleton.loc[LAST_YEAR_EXISTING_DATA_UGR] = row
-    skeleton.loc[end_year, other_cols] = 0.0
-    skeleton.loc[end_year, "power[mwh]"] = np.nan
+    # 3. Prepare the projection DataFrame
+    years = np.arange(base_year, end_year + 1)
+    proj = pd.DataFrame(index=years)
 
 
-    # 4. reindex full range and interpolate linearly
-    full = skeleton.reindex(range(LAST_YEAR_EXISTING_DATA_UGR, end_year + 1))
-    full = full.interpolate(method="linear", axis=0)
+    # 4. Linearly interpolate each fuel to zero
+    span = end_year - base_year
+    for f in fuel_cols:
+        proj[f] = orig[f] * (1 - (proj.index - base_year) / span)
+        proj[f] = proj[f].clip(lower=0)
 
 
-    # 5. compute power so each year's total equals base_total
-    full["power[mwh]"] = base_total - full[other_cols].sum(axis=1)
-    final_df =  full.round(3)
+    # 5. Compute saved energy per fuel
+    saved = pd.DataFrame(index=years, columns=fuel_cols)
+    for f in fuel_cols:
+        saved[f] = orig[f] - proj[f]
 
 
-    # 6. pausability check
-    final_total = full.sum(axis=1).values
-    totals_ok = np.isclose(final_total, base_total)
-    if not totals_ok.all():
-        bad_years = full.index[~totals_ok].tolist()
-        raise ValueError(f"Plausibility check failed: total consumption mismatch in years {bad_years}.")
-    
+    # 6. Compute additional power from saved energy
+    delta_power = pd.Series(0, index=years)
+    for f in fuel_cols:
+        eff = efficiency.get(f, 0)
+        delta_power += saved[f] * eff
 
-    # 7. save to cache
+
+    # 7. Build projected power series
+    proj['power[mwh]'] = orig['power[mwh]'] + delta_power
+
+
+    # 8. set the index to year
+    proj.index.name = "year"
+
+
+    # 9. pausability check
+    if proj.isnull().any().any():
+        raise ValueError("There are nan values in the projected power series!")
+
+
+    # 10. save to cache
     os.makedirs(processed_dir, exist_ok=True)
-    final_df.to_csv(preprocessed_file_path)
+    proj.to_csv(preprocessed_file_path)
 
 
-    # 8. filter for the requested year
-    final_df = final_df.loc[[year]]
+    # 11. filter for the requested year
+    proj = proj.loc[[year]]
 
 
-    return final_df
+    return proj
+
+
+def get_fiture_s3():
+
+
+    # 1. load last year of existing data & validate it
+    historic_consumption_df = get_historical_vehicle_consumption_ugr_by_energy_carrier(LAST_YEAR_EXISTING_DATA_UGR)
+    if historic_consumption_df.shape[0] != 1:
+        raise ValueError("`historic_consumption_df` must contain exactly one row")
+    if "power[mwh]" not in historic_consumption_df.columns:
+        raise ValueError("power[mwh] not found in historic_consumption_df columns")
+    if historic_consumption_df.index.name != "year":
+        raise ValueError("year not found in historic_consumption_df index")
+
+
+
+    df0 = historic_consumption_df
+    base_year = int(df0.index[0])
+    target_year = 2045
+
+    # 2. Identify fuels and set efficiencies
+    fuel_cols = [col for col in df0.columns if col not in ('year', 'power[mwh]')]
+    # TODO: fill in real efficiency factors here (between 0 and 1)
+    efficiency = {
+        'biodiesel[mwh]': 0.37,
+        'bioethanol[mwh]': 0.38,
+        'biogas[mwh]': 0.39,
+        'diesel[mwh]': 0.37,
+        'liquefied_petroleum_gas[mwh]': 0.36,
+        'natural_gas[mwh]': 0.39,
+        'petrol[mwh]': 0.38,
+    }
+
+    # Capture the original 2022 values
+    orig = df0.loc[base_year]
+
+    # 3. Prepare the projection DataFrame
+    years = np.arange(base_year, target_year + 1)
+    proj = pd.DataFrame(index=years)
+
+    # 4. Linearly interpolate each fuel to zero
+    span = target_year - base_year
+    for f in fuel_cols:
+        proj[f] = orig[f] * (1 - (proj.index - base_year) / span)
+        proj[f] = proj[f].clip(lower=0)
+
+    # 5. Compute saved energy per fuel
+    saved = pd.DataFrame(index=years, columns=fuel_cols)
+    for f in fuel_cols:
+        saved[f] = orig[f] - proj[f]
+
+    # 6. Compute additional power from saved energy
+    delta_power = pd.Series(0, index=years)
+    for f in fuel_cols:
+        eff = efficiency.get(f, 0)
+        delta_power += saved[f] * eff
+
+    # 7. Build projected power series
+    proj['power[mwh]'] = orig['power[mwh]'] + delta_power
+
+    # 8. (Optional) reset index if you like
+    proj = proj.reset_index().rename(columns={'index': 'year'})
+
+
+    return proj
+
 
 
 # ev charging profile
