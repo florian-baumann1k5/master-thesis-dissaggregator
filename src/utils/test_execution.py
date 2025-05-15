@@ -18,7 +18,7 @@ from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
 from src.data_processing.cop import *
 from src.data_processing.electric_vehicles import *
-from src.pipeline.pipe_electric_vehicles import *
+from src.pipeline.pipe_ev_regional_consumption import *
 
 x = 29
 
@@ -143,7 +143,7 @@ elif x == 28:
     print(df)
 
 elif x == 29:
-    df = s1_2_electric_vehicle_consumption(year=2022)
+    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="UGR")
     print(df)
 
 else:

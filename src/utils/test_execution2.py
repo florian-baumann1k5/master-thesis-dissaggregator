@@ -5,10 +5,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 
 
 from src.data_access.local_reader import *
-from src.pipeline.pipe_electric_vehicles import *
+from src.pipeline.pipe_ev_regional_consumption import *
 from src.data_processing.electric_vehicles import *
+from src.utils.utils import *
+from src.pipeline.pipe_ev_temporal import *
 
-x = 5
+
+
+x = 9
 
 
 if x == 1:
@@ -28,27 +32,34 @@ if x == 4:
 if x == 5:
     df = future_2_electric_vehicle_consumption(year=2028, szenario="ambit")
     print(df)
+if x == 6:   # check total ev consumption by regional id
+    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="UGR")
+    df = electric_vehicle_consumption_by_regional_id(year=2016, szenario="UGR")
+
+    df = electric_vehicle_consumption_by_regional_id(year=2013, szenario="KBA_1")
+    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="KBA_1")
+
+    df = electric_vehicle_consumption_by_regional_id(year=2016, szenario="KBA_2")
+    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="KBA_2", s2_szenario="ambit")
+    print(df)
+
+elif x == 7:
+    df = create_weekday_workday_holiday_mask(state="TH", year=2024)
+    print(df)
+
+elif x == 8:
+    df = get_normalized_ev_charging_profile(type="total", day_type="weekend")
+    print(df)
+
+elif x == 9:
+    year = 2035
+    szenario = "KBA_2"
+    s2_szenario = "regio"
+    df = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario=szenario, s2_szenario=s2_szenario)
+    print(df)
 
 else:
     None
 
 
 
-import pandas as pd
-
-# anchor points only:
-df = pd.DataFrame({
-    'year': [2025, 2030, 2045],
-    'value': [1.6, 15.0, 49.0]
-}).set_index('year')
-
-# reindex to fill every year
-idx = range(2025, 2046)
-df2 = df.reindex(idx)
-
-# linear vs index
-lin  = df2.interpolate(method='linear')
-ind  = df2.interpolate(method='index')
-
-# they match here because idx is uniform
-print((lin - ind).dropna())
