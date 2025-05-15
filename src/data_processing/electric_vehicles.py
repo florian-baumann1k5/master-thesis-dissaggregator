@@ -9,8 +9,19 @@ import datetime
 
 def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km_per_ev: int, avg_mwh_per_km: float) -> pd.DataFrame:
     """
-    Calculate the consumption of electric vehicles.
-    TODO: description
+    Calculate the consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
+
+    Args:
+        data_in: float | pd.DataFrame
+            The input data. If float, it is interpreted as the number of electric vehicles. If pd.DataFrame, it is interpreted as the number of electric vehicles by year.
+        avg_km_per_ev: int
+            The average km per ev.
+        avg_mwh_per_km: float
+            The average mwh per km.
+
+    Returns:
+        pd.DataFrame | float
+            The consumption of electric vehicles by year. If float, it is the total consumption. If pd.DataFrame, it is the consumption by year.
     """
 
 
@@ -114,7 +125,14 @@ def registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
 
 def calculate_existing_ev_stock(year: int) -> int:
     """
-    Calculate the existing ev stock for the given year.
+    Calculate the existing ev stock for the given year based on the registered electric vehicles (KBA) by regional id.
+
+    Args:
+        year: int
+            Year to calculate the existing ev stock for
+    Returns:
+        int
+            The existing ev stock for the given year
     """
 
     # 1. load data
@@ -127,10 +145,7 @@ def calculate_existing_ev_stock(year: int) -> int:
     return existing_ev_stock
 
 
-def s1_future_ev_stock_15mio_by_2030(year,
-             baseline_year=2025,
-             baseline_ev=1.6e6,
-             total_stock=49e6):
+def s1_future_ev_stock_15mio_by_2030(year: int, baseline_year: int = 2025, baseline_ev: float = 1.6e6, total_stock: float = 49e6) -> float:
     """
     Estimate EV fleet size (absolute number of vehicles) in Germany for a given year
     between baseline_year and final_year, using piecewise linear interpolation.
@@ -153,7 +168,7 @@ def s1_future_ev_stock_15mio_by_2030(year,
 
     Returns:
         float
-            Estimated number of EVs in the given year.
+            Estimated total number of EVs in the given year.
     """
 
     # 1. define the political goals:
@@ -566,7 +581,12 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
             The type of the ev charging profile ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'total']
         day_type: str
             The day type of the ev charging profile ['workday', 'weekend']
-
+    
+    Returns:
+        pd.DataFrame
+            index: datetime
+            columns: charging_location [home_charging, work_charging, public_charging]
+            values: normalized charging profile
     """
 
     # 0. validate input
@@ -578,13 +598,16 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
     # 1. load data
     ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type)
 
+
     # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
     ev_charging_profile = ev_charging_profile.iloc[:-1]
 
-    # 2. normalize the data
+
+    # 3. normalize the data
     ev_charging_profile_normalized = ev_charging_profile / ev_charging_profile.values.sum().sum()
 
-    # 3. rename the columns of the dataframe: 
+
+    # 4. rename the columns of the dataframe: 
     ev_charging_profile_normalized.rename(columns={
         "home_charging[kw/car]":"home_charging",
         "work_charging[kw/car]":"work_charging",
@@ -592,9 +615,7 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
     }, inplace=True)
 
 
-
-
-    # 3. validate the result
+    # 5. validate the result
     if not np.isclose(ev_charging_profile_normalized.sum().sum(), 1.0):
         raise ValueError("The sum of the ev charging profile is not 1!")
     if ev_charging_profile_normalized.isnull().any().any():
@@ -616,6 +637,16 @@ def disaggregate_temporal_ev_consumption_for_state(ev_consumption_by_regional_id
             The state of the ev consumption
         year: int
             The year of the ev consumption
+        yearly_charging_profile: pd.DataFrame
+            The yearly normalized charging profile
+
+    Returns:
+        pd.DataFrame
+            The disaggregated ev consumption by regional id and charging location
+            index: datetime
+            columns[0]: regional_id
+            columns[1]: charging_location [home_charging, work_charging, public_charging]
+            values: ev consumption for time, location, regional_id
     """
 
     # 0. validate input
@@ -627,11 +658,6 @@ def disaggregate_temporal_ev_consumption_for_state(ev_consumption_by_regional_id
     ev_consumption = ev_consumption_by_regional_id.loc[
         [federal_state_dict().get(int(str(x)[:-3])) == state for x in ev_consumption_by_regional_id.index]
     ]
-    
-
-
-
-    
     
 
     # 5. iterate over every regional_id and disaggregate the ev consumption by yearly_charging_profile
@@ -683,11 +709,26 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
     """
     Generate the yearly charging profile for the given state and year.
 
-    TODO: description & cleanup
+    Args:
+        year: int
+            Year to generate the charging profile for
+        state: str
+            State to generate the charging profile for
+
+    Returns:
+        pd.DataFrame
+            index: datetime
+            columns: charging_location [home_charging, work_charging, public_charging]
+            values: normalized charging profile
     """
 
+    logger.info(f"Generating normalized yearly charging profile for {year} and {state}...")
 
-    #2. build the mask
+    # 0. validate input
+    if state not in federal_state_dict().values():
+        raise ValueError(f"state must be in {federal_state_dict().values()}")
+
+    # 1. build the mask
     mask = create_weekday_workday_holiday_mask(state=state, year=year)
 
 
@@ -714,7 +755,6 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
     yearly_load_profile.index.name = 'datetime'
 
     # 2. Fill this DataFrame with the correct values: for each day in mask, select the appropriate scaled daily profile
-    print("Filling yearly load profile...")
     for day_date_ts, day_mask_info in mask.iterrows():
         # day_date_ts is a Timestamp object from the mask's index
         day_date_obj = day_date_ts.date() # Convert to datetime.date for comparison if needed
@@ -725,7 +765,7 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
         elif day_mask_info['weekend_holiday']: # Ensure this covers all non-workdays
             active_daily_profile = profile_weekend_scaled
         else:
-            print(f"Warning: Day {day_date_obj} is neither workday nor weekend_holiday in mask. Using weekend profile as fallback.")
+            logger.warning(f"Day {day_date_obj} is neither workday nor weekend_holiday in mask. Using weekend profile as fallback.")
             active_daily_profile = profile_weekend_scaled
 
 
@@ -740,22 +780,20 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
                 yearly_load_profile.loc[current_day_timestamps_in_yearly_profile] = active_daily_profile.values
             except Exception as e:
                 # Fallback to row-by-row if shapes mismatch or other issues (slower)
-                print(f"Direct assignment failed for {day_date_obj}, falling back. Error: {e}")
+                raise ValueError(f"Direct assignment failed for {day_date_obj}, falling back. Error: {e}")
                 for ts in current_day_timestamps_in_yearly_profile:
                     time_obj = ts.time() # datetime.time object
                     yearly_load_profile.loc[ts] = active_daily_profile.loc[time_obj]
         else:
-            print(f"Warning: No timestamps found in yearly_profile for {day_date_obj}. Mask date might be out of range or year mismatch.")
+            raise ValueError(f"No timestamps found in yearly_profile for {day_date_obj}. Mask date might be out of range or year mismatch.")
 
 
     # 3. Normalize all values so the sum of all values equals 1,000,000
-    print("Normalizing final yearly profile...")
     # Sum of all values in the dataframe (sum over all columns, then sum these totals)
     current_total_sum = yearly_load_profile.sum().sum()
     
     if current_total_sum == 0:
-        print("Warning: Total sum of the yearly profile is 0. Cannot normalize.")
-        # Handle this case, e.g., by returning the zero DataFrame or raising an error
+        raise ValueError("Total sum of the yearly profile is 0. Cannot normalize.")
     else:
         yearly_load_profile = (yearly_load_profile / current_total_sum)
 

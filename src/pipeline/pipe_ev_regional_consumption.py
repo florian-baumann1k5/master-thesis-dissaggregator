@@ -50,9 +50,17 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     """
-    TODO: description
+    Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
 
     Political Target by the german government: 15mio Electric vehicles by 2030.
+
+    Args:
+        year: int
+            Year to calculate the future consumption for
+    Returns:
+        pd.DataFrame
+            index: regional_id
+            columns: power[mwh]
     """
 
     # 0. validate input
@@ -84,11 +92,12 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
     return ev_consumption_by_region
 
+
 def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") -> pd.DataFrame:
     """
-    TODO: decription
+    Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
 
-    Predicted EV market penetration based on different szenarios.
+    Predicted EV market penetration based on different szenarios from literature.
 
     Args:
         year: int
@@ -136,7 +145,24 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
 # main function for s1 and s2
 def s1_2_electric_vehicle_consumption(year: int, szenario: str, s2_szenario: str) -> pd.DataFrame:
     """
-    TODO: description
+    Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
+
+    Covers the following szenarios:
+        - KBA_1: future data based on political target 15mio EVs by 2030
+        - KBA_2: future data based on different szenarios from literature
+
+    Args:
+        year: int
+            Year to load the data for
+        szenario: str
+            Szenario to load the data for [KBA_1, KBA_2]
+        s2_szenario: str
+            Szenario to load the data for KBA_2
+
+    Returns:
+        pd.DataFrame
+            index: regional_id
+            columns: power[mwh]
     """
 
     # 0. validate input
@@ -239,6 +265,8 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
     elif szenario == "UGR":
         if year < FIRST_YEAR_EXISTING_DATA_UGR or year > 2045:
             raise ValueError(f"Year must be between {FIRST_YEAR_EXISTING_DATA_UGR} and 2045 but is {year}")
+        if s2_szenario is not None:
+            raise ValueError("No s2_szenario for UGR - must be None ")
     else:
         raise ValueError("szenario must be in ['KBA_1', 'KBA_2', 'UGR']")
     if szenario == "KBA_2" and s2_szenario not in ["ambit", "trend", "regio", None]:
