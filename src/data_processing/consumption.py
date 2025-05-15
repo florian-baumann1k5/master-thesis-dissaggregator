@@ -12,7 +12,7 @@ from src.data_access.local_reader import *
 from src.data_access.api_reader import *
 from src.utils.utils import *
 from src.data_processing.normalization import *
-# This file contains the functions for the consumption data. Will be used in the pipeline "cunsumption".
+# This file contains the functions for the consumption data. Will be used in the pipeline "consumption".
 
 def get_ugr_data_ranges(year, force_preprocessing=False):
     """
@@ -165,19 +165,18 @@ def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFram
     Resolve WZ ranges in consumption data to individual WZ codes based on employee distribution.
     consumption_wz = total_consumption_range * (employee_wz / sum_employees_range)
     
-    Parameters:
-    -----------
-    ugr_data_ranges : pd.DataFrame
-        DataFrame with WZ ranges as index and consumption values for gas and power
-    employees_by_industry_sector_and_regional_ids : pd.DataFrame
-        DataFrame with employees per industry_sector and regional code
-    year : int
-        Year for data
+    Args:
+        ugr_data_ranges : pd.DataFrame
+            DataFrame with WZ ranges as index and consumption values for gas and power
+        employees_by_industry_sector_and_regional_ids : pd.DataFrame
+            DataFrame with employees per industry_sector and regional code
+        year : int
+            Year for data
         
     Returns:
-    --------
-    pd.DataFrame
-        DataFrame with individual WZ codes and their consumption values
+        pd.DataFrame
+            DataFrame with individual WZ codes and their consumption values
+
     """
         # Create an empty DataFrame to store the result
     consumption_by_wz = pd.DataFrame(columns=ugr_data_ranges.columns)
@@ -411,7 +410,7 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     # Filter rows to keep only those with "2" or "4" in the "ET" column (ET=energy type)
     # Extract energy type (ET) from internal_id: 2=gas, 4=power
     # Filter to keep only gas (ET=2) and power (ET=4) rows
-    data = data[data['internal_id[0]'].isin([2, 4])]
+    data = data[data['internal_id[0]'].isin([1, 2, 4, 5, 6, 7, 8])]
     data = data.rename(columns={"internal_id[0]": "energy_carrier"})
     
     # Create a pivot table to get consumption by energy type
@@ -424,8 +423,14 @@ def get_regional_energy_consumption(year) -> pd.DataFrame:
     
     # Rename columns for clarity
     data_pivot.rename(columns={
+        1: 'total[MWh]',
         2: 'power[MWh]',
-        4: 'gas[MWh]'
+        3: 'heat[MWh]',
+        4: 'gas[MWh]',
+        5: 'coal[MWh]',
+        6: 'heating_oil[MWh]',
+        7: 'renewables[MWh]',
+        8: 'other_energy_carriers[MWh]'
     }, inplace=True)
     
     # Fill NaN values with 0 for districts that might be missing one type of consumption
@@ -537,21 +542,22 @@ def calculate_regional_energy_consumption(consumption_data, energy_carrier, year
 def calculate_iteratively_industry_regional_consumption(sector_energy_consumption_ugr, regional_energy_consumption_jevi, employees_by_industry_sector_and_regional_ids):
     """
     Resolves the the consumption per industry_sector (from UGR) to regional_ids (with the help of JEVI) in an iterative approach.
+    This applies only to the industry sector with heavy energy consumption; CTS industry sector is resolved by the employees data.
 
-    !!! The code logis is copied from the old dissaggregator, not from the Diss
+    !!! The code logic is copied from the old dissaggregator, not from process explaint in the Diss
 
 
-        Args:
-            sector_energy_consumption_ugr: pd.DataFrame with consumption data industry sectors based on the UGR: consumption per industry_sector
-            year: int, year to calculate the regional energy consumption for
-            regional_energy_consumption_jevi: pd.DataFrame with regional energy consumption from JEVI: consumption per regional_id
-            employees_by_industry_sector_and_regional_ids: pd.DataFrame with employees by industry_sector and regional_id
-            energy_carrier: str, energy carrier to calculate the consumption for: [power, gas, petrol]
+    Args:
+        sector_energy_consumption_ugr: pd.DataFrame with consumption data industry sectors based on the UGR: consumption per industry_sector
+        year: int, year to calculate the regional energy consumption for
+        regional_energy_consumption_jevi: pd.DataFrame with regional energy consumption from JEVI: consumption per regional_id
+        employees_by_industry_sector_and_regional_ids: pd.DataFrame with employees by industry_sector and regional_id
+        energy_carrier: str, energy carrier to calculate the consumption for: [power, gas, petrol]
 
-        Returns:
-            pd.DataFrame:
-                - index: industry_sectors
-                - columns: regional_ids
+    Returns:
+        pd.DataFrame:
+            - index: industry_sectors
+            - columns: regional_ids
     """
 
     
@@ -570,6 +576,11 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     gv_LK_real.rename(columns={'gas[MWh]': 'Verbrauch in MWh'}, inplace=True)
     gv_LK_real.index.name = "ags"
     gv_LK_real.index = gv_LK_real.index.astype("int64")
+
+    petro_LK_real = pd.DataFrame(regional_energy_consumption_jevi['total[MWh]'])
+    petro_LK_real.rename(columns={'total[MWh]': 'Verbrauch in MWh'}, inplace=True)
+    petro_LK_real.index.name = "ags"
+    petro_LK_real.index = petro_LK_real.index.astype("int64")
     
     # employees data
     bze_je_lk_wz = employees_by_industry_sector_and_regional_ids
@@ -590,16 +601,22 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     spez_sv.rename(columns={0: 'spez. SV'}, inplace=True)
     spez_sv = spez_sv.sort_index().sort_index(axis=1)
 
+    spez_petro =  pd.DataFrame(sector_energy_consumption_ugr['petrol[MWh]']  / total_employees_per_sector)
+    spez_petro.columns = spez_petro.columns.astype(int)
+    spez_petro.rename(columns={0: 'spez. Petro'}, inplace=True)
+    spez_petro = spez_petro.sort_index().sort_index(axis=1)
+
 
     # UGR data total
     df_ec = pd.DataFrame({
         'GV_MWh': sector_energy_consumption_ugr['gas_incl_selfgen[MWh]'],
-        'SV_MWh': sector_energy_consumption_ugr['power_incl_selfgen[MWh]']
+        'SV_MWh': sector_energy_consumption_ugr['power_incl_selfgen[MWh]'],
+        'Petro_MWh': sector_energy_consumption_ugr['petrol[MWh]']
     })
 
     iterations_power = 8
     iterations_gas = 8
-
+    iterations_petrol = 8
 
 
     ##### calculate the specific demand per industry sector and regional_id with the old dissaggregator code #####
@@ -610,12 +627,14 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     # calculated from specific consumptions and number of employees
     spez_gv_lk = pd.DataFrame(index=spez_gv.index, columns=lk_ags)
     spez_sv_lk = pd.DataFrame(index=spez_sv.index, columns=lk_ags)
+    spez_petrol_lk = pd.DataFrame(index=spez_petro.index, columns=lk_ags)
     for lk in lk_ags:
         spez_gv_lk[lk] = spez_gv['spez. GV']
         spez_sv_lk[lk] = spez_sv['spez. SV']
+        spez_petrol_lk[lk] = spez_petro['spez. Petro']
     sv_lk_wz = bze_je_lk_wz * spez_sv_lk  # absolute electricty demand per dis
     gv_lk_wz = bze_je_lk_wz * spez_gv_lk  # absolute gas demand per district
-
+    petro_lk_wz = bze_je_lk_wz * spez_petrol_lk  # absolute petrol demand per district
     # get energy intensive industrial demand and number of workers per LK
     # energy intensive means a specific consumption >= 10 MWh/worker
     sv_ind_branches = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 23, 24, 25, 27, 28, 29, 33]
@@ -626,15 +645,22 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     gv_lk_wz_e_int = gv_lk_wz.loc[gv_ind_branches]
     bze_gv_e_int = bze_je_lk_wz.loc[gv_ind_branches]
 
+    petro_ind_branches = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 30]
+    petro_lk_wz_e_int = petro_lk_wz.loc[petro_ind_branches]
+    bze_petrol_e_int = bze_je_lk_wz.loc[petro_ind_branches]
+
     # get industry branches with energy intensity < 10 MWh/worker
     sv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (sv_lk_wz.loc[[21, 26, 30, 31, 32]].sum())
     sv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (sv_LK_real['Verbrauch in MWh'] - sv_LK_real['Verbrauch e-arme WZ'])
     gv_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (gv_lk_wz.loc[[26, 27, 28, 31, 32, 33]].sum())
     gv_LK_real.loc[:, 'Verbrauch e-int WZ'] = (gv_LK_real['Verbrauch in MWh'] - gv_LK_real['Verbrauch e-arme WZ'])
+    petro_LK_real.loc[:, 'Verbrauch e-arme WZ'] = (petro_lk_wz.loc[[26, 27, 28, 31, 32, 33]].sum())
+    petro_LK_real.loc[:, 'Verbrauch e-int WZ'] = (petro_LK_real['Verbrauch in MWh'] - petro_LK_real['Verbrauch e-arme WZ'])
 
     # get specific demand per WZ and district for energy intensive branches
     spez_sv_e_int = spez_sv_lk.loc[sv_ind_branches]
     spez_gv_e_int = spez_gv_lk.loc[gv_ind_branches]
+    spez_petrol_e_int = spez_petrol_lk.loc[petro_ind_branches]
     # ======= END DATA PREPARATION =======
 
 
@@ -643,11 +669,10 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     # in the old code ther was 400 and 401 -> we could not figure out where these were coming from -> we decided to just use the 400
 
     
-    # TODO petrol
     # ======= START CALCULATION =======
     # start of iterations to adjust regional specific demand of energy
     # energy intensive industries
-    ET = [2, 4]
+    ET = [2, 4, 5]
     for et in ET:
         if (et == 2):
             sv_LK = pd.DataFrame(sv_LK_real.loc[:, 'Verbrauch e-int WZ'])
@@ -816,6 +841,83 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
                                              columns=['GV WZ Modell [MWh]'])
                     else:
                         z = False
+        elif (et == 5):  # start adjusting loop for petrol
+            petrol_LK = pd.DataFrame(petro_LK_real.loc[:, 'Verbrauch e-int WZ'])
+            mean_value = petrol_LK['Verbrauch e-int WZ'].sum() / len(petrol_LK)
+            spez_petrol_angepasst = spez_petrol_e_int.copy()
+            while(iterations_petrol > 0):
+                iterations_petrol -= 1
+                y = True
+                i = 0
+                while(y):
+                    i += 1
+                    petrol_LK.loc[:, 'Petrol Modell e-int [MWh]'] = (
+                        petro_lk_wz_e_int.sum())
+                    petrol_LK.loc[:, 'Normierter relativer Fehler'] = (
+                        (petrol_LK['Verbrauch e-int WZ'] - petrol_LK['Petrol Modell e-int [MWh]']) / mean_value)
+                    #create new column 'Anpassungsfaktor' and set it to 1.0 (float)
+                    petrol_LK.loc[:, 'Anpassungsfaktor'] = 1.0
+                    petrol_LK.loc[lambda x:
+                              abs(x['Normierter relativer Fehler']) > 0.1,
+                              'Anpassungsfaktor'] = (
+                                  petrol_LK['Verbrauch e-int WZ']
+                                  / petrol_LK['Petrol Modell e-int [MWh]'])
+                    if(petrol_LK['Anpassungsfaktor'].sum() == 400):
+                        y = False
+                    elif(i < 10):
+                        spez_petrol_angepasst = (spez_petrol_angepasst
+                                             * petrol_LK['Anpassungsfaktor']
+                                             .transpose())
+                        spez_petrol_angepasst[spez_petrol_angepasst < 10] = 10
+                        spez_petrol_angepasst = (spez_petrol_angepasst
+                                             * petrol_LK['Verbrauch e-int WZ']
+                                             .sum()
+                                             / petrol_LK['Petrol Modell e-int [MWh]']
+                                             .sum())
+                        petro_lk_wz_e_int = bze_petrol_e_int * spez_petrol_angepasst
+                    else:
+                        y = False
+                petrol_wz = pd.DataFrame(petro_lk_wz_e_int.sum(axis=1),
+                                     columns=['Petrol WZ Modell [MWh]'])
+                k = 0
+                z = True
+                while(z):
+                    k = k + 1
+                    petrol_wz_ugr = (pd.DataFrame(index=petro_ind_branches,
+                                              columns=['Petrol_MWh_UGR']))
+                    petrol_wz_ugr['Petrol_MWh_UGR'] = (df_ec['Petro_MWh']
+                                               .loc[petro_ind_branches]
+                                               .values)
+                    petrol_wz_ugr = petrol_wz_ugr.merge(petrol_wz['Petrol WZ Modell [MWh]'],
+                                                left_index=True,
+                                                right_index=True)
+                    mean_value2 = petrol_wz_ugr['Petrol_MWh_UGR'].sum()/len(petrol_wz_ugr)
+                    petrol_wz_ugr.loc[:, 'Normierter relativer Fehler'] = (
+                        (petrol_wz_ugr['Petrol_MWh_UGR']
+                         - petrol_wz_ugr['Petrol WZ Modell [MWh]'])/mean_value2)
+                    petrol_wz_ugr.loc[:, 'Anpassungsfaktor'] = 1.0
+                    petrol_wz_ugr.loc[lambda x:
+                                  abs(x['Normierter relativer Fehler']) > 0.01,
+                                  'Anpassungsfaktor'] = (
+                                      petrol_wz_ugr['Petrol_MWh_UGR']
+                                      / petrol_wz_ugr['Petrol WZ Modell [MWh]'])
+                    petrol_wz['Anpassungsfaktor'] = petrol_wz_ugr['Anpassungsfaktor']
+                    # End of this iteration if all correction factors
+                    # ('Anpassungsfaktor') are equal to 1, otherwise adjust
+                    # specific demand by correction factor and continue
+                    # iteraions until 9 iterations are complete
+
+                    if(petrol_wz['Anpassungsfaktor'].sum() == len(petrol_wz)):
+                        z = False
+                    elif(k < 10):
+                        spez_petrol_angepasst = (spez_petrol_angepasst.multiply(
+                            petrol_wz['Anpassungsfaktor'], axis=0))
+                        spez_petrol_angepasst[spez_petrol_angepasst < 10] = 10
+                        petro_lk_wz_e_int = bze_petrol_e_int * spez_petrol_angepasst
+                        petrol_wz = pd.DataFrame(petro_lk_wz_e_int.sum(axis=1),
+                                             columns=['Petrol WZ Modell [MWh]'])
+                    else:
+                        z = False
                     # ======= END CALCULATION =======
 
 
@@ -823,8 +925,7 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
 
     spez_sv_lk.loc[list(spez_sv_angepasst.index)] = spez_sv_angepasst.values
     spez_gv_lk.loc[list(spez_gv_angepasst.index)] = spez_gv_angepasst.values
-    # TODO petrol
-    #spez_pv_lk.loc[list(spez_pv_angepasst.index)] = spez_pv_angepasst.values
+    spez_petrol_lk.loc[list(spez_petrol_angepasst.index)] = spez_petrol_angepasst.values
 
 
     #  HACK for Wolfsburg: There is no energy demand available Wolfsburg in the
@@ -833,7 +934,7 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
 
     spez_sv_lk = spez_sv_lk.sort_index(axis=1)
     spez_gv_lk = spez_gv_lk.sort_index(axis=1)
-
+    spez_petrol_lk = spez_petrol_lk.sort_index(axis=1)
 
     # ------------------------------------------------------------------------------------------------
     # New Code: make the spez consumption total again
@@ -842,12 +943,37 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
 
     total_power_consumption = spez_sv_lk * bze_je_lk_wz
     total_gas_consumption = spez_gv_lk * bze_je_lk_wz
-    #TODO Petrol: total_petrol_consumption = spez_pv_lk * bze_je_lk_wz
+    total_petrol_consumption = spez_petrol_lk * bze_je_lk_wz
 
 
+    # validation: check for Nan values
+    if total_power_consumption.isnull().any().any():
+        raise ValueError("total_power_consumption contains NaN values")
+    if total_gas_consumption.isnull().any().any():
+        raise ValueError("total_gas_consumption contains NaN values")
+    if total_petrol_consumption.isnull().any().any():
+        raise ValueError("total_petrol_consumption contains NaN values")
+    
+    # validation: check if the total consumption is equal to the sum of the sector energy consumption +/- 1%
+    if not np.isclose(
+        sector_energy_consumption_ugr['gas_incl_selfgen[MWh]'].sum(),
+        total_gas_consumption.sum().sum(),
+        rtol=0.01
+    ):
+        raise ValueError("total_gas_consumption is not equal to sector_energy_consumption_ugr['gas_incl_selfgen[MWh]']")
+    if not np.isclose(
+        sector_energy_consumption_ugr['power_incl_selfgen[MWh]'].sum(),
+        total_power_consumption.sum().sum(),
+        rtol=0.01
+    ):
+        raise ValueError("total_power_consumption is not equal to sector_energy_consumption_ugr['power_incl_selfgen[MWh]']")
+    if not np.isclose(
+        sector_energy_consumption_ugr['petrol[MWh]'].sum(),
+        total_petrol_consumption.sum().sum(),
+        rtol=0.01
+    ):
+        raise ValueError("total_petrol_consumption is not equal to sector_energy_consumption_ugr['petrol[MWh]']")
 
-    return [ total_power_consumption, total_gas_consumption
-            #TODO Petrol , total_petrol_consumption
-            ]
+    return [total_power_consumption, total_gas_consumption, total_petrol_consumption]
 
 
