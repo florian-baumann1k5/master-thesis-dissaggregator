@@ -21,7 +21,6 @@ def load_raw_ugr_data() -> pd.DataFrame:
     raw_file = load_config("base_config.yaml")['ugr_genisis_data_file'] 
     return pd.read_csv(raw_file, delimiter=';')
 
-
 def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this a config function
     raw_file = "src/configs/genisis_wz_dict.csv"
     return pd.read_csv(raw_file)
@@ -417,9 +416,6 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
     return df
 
-
-# Pipeline caches
-
 def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
     """
     Loads the shift load profiles for the given year. 
@@ -432,7 +428,6 @@ def load_shift_load_profiles_by_year_cache(year: int) -> pd.DataFrame:
         return None
     file = pd.read_csv(cache_file, header=[0, 1], index_col=0)
     return file
-
 
 def load_ERA_temperature_data(year: int) -> pd.DataFrame:
     """
@@ -448,7 +443,6 @@ def load_ERA_temperature_data(year: int) -> pd.DataFrame:
         return None
     
     return file
-
 
 def load_cop_parameters() -> pd.DataFrame:
 
@@ -555,7 +549,6 @@ def get_all_regional_ids() -> pd.DataFrame:
     raw_file = "data/raw/regional/ags_lk_changes/landkreise_2023.csv"
     return pd.read_csv(raw_file)
 
-
 def load_shapefiles_by_regional_id() -> pd.DataFrame:
     """
     Loads the shapefiles for the given year.
@@ -579,3 +572,114 @@ def load_shapefiles_by_regional_id() -> pd.DataFrame:
                .set_index('regional_id').sort_index(axis=0))
     
     return df
+
+
+# Electric Vehicles
+def load_registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Loads the registered electric vehicles by regional id for the given year.
+    From the Kraftfahrt-Bundesamt: https://www.kba.de/DE/Statistik/Produktkatalog/produkte/Fahrzeuge/fz1_b_uebersicht.html
+    Normalised to 399 regional_ids
+
+    Args:
+        year: int
+
+    Returns:
+        pd.DataFrame:
+            - index: regional_id (int)
+            - columns: number_of_registered_evs (int)
+    """
+    raw_file = f"data/raw/electric_vehicles/registered_evs_by_regional_id/registered_evs_{year}.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Registered electric vehicles by regional id for year {year} not found. File not found: {raw_file}")
+    
+
+    df = pd.read_csv(raw_file, dtype=str)
+
+    # Remove the dot in 'number_of_registered_evs' and convert to int
+    df['number_of_registered_evs'] = df['number_of_registered_evs'].str.replace('.', '', regex=False).astype(int)
+    # Convert 'regional_id' to int
+    df['regional_id'] = df['regional_id'].astype(int)
+
+    # Set 'regional_id' as the index
+    df.set_index('regional_id', inplace=True)
+    return df
+
+def load_avg_km_by_car() -> pd.DataFrame:
+    """
+    Loads the average km by car for 2003-2023 in germany.
+    Source: https://de.statista.com/statistik/daten/studie/251743/umfrage/durchschnittliche-fahrleistung-von-personenkraftwagen-in-deutschland/
+    with data from the "Deutsche Automobil Treuhand (DAT) Report"s
+
+    """
+    raw_file = "data/raw/electric_vehicles/avg_km_by_car.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Average km by car not found. File not found: {raw_file}")
+    
+    df = pd.read_csv(raw_file)
+
+    # Convert to int
+    df['year'] = df['year'].astype(int)
+    df['avg_km_per_ev'] = df['avg_km_per_ev'].astype(int)
+
+    df.set_index('year', inplace=True)
+
+    
+    return df
+
+def load_future_ev_stock_s2() -> pd.DataFrame:
+    """
+    Loads the future ev stock szenarios for 2025-2045 in Mio.
+
+    """
+    raw_file = "data/raw/electric_vehicles/predicted_evs_s2.csv"
+
+    df = pd.read_csv(raw_file)
+    df['year'] = df['year'].astype(int)
+    df.set_index('year', inplace=True)
+    return df
+
+def load_historical_vehicle_consumption_ugr_by_energy_carrier() -> pd.DataFrame:
+    """
+    Loads the historical ev stock for the given year.
+    
+    Source it the UGR Table "85521-15: Energieverbrauch im Straßenverkehr, Energieträger in tiefer Gliederung, Deutschland, 2014 bis 2022"
+
+    Data needs to be preprocessed to be in the correct format and cannot be copied 1:1 from the UGR:
+        - add seperator ";"
+        - replace comma with dot for decimal conversion
+
+    Args:
+        -
+
+    Returns:
+        pd.DataFrame:
+            - index: year
+            - columns: ev_consumption (int)
+    """
+    raw_file = f"data/raw/electric_vehicles/ugr_85521-15_priv_households_energy_carrier_mobility.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Historical ev stock not found. File not found: {raw_file}")
+    
+
+    df = pd.read_csv(raw_file, sep=';')
+
+    return df
+
+
+def load_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+    """
+    Loads the ev load profile for the given type.
+    """
+    raw_file = f"data/raw/electric_vehicles/ev_charging_profiles/ev_charging_profile_{type}_{day_type}.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Ev charging profile not found. File not found: {raw_file}")
+    
+    df = pd.read_csv(raw_file, sep=';')
+    df.set_index('time', inplace=True)
+    return df
+

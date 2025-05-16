@@ -281,3 +281,14 @@ def get_efficiency_level_by_application(application):
         return eff_gas_dict[application]
     except KeyError:
         raise ValueError(f"No efficiency level found for application: {application}")
+    
+
+# EVS
+def get_total_car_stock() -> int:
+    """
+    Get the total car stock for the given year.
+    Data coming from the 2024 Kraftfahrt-Bundesamt registration statistics (FZ 1.2).
+    """
+    total_car_stock_germany_2024 = 49339166
+    return total_car_stock_germany_2024
+

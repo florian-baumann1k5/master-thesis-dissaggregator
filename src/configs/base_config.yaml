@@ -51,3 +51,20 @@ temperature_allocation_cache_dir: "data/processed/temperature/temperature_alloca
 # Heat
 era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
 era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"
+
+
+# Electric Vehicles
+first_year_existing_registration_data: 2007
+last_year_existing_registration_data: 2024
+
+first_year_existing_fuel_consumption_ugr: 2014
+last_year_existing_fuel_consumption_ugr: 2022
+
+s3_future_ev_consumption_cache_dir: "data/processed/electric_vehicles/s3_future_ev_consumption"
+s3_future_ev_consumption_cache_file: "s3_future_ev_consumption.csv"
+
+electric_vehicle_consumption_by_regional_id_cache_dir: "data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id"
+electric_vehicle_consumption_by_regional_id_cache_file: "electric_vehicle_consumption_by_regional_id_{year}_{szenario}_{s2_szenario}.csv"
+
+electric_vehicle_consumption_by_regional_id_temporal_cache_dir: "data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal"
+electric_vehicle_consumption_by_regional_id_temporal_cache_file: "electric_vehicle_consumption_by_regional_id_temporal_{year}_{szenario}_{s2_szenario}.csv"
