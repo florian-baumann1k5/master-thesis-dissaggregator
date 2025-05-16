@@ -19,37 +19,21 @@ from src.data_processing.cop import *
 
 
 
-def decomp_factors_applications():
-    get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
-
-
-
-
-def application_data():
-    year = 2044
-    energy_carrier = "petrol"
+def temporal_data():
+    
+    year = 2045
+    energy_carrier = "power"
     force_preprocessing = True
-    sector = "cts"
+    sector = "industry"
 
-    df = disagg_applications_efficiency_factor(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
+    df = disaggregate_temporal(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
     print(df)
+
     return df
 
 
 
-def application_data2():
-    year = 2019
-    energy_carrier = "gas"
-    force_preprocessing = True
-    sector = "cts"
-
-    df = disagg_applications_efficiency_factor(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
-
-    print(df)
-    return df
-
-
-application_data()
+temporal_data()
 
 

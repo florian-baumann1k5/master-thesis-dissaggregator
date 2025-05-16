@@ -4,7 +4,7 @@ import holidays
 import datetime
 from datetime import timedelta
 from typing import Dict, Tuple
-
+import time
 
 
 from src import logger
@@ -17,7 +17,7 @@ from src.data_processing.consumption import *
 
 
 # main functions
-def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5) -> pd.DataFrame:
+def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Calculates the temporal distribution of industrial energy consumption for a
     given energy carrier and year using standard load profiles. 
@@ -56,7 +56,7 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
 
 
     # 2. Get Standard Load Profiles
-    slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=False)
+    slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=force_preprocessing)
     slp.index = pd.to_datetime(slp.index)
 
 
@@ -356,9 +356,6 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     return df
 
 
-
-
-
 def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame: 
     """
     This is the old function
@@ -435,6 +432,18 @@ def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -
 
     
     return DF
+
+
+def disagg_temporal_petrol_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+    """
+    Disaggregate the consumption data for petrol in the CTS sector.
+    """
+
+
+    return None
+
+
+
 
 
 # utils
@@ -718,10 +727,10 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
 
     # 1. load from cache if not force_preprocessing and cache exists
     if not force_preprocessing:
-         shift_load_profiles = load_shift_load_profiles_by_year_cache(year=year)
+         combined_slp = load_shift_load_profiles_by_year_cache(year=year)
 
-         if shift_load_profiles is not None:
-            return shift_load_profiles
+         if combined_slp is not None:
+            return combined_slp
     
     # 2. get states
     states = federal_state_dict().values()
@@ -744,6 +753,8 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['shift_load_profiles_cache_file'].format(year=year))
     os.makedirs(processed_dir, exist_ok=True)
     combined_slp.to_csv(processed_file)    
+
+    return combined_slp
 
 
 def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperatur_df: pd.DataFrame, year: int, force_preprocessing: bool = False):

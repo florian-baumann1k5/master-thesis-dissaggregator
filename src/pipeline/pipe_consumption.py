@@ -65,7 +65,7 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
 
 
 # fiter get_consumption_data() for cts or industry
-def get_consumption_data_per_cts_or_industry(year: int, cts_or_industry: str) -> pd.DataFrame:
+def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_industry: str, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Get consumption data for a specific year and filter it per cts or industry
     = spacial.disagg_CTS_industry()
@@ -73,23 +73,27 @@ def get_consumption_data_per_cts_or_industry(year: int, cts_or_industry: str) ->
     Args:
         year (int): The year to get consumption data for
         cts_or_industry (str): 'cts' or 'industry'
+        energy_carrier (str): 'power' or 'gas' or 'petrol'
+        force_preprocessing (bool): If True, the data will be preprocessed even if a cache file exists
     """
     # 1. validate the year and cts_or_industry
-    if year < 2000 or year > 2050:
-        raise ValueError("Year must be between 2000 and 2050")
+    if year < 2000 or year > 2045:
+        raise ValueError("Year must be between 2000 and 2045")
     if cts_or_industry not in ['cts', 'industry']:
         raise ValueError("cts_or_industry must be 'cts' or 'industry'")
+    if energy_carrier not in ['power', 'gas', 'petrol']:
+        raise ValueError("energy_carrier must be 'power' or 'gas' or 'petrol'")
 
 
     # 2. get the consumption data
-    consumption_data_power, consumption_data_gas = get_consumption_data(year)
+    consumption_data = get_consumption_data(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
 
     # 3. filter the consumption data
-    filtered_power = filter_consumption_data_per_cts_or_industry(consumption_data_power, cts_or_industry)
-    filtered_gas = filter_consumption_data_per_cts_or_industry(consumption_data_gas, cts_or_industry)
+    filtered_consumption_data = filter_consumption_data_per_cts_or_industry(consumption_data, cts_or_industry)
 
-    return filtered_power, filtered_gas
+
+    return filtered_consumption_data
 
 
 
