@@ -274,48 +274,34 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
             tw_df_lk.columns = tw_df_lk.columns.get_level_values(1)
             tw_df_lk.columns = tw_df_lk.columns.astype(int)
 
-
-
             tw_df_lk.index = pd.DatetimeIndex(tw_df_lk.index)
-
             last_hour = tw_df_lk.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
 
-
-
              # add the first day of the year year+1 to the tw_df_lk
             tw_df_lk = pd.concat([tw_df_lk, last_hour])
-
 
             # add the hours to the tw_df_lk and remove the last hour -> got hours for the whole year: 2018-01-01 00:00:00 to 2018-12-31 23:00:00
             # Values for every hour of a day are the same
             tw_df_lk = tw_df_lk.resample('h').ffill()
             tw_df_lk = tw_df_lk[:-1]
 
-
-
             # get from temp_calender_df for every day the Tagestyp=Wochentag and the coulumn of the regional code we are currently iterating over
             temp_cal = temp_calender_df.copy()
             temp_cal = temp_cal[['Date', 'Tagestyp', regional_id]].set_index("Date")
 
-
             last_hour = temp_cal.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
 
-
             temp_cal = pd.concat([temp_cal, last_hour])
-
-
 
             #temp_cal.index = pd.to_datetime(temp_cal.index)
             temp_cal = temp_cal.resample('h').ffill()
-
             temp_cal = temp_cal[:-1]
             temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
             temp_cal = temp_cal.set_index(["Tagestyp", regional_id, 'Stunde'])
 
-    
-
+            # iterate over all load profiles/ industry_sectors
             for slp in list(dict.fromkeys(load_profiles_cts_gas().values())):
 
 
@@ -352,6 +338,13 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     # 6. make the columns a multiindex
     df.columns = pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                     df.columns.str.split('_')])
+    
+
+    # sanity check
+    if not np.isclose(df.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
+        raise ValueError(f"The sum of the disaggregated temporal consumption is not equal to the sum of the initial consumption data in year {year}")
+    if df.isna().any().any():
+        raise ValueError(f"The disaggregated temporal consumption contains NaN values in year {year}")
     
     return df
 
@@ -436,11 +429,18 @@ def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -
 
 def disagg_temporal_petrol_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
     """
-    Disaggregate the consumption data for petrol in the CTS sector.
+    Disaggregate the consumption data for petrol in the CTS sector like gas
     """
 
+    df = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
 
-    return None
+    # sanity check
+    if not np.isclose(df.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
+        raise ValueError(f"The sum of the disaggregated temporal consumption is not equal to the sum of the initial consumption data in year {year}")
+    if df.isna().any().any():
+        raise ValueError(f"The disaggregated temporal consumption contains NaN values in year {year}")
+
+    return df
 
 
 

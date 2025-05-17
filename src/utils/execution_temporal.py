@@ -32,8 +32,19 @@ def temporal_data():
 
     return df
 
+def helper_functions():
+    df = allocation_temperature_by_day(year=2022)
+
+    df1 = load_profiles_cts_gas()
+    slp = "GB"
+    df2 = load_gas_load_profile(slp)
+    
+    
+    print("Done")
+    return None
 
 
-temporal_data()
 
+#temporal_data()
+helper_functions()
 

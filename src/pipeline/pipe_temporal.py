@@ -44,11 +44,13 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
 
     # 1. Get the consumption data with efficiency factor
     consumption_data = disagg_applications_efficiency_factor(sector=sector, energy_carrier=energy_carrier, year=year, force_preprocessing=force_preprocessing)
-    # sum over the applications but with efficiency factor
-    consumption_data = consumption_data.T.groupby(level=0).sum().T
 
 
+
+    # 2. disaggregate the consumption data based on the energy carrier and sector
     if sector == "industry":
+        # sum over the applications but with efficiency factor
+        consumption_data = consumption_data.T.groupby(level=0).sum().T
         consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5, force_preprocessing=force_preprocessing)
 
         # TODO: aus temporal application
@@ -57,14 +59,27 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
             # ...
 
     elif sector == "cts":
-        if energy_carrier == "gas":  
+        if energy_carrier == "gas":
+             # sum over the applications but with efficiency factor
+            consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
 
         elif energy_carrier == "power":
+             # sum over the applications but with efficiency factor
+            consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disaggregate_temporal_power_CTS(consumption_data=consumption_data, year=year)
 
         elif energy_carrier == "petrol":
+
+            # resolve with SLPs
+
             consumption_disaggregate_temporal = disagg_temporal_petrol_CTS(consumption_data=consumption_data, year=year)
+
+        
+
+
+
+
 
 
     # sanity check

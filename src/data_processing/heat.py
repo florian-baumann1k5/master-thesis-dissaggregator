@@ -157,6 +157,8 @@ def make_3level_timeseries(df_gas_switch: pd.DataFrame, state: str, year: int ) 
     return new_df
 
 
+
+
 def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     """
     Creates normalised heat demand timeseries for CTS per regional_id, and branch
@@ -346,6 +348,8 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     return df_temp_elec_from_gas_switch
     
+
+
 
 def create_heat_norm_industry(state: str, year: int, slp: str = 'KO') -> pd.DataFrame:
     """
@@ -540,6 +544,10 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     Calculates the total demand for industry per regional_id, and branch
     """
 
+    # 0. validate inputs
+    if p_ground + p_air + p_water != 1:
+        raise ValueError("sum of percentage of ground/air/water heat pumps must be 1")
+
 
     # 1. create index slicer for data selection
     col = pd.IndexSlice
@@ -670,6 +678,8 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
 
     return df_temp_elec_from_gas_switch
+
+
 
 
 

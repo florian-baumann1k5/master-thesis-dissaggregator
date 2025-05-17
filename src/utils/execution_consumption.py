@@ -10,7 +10,7 @@ from src.pipeline.pipe_consumption import *
 from src.pipeline.pipe_applications import *
 from src.data_access.local_reader import *
 from src.data_processing.application import *
-from src.data_processing.temporal import *
+from src.data_processing.temporal import *1
 from src.data_processing.temperature import *
 from src.pipeline.pipe_temporal import *
 from src.pipeline.pipe_heat import *
@@ -21,7 +21,7 @@ from src.data_processing.cop import *
 
 def consumption_data():
     
-    year = 2045
+    year = 2020
     energy_carrier = "petrol"
     force_preprocessing = True
     df = get_consumption_data(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
