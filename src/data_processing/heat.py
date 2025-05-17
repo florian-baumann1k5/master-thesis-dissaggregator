@@ -9,6 +9,9 @@ from src.data_processing.cop import *
 
 
 
+
+
+
 def get_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
     """
@@ -190,12 +193,12 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     """
 
 
-    # 1. get the consumption data
+    # 1. get the consumption data per regional_id and industry_sector (aggregating the applications)
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier="gas", year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
 
-    # 2. get total consumption of all applications by regional_id
+    # 2. get total consumption of all applications by regional_id, indsutry sector and disaggregate temporally (1h steps of the year)
     state_list = [state]
     gas_total = disagg_temporal_gas_CTS(consumption_data=consumption_data, state_list=state_list, year=year)
 
@@ -205,7 +208,7 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     
 
     # 4. create space heating timeseries: difference between total heat demand and water heating demand
-    heat_norm = (gas_total - gas_tempinde).clip(lower=0)
+    heat_difference = (gas_total - gas_tempinde).clip(lower=0)
 
 
     # 5. get the temperature allocation
@@ -214,7 +217,7 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
 
     # 6. clip heat demand above heating threshold 
     # DISS Formel 4.15
-    heat_total = heat_norm.droplevel(level=1, axis=1)
+    heat_total = heat_difference.droplevel(level=1, axis=1)
     mask = temp_allo[temp_allo > 15].isnull()
     mask.index = pd.to_datetime(mask.index)
     mask.columns = mask.columns.astype(int)
@@ -222,7 +225,7 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     df = heat_masked.fillna(0)
 
 
-    df.columns = heat_norm.columns
+    df.columns = heat_difference.columns
     heat_norm = df.copy()
 
 
@@ -264,7 +267,7 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     ## 1. Application: space_heating
     # 1.1 get efficiency level by application
-    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application('space_heating'))
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application_gas('space_heating'))
 
     # 1.2 get the COP timeseries for indoor heating --> T=40°C
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=40, source='ambient', year=year)
@@ -280,7 +283,7 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     ## 2. Application: hot_water
     # 2.1 get efficiency level by application
-    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat']]] * get_efficiency_level_by_application('process_heat'))
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat']]] * get_efficiency_level_by_application_gas('process_heat'))
 
     # 2.2 get the COP timeseries for process heating --> T=70°C
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=70, source='ambient', year=year)
@@ -295,7 +298,7 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     ## 3. Application: hot_water
     # 3.1 get efficiency level by application
-    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application('hot_water'))
+    df_heating_switch = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application_gas('hot_water'))
 
     # 3.2 get the COP timeseries for warm water  --> T=55°C
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=55, source='ambient', year=year)
@@ -310,23 +313,24 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float
 
     ## 4. Application: mechanical_energy
     df_mechanical_switch = ((df_temp_gas_switch
-                                .loc[:, col[:, :, ['mechanical_energy']]]) 
-                                * (get_efficiency_level_by_application('mechanical_energy') 
+                                .loc[:, col[:, :, ['mechanical_energy']]]) * (get_efficiency_level_by_application_gas('mechanical_energy') 
                                 / 0.9))  # HACK! 0.9 = electric motor efficiency
 
 
 
 
     # 5. add all dataframes together for electric demand per regional_id, industry_sector and application
-    df_temp_elec_from_gas_switch = pd.DataFrame(index=df_temp_gas_switch.index,
-                                                columns=(df_temp_gas_switch.columns),
-                                                data=0)
+    df_temp_elec_from_gas_switch = pd.DataFrame(index=df_temp_gas_switch.index, columns=(df_temp_gas_switch.columns), data=0)
     
+
 
     # 6. Check for NaN values in each dataframe before adding them
     dataframes_to_check = [
-        df_temp_elec_from_gas_switch, df_temp_indoor_heating, df_temp_process_heat,
-        df_temp_warm_water, df_mechanical_switch
+        df_temp_elec_from_gas_switch, 
+        df_temp_indoor_heating, 
+        df_temp_process_heat,
+        df_temp_warm_water, 
+        df_mechanical_switch
     ]
     for i, df in enumerate(dataframes_to_check):
         if df.isna().any().any():
@@ -566,7 +570,7 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     assert (air_floor_cop.index.year.unique() == df_temp_gas_switch.index.year.unique()), ("The year of COP ts does not match the year of the heat demand ts")
     # 3.3 select indoor heating demand to be converted to electric demand with cop.
     # use efficiency to convert from gas to heat.
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application('space_heating'))
+    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['space_heating']]] * get_efficiency_level_by_application_gas('space_heating'))
 
     df_temp_hp_heating = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
                           + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
@@ -579,7 +583,7 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     # 4.1 get the COP timeseries for low temperature process heat --> T=80°C
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=80, source='ambient', year=year)
     # 4.2 select low temperature heat to be converted to electric demand with cop
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat_below_100C']]] * get_efficiency_level_by_application('process_heat_below_100C'))
+    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['process_heat_below_100C']]] * get_efficiency_level_by_application_gas('process_heat_below_100C'))
 
     df_temp_hp_low_heat = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
                            + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
@@ -593,7 +597,8 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     # 5.2: 1st stage: T_sink = 60°C
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=60, source='ambient', year=year)
     # 5.2 select heat demand to be converted to electric demand with cop
-    df_hp_heat = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] * get_efficiency_level_by_application('process_heat_100_to_200C')).multiply((1-df_electrode['process_heat_100_to_200C']), axis=1, level=1))
+    df_hp_heat = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] * get_efficiency_level_by_application_gas('process_heat_100_to_200C'))
+                                                                                .multiply((1-df_electrode['process_heat_100_to_200C']), axis=1, level=1))
 
     df_temp_hp_medium_heat_stage1 = (p_ground * (df_hp_heat .div(ground_floor_cop, level=0).fillna(method='ffill'))
                                      + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
@@ -614,13 +619,11 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
     ## 6. Application: process_heat_200_to_500C
     # 6.1 calculate electric demand for electrode heaters
-    df_electrode_switch_200 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] 
-                                * get_efficiency_level_by_application('process_heat_100_to_200C'))
+    df_electrode_switch_200 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_100_to_200C']]] * get_efficiency_level_by_application_gas('process_heat_100_to_200C'))
                                 .multiply((df_electrode['process_heat_100_to_200C']),  axis=1, level=1) 
                                 / 0.98)  # HACK! 0.98 = electrode heater efficiency
     
-    df_electrode_switch_500 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_200_to_500C']]]
-                                * get_efficiency_level_by_application('process_heat_200_to_500C'))
+    df_electrode_switch_500 = ((df_temp_gas_switch.loc[:, col[:, :, ['process_heat_200_to_500C']]] * get_efficiency_level_by_application_gas('process_heat_200_to_500C'))
                                .multiply((df_electrode['process_heat_200_to_500C']), axis=1, level=1)
                                / 0.98)  # HACK! 0.98 = electrode heater efficiency
     
@@ -634,7 +637,7 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     air_floor_cop, ground_floor_cop, water_floor_cop = cop_ts(sink_t=55, source='ambient', year=year)
 
     # 7.2 select warm water heat to be converted to electric demand with cop
-    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application('hot_water'))
+    df_hp_heat = (df_temp_gas_switch.loc[:, col[:, :, ['hot_water']]] * get_efficiency_level_by_application_gas('hot_water'))
 
     df_temp_warm_water = (p_ground * (df_hp_heat.div(ground_floor_cop, level=0).fillna(method='ffill'))
                           + p_air * (df_hp_heat.div(air_floor_cop, level=0).fillna(method='ffill'))
@@ -645,8 +648,7 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
     ## 8. Application: mechanical_energy
     # 8.1 select Mechanical Energy
-    df_mechanical_switch = ((df_temp_gas_switch.loc[:, col[:, :, ['mechanical_energy']]])
-                            * (get_efficiency_level_by_application('mechanical_energy')
+    df_mechanical_switch = ((df_temp_gas_switch.loc[:, col[:, :, ['mechanical_energy']]]) * (get_efficiency_level_by_application_gas('mechanical_energy')
                             / 0.9))  # HACK! 0.9 = electric motor efficiency
 
 
@@ -654,8 +656,13 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
     # 9. Check for NaN values in each dataframe before adding them
     dataframes_to_check = [
-        df_temp_elec_from_gas_switch, df_temp_hp_heating, df_temp_hp_low_heat,
-        df_temp_hp_medium_heat, df_temp_warm_water, df_mechanical_switch, df_electrode_switch
+        df_temp_elec_from_gas_switch, 
+        df_temp_hp_heating, 
+        df_temp_hp_low_heat,
+        df_temp_hp_medium_heat, 
+        df_temp_warm_water, 
+        df_mechanical_switch, 
+        df_electrode_switch
     ]
     for i, df in enumerate(dataframes_to_check):
         if df.isna().any().any():
@@ -701,7 +708,7 @@ def hydrogen_after_switch(df_gas_switch: pd.DataFrame) -> pd.DataFrame:
     # efficiency of about 70%
     df_hydro = df_gas_switch.copy()
     idx = pd.IndexSlice
-    efficiency = get_efficiency_level_by_application('non_energetic_use')
+    efficiency = get_efficiency_level_by_application_gas('non_energetic_use')
     df_hydro.loc[:, idx[:, 'non_energetic_use']] *= efficiency
 
     # for energetic use of hydrogen:

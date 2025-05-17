@@ -96,7 +96,7 @@ elif x == 20: # disagg_daily_gas_slp_cts
     print(df)
 
 elif x == 21:
-    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2029)
+    df = sector_fuel_switch_fom_gas_petrol(sector="cts", switch_to="power", year=2029)
     print(df)
 
 elif x == 22:
@@ -120,7 +120,7 @@ elif x == 25:
     state = "SL"
     sector = "industry"
 
-    #df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+    #df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year)
     #df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
     #print(df_gas_switch)
     df_gas_switch = temporal_industry_elec_load_from_fuel_switch(state=state, switch_to=switch_to, year=year)

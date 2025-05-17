@@ -390,6 +390,15 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
             - index: WZ
     """
 
+
+    # validate inputs
+    if sector not in ["cts", "industry"]:
+        raise ValueError(f"Sector must be one of ['cts', 'industry'], you provided {sector}")
+    if switch_to not in ["power", "hydrogen"]:
+        raise ValueError(f"Switch to must be one of ['power', 'hydrogen'], you provided {switch_to}")
+    if sector == "cts" and switch_to == "hydrogen":
+        raise ValueError(f"For CTS all the energy is switched to power!")
+
     SHEET = {
         "cts": {
             "power": "Gas2Power CTS 2045",
