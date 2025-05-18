@@ -50,6 +50,16 @@ def application_data2():
     return df
 
 
-application_data()
+def application_factors():
+    sector = "industry"
+    energy_carrier = "gas"
+
+    decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
+
+    print(decomp)
+
+
+
+application_factors()
 
 

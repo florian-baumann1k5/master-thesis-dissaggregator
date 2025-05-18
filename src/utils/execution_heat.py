@@ -22,7 +22,7 @@ from src.data_processing.cop import *
 def switch():
     sector = "cts"
     #switch_to = "power"
-    switch_to = "power"
+    switch_to = "hydrogen"
     year = 2045
 
     df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year) # only returns apk "process_heat_above_500C" for every wz
@@ -49,11 +49,11 @@ def switch():
 def test():
 
     energy_carrier = "gas"
-    sector = "cts"
-    switch_to = "power"
+    sector = "industry"
+    switch_to = "hydrogen"
     year = 2030
 
-    state = "SH"
+    state = "TH"
 
     df = temporal_elec_load_from_fuel_switch(year=year, state=state, energy_carrier=energy_carrier, sector=sector, switch_to=switch_to, force_preprocessing=True)
 

@@ -155,9 +155,9 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
     return final_df
 
 
-def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
+def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
     """
-    Disaggregates the temporal distribution of gas consumption for CTS in a given year.
+    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
 
     DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
 
@@ -770,12 +770,6 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
             index: days of the year
     """
 
-    # check cache
-    if not force_preprocessing:
-        df = load_disagg_daily_gas_slp_cts_cache(state=state, year=year)
-        if df is not None:
-            logger.info(f"Load disagg_daily_gas_slp_cts from cache for state: {state} and year: {year}")
-            return df
 
     # 0. get the number of days in the year
     days_of_year = get_days_of_year(year)
@@ -881,12 +875,7 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
 
     
 
-    # 3. save to cache
-    processed_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
-    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
-    os.makedirs(processed_dir, exist_ok=True)
-    logger.info(f"Save disagg_daily_gas_slp_cts to cache for state: {state} and year: {year}")
-    df.to_csv(processed_file)    
+
 
     return df
 
@@ -1010,7 +999,7 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
 
 
 
-def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
+def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrier: str):
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
@@ -1057,7 +1046,7 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
 
     # for state in bl_dict().values():
     logger.info(f'Working on state: {state}.')
-    tw_df, gv_lk = disagg_daily_gas_slp_water(state, daily_temperature_allocation, year=year)
+    tw_df, gv_lk = disagg_daily_gas_slp_water(state, daily_temperature_allocation, year=year, energy_carrier=energy_carrier)
     
     gv_lk = (gv_lk.assign(federal_state=[federal_state_dict().get(int(x[:-3]))
                                 for x in gv_lk.index.astype(str)]))
@@ -1174,7 +1163,7 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
 
 
 
-def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: int):
+def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: int, energy_carrier: str):
     """
     Returns daily demand of gas with a given yearly demand in MWh
     per district and SLP.
@@ -1191,12 +1180,12 @@ def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: in
     days_of_year = get_days_of_year(year)
 
 
-    # 2. filter gas consumption
+    # 2. filter consumption
     # returns:
     #   index: regional_id
     #   columns: industry_sectors
     #   values: consumption of ['hot_water', 'mechanical_energy', 'process_heat'] per industry_sector and regional_id
-    df_eff = disagg_applications_efficiency_factor(energy_carrier="gas", sector="cts", year=year)
+    df_eff = disagg_applications_efficiency_factor(energy_carrier=energy_carrier, sector="cts", year=year)
     df_eff_reordered = df_eff.reorder_levels(order=[1, 0], axis=1)
     df_eff_selected = df_eff_reordered.loc[:, ['hot_water', 'mechanical_energy', 'process_heat']]
     gv_lk = df_eff_selected.groupby(level=1, axis=1).sum()

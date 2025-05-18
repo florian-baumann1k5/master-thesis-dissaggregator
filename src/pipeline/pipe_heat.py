@@ -44,7 +44,6 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
     # 0.1 get from cache if available
     cache_dir = load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_dir']
     cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_file'].format(year=year, state=state, energy_carrier=energy_carrier, sector=sector, switch_to=switch_to))
-
     if os.path.exists(cache_file) and not force_preprocessing:
         logger.info(f"Load temporal_elec_load_from_fuel_switch from cache for year: {year}, state: {state}, sector: {sector}, energy_carrier: {energy_carrier}, switch_to: {switch_to}")
         temporal_fuel_switch =  pd.read_csv(cache_file)
@@ -56,9 +55,9 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
     if energy_carrier == "gas":
 
         if sector == "cts":
-            temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch(year=year, state=state, switch_to=switch_to)
+            temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
         elif sector == "industry":
-            temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch(year=year, state=state, switch_to=switch_to)
+            temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
         else:
             raise ValueError(f"Invalid sector: {sector}")
         
@@ -88,7 +87,7 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
 
 
 # Gas - CTS:
-def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: str):
+def temporal_cts_elec_load_from_fuel_switch_gas(year: int, state: str, switch_to: str):
     """
     Converts timeseries of gas demand per NUTS-3 and branch and application to
         electric consumption timeseries. Uses COP timeseries for heat
@@ -110,6 +109,7 @@ def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: st
     p_ground = get_heatpump_distribution()["p_ground"]
     p_air = get_heatpump_distribution()["p_air"]
     p_water = get_heatpump_distribution()["p_water"]
+    energy_carrier = "gas"
 
 
     # 0. validate inputs
@@ -120,146 +120,30 @@ def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: st
 
     # 1. get gas demand for fuel switch
     sector = "cts"
-    df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year, energy_carrier="gas")
+    df_heat_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year, energy_carrier=energy_carrier)
 
 
-    # 2. disaggregate gas demand for fuel switch
-    df_temp_gas_switch = disagg_temporal_cts_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+    # 2. temporally disaggregate gas demand for fuel switch
+    df_temp_heat_switch = disagg_temporal_cts_fuel_switch(df_gas_switch=df_heat_switch, state=state, year=year, energy_carrier=energy_carrier)
+    """
+    index: timestamp
+    columns: [regional_id, industry_sector, application]
+    values: [float]: 0
+    """
 
 
-    # 3. calculate total demand
-    df_temp_elec_from_gas_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water, year=year)
+
+    # 3. calculate total demand with efficiency factors for applications
+    df_temp_elec_from_heat_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_heat_switch, year=year, energy_carrier=energy_carrier)
 
     
 
-    return df_temp_elec_from_gas_switch
-
-
-def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
-    """
-    Temporally disaggregates CTS gas demand, which will be switched to
-    electricity or hydrogen, by state.
-
-    Args:
-        df_gas_switch : pd.DataFrame
-            Gas demand by branch, application and NUTS-3 region which will be
-            replaced.
-        state : str
-            Specifies state. Must by one of the entries of bl_dict().values(),
-            ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
-                'BB', 'MV', 'SN', 'ST', 'TH']
-        year : int
-            Year of the data
-    
-    Returns:
-        pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and
-            applications. temperature dependent and independent profiles from gas
-            SLP for temporal disaggregation of df_gas_switch.
-
-        
-    """
-
-    # 0. validate inputs
-    if state not in federal_state_dict().values():
-        raise ValueError(f"Invalid state: {state}")
-    if year not in range(2019, 2051):
-        raise ValueError(f"Invalid year: {year}")
-
-
-
-    # 1. create a multicolumn dataframe from the given dataframe and state:
-    new_df = make_3level_timeseries(df_gas_switch=df_gas_switch, state=state, year=year)
-    """ new_df is a dataframe with the following columns:
-
-    columns:            ['regional_id', 'industry_sector', 'application']
-    index:              [datetime]: year in 15 min timesteps
-    values:             [float]: 0
-    
-    """
-
-
-    # 2. get normalized timeseries for temperature dependent and temperature
-    # independent gas demand in CTS - hourly
-    heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_cts(state=state, year=year)
-
-
-
-    # 3. heat_norm: transform it into a 15-minute resolution using interpolation and normalize
-    """ interpolation:
-    00:00 → 10.0
-    00:15 → NaN
-    00:30 → NaN
-    00:45 → NaN
-    01:00 → 11.0
-    ->
-    00:00 → 10.0
-    00:15 → 10.25
-    00:30 → 10.5
-    00:45 → 10.75
-    01:00 → 11.0
-    """
-    heat_norm = (heat_norm
-        .resample('15min')
-        .asfreq()
-        .interpolate(method='linear', limit_direction='forward', axis=0)
-    )
-    extension = pd.DataFrame(
-        index=pd.date_range(
-            heat_norm.index[-1:].values[0],
-            periods=4,
-            freq='15min'
-        )[-3:],
-        columns=heat_norm.columns
-    )
-    heat_norm = pd.concat([heat_norm, extension]).ffill()
-
-    heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
-
-
-    # 4.gas_tempinde_norm: transform it into a 15-minute resolution using interpolation and normalize
-    gas_tempinde_norm = (gas_tempinde_norm
-        .resample('15min').asfreq()
-        .interpolate(method='linear', limit_direction='forward', axis=0))
-    extension = pd.DataFrame(
-        index=pd.date_range(gas_tempinde_norm.index[-1:]
-            .values[0],
-            periods=4,
-            freq='15min'
-        )[-3:],
-        columns=gas_tempinde_norm.columns)
-    gas_tempinde_norm = pd.concat([gas_tempinde_norm, extension]).ffill()
-
-    gas_tempinde_norm = gas_tempinde_norm.divide(gas_tempinde_norm.sum(), axis=1)
-
-
-
-    # 5. create temp disaggregated gas demands per nuts-3, branch and app
-    all_regional_ids = new_df.columns.get_level_values(0).unique()
-    for regional_id in all_regional_ids:
-
-        df_switch_region = df_gas_switch.loc[regional_id]
-        for industry_sector in df_switch_region.index.get_level_values(0).unique():
-            
-            df_switch_branch = df_switch_region.loc[industry_sector]
-            for app in df_switch_branch.index:
-
-                if app == 'space_heating':
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm[regional_id, int(industry_sector)]))
-                else:
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (gas_tempinde_norm[regional_id, int(industry_sector)]))
-        
-
-    # 6. drop all columns that have only nan values
-    new_df.dropna(axis=1, how='all', inplace=True)
-
-
-    return new_df
-
+    return df_temp_elec_from_heat_switch
 
 
 
 # Gas -Industry:
-def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_to: str):
+def temporal_industry_elec_load_from_fuel_switch_gas(year: int, state: str, switch_to: str):
     """
     Converts timeseries of gas demand per NUTS-3 and branch and application to
         electric consumption timeseries. Uses COP timeseries for heat
@@ -282,6 +166,7 @@ def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_t
     p_ground = get_heatpump_distribution()["p_ground"]
     p_air = get_heatpump_distribution()["p_air"]
     p_water = get_heatpump_distribution()["p_water"]
+    energy_carrier = "gas"
     
     # 0. validate inputs
     if p_ground + p_air + p_water != 1:
@@ -295,7 +180,7 @@ def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_t
 
 
     # 2. disaggregate gas demand for fuel switch
-    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
+    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year, energy_carrier=energy_carrier)
 
 
     # 4. load fuel switch share for power electrode
@@ -305,116 +190,13 @@ def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_t
 
 
     # 3. calculate total demand
-    df_temp_elec_from_gas_switch = calculate_total_demand_industry(df_temp_gas_switch=df_temp_gas_switch, year=year, p_ground=p_ground, p_air=p_air, p_water=p_water, df_electrode=df_electrode)
+    df_temp_elec_from_gas_switch = calculate_total_demand_industry(df_temp_gas_switch=df_temp_gas_switch, df_electrode= df_electrode,year=year, energy_carrier=energy_carrier)
 
 
     # Drop columns with all zeros
     df_temp_elec_from_gas_switch = df_temp_elec_from_gas_switch.loc[:, (df_temp_elec_from_gas_switch != 0).any(axis=0)]
     
     return df_temp_elec_from_gas_switch
-
-
-def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, low: float = 0.5) -> pd.DataFrame:
-    """
-    Temporally disaggregates industry gas demand, which will be switched to
-    electricity or hydrogen, by state.
-
-    Parameters
-    -------
-    df_gas_switch : pd.DataFrame
-        Gas demand by branch, application and NUTS-3 region which will be
-        replaced.
-    state : str, default None
-        Specifies state. Must by one of the entries of bl_dict().values(),
-        ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
-         'BB', 'MV', 'SN', 'ST', 'TH']
-    Returns
-    -------
-    pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and
-        applications. uses shift load profiles for temporal disaggregation
-        of df_gas_switch.
-
-    """
-
-    # 0. validate inputs
-    if state not in federal_state_dict().values():
-        raise ValueError(f"Invalid state: {state}")
-    if year not in range(2019, 2051):
-        raise ValueError(f"Invalid year: {year}")
-
-
-
-    # 1. create a multicolumn dataframe from the given dataframe and state:
-    new_df = make_3level_timeseries(df_gas_switch=df_gas_switch, state=state, year=year)
-    """ new_df is a dataframe with the following columns:
-
-    columns:            ['regional_id', 'industry_sector', 'application']
-    index:              [datetime]: year in 15 min timesteps
-    values:             [float]: 0
-    
-    """
-
-
-    # 2. get normalized timeseries for temperature dependent and temperature
-    # independent gas demand in CTS - hourly
-    heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_industry(state=state, year=year)
-
-
-    # 3. get shift load profiles
-    # troughput values for the helper function, used for industrial disagg
-    sp_bl = get_shift_load_profiles_by_state_and_year(state, low, year=year)
-
-
-    # 4. create time index
-    time_index_15min = pd.date_range(start=f"{year}", end=f"{year + 1}", freq="15T")[:-1]
-
-
-
-    # 5. get normalized timeseries for temperature dependent gas demand for
-    # industrial indoor heating, approximated with cts indoor heat with gas SLP 'KO'
-    if 'space_heating' in df_gas_switch.columns.unique(level=1):
-        # upsample heat_norm to quarter hours and interpolate, then normalize
-        heat_norm = (heat_norm.resample('15T').asfreq().interpolate(method='linear', limit_direction='forward', axis=0))
-        # extend DataFrame by 3 more periods
-        extension = pd.DataFrame(index=pd.date_range(heat_norm.index[-1:].values[0], periods=4, freq='15T')[-3:], columns=heat_norm.columns)
-        heat_norm = pd.concat([heat_norm, extension]).fillna(method='ffill')
-        # normalize
-        heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
-        assert heat_norm.index.equals(time_index_15min), "The time-indizes are not aligned"
-
-
-
-    # start assigning disaggregated demands to columns of new_df by multiplying
-    # shift_load_profiles with yearly demands per region, branch and app
-    assert sp_bl.index.equals(time_index_15min), "The time-indizes are not aligned"
-    # nuts-3 (lk) per state
-
-
-    # 5. get shift load profiles for industry
-    shift_profile_industry_dict = shift_profile_industry()
-
-
-    # 5. create temp disaggregated gas demands per nuts-3, branch and app
-    for regional_id in new_df.columns.get_level_values(0).unique():
-
-        for industry_sector in (df_gas_switch.loc[regional_id].index.get_level_values(0).unique()):
-            
-            for app in df_gas_switch.loc[regional_id][industry_sector].index:
-
-                if app == 'space_heating':
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm[regional_id]))
-                else:
-                    new_df.loc[:, (regional_id, industry_sector, app)] = (df_gas_switch.loc[regional_id][industry_sector, app] * sp_bl[shift_profile_industry_dict[int(industry_sector)]])
-        
-
-    # drop all columns with only zeros
-    new_df = new_df.loc[:, (new_df != 0).any(axis=0)]
-
-
-
-    return new_df
-
-
 
 
 # Petrol - CTS
@@ -437,43 +219,41 @@ def temporal_cts_elec_load_from_fuel_switch_petrol(year: int, state: str, switch
             SLP for temporal disaggregation of df_gas_switch.
 
     """
-
     p_ground = get_heatpump_distribution()["p_ground"]
     p_air = get_heatpump_distribution()["p_air"]
     p_water = get_heatpump_distribution()["p_water"]
-    
+
+
+
     # 0. validate inputs
     if p_ground + p_air + p_water != 1:
         raise ValueError("sum of percentage of ground/air/water heat pumps must be 1")
     
+    
+    # set variables
+    sector = "cts"
+    energy_carrier = "petrol"
+    
 
     # 1. get gas demand for fuel switch
-    sector = "cts"
-    df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year, energy_carrier="petrol")
+    df_petrol_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year, energy_carrier=energy_carrier)
 
 
-    # 2. disaggregate gas demand for fuel switch
-    df_temp_gas_switch = disagg_temporal_cts_fuel_switch_petrol(df_gas_switch=df_gas_switch, state=state, year=year)
+    # 2. disaggregate petrol demand for fuel switch
+    df_temp_petrol_switch = disagg_temporal_cts_fuel_switch(df_gas_switch=df_petrol_switch, state=state, year=year, energy_carrier=energy_carrier)
 
 
     # 3. calculate total demand
-    df_temp_elec_from_gas_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_gas_switch, p_ground=p_ground, p_air=p_air, p_water=p_water, year=year)
+    df_temp_elec_from_petrol_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_petrol_switch, year=year, energy_carrier=energy_carrier)
 
     
 
-    return df_temp_elec_from_gas_switch
+    return df_temp_elec_from_petrol_switch
 
-
-def disagg_temporal_cts_fuel_switch_petrol(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
-
-    return None
 
 
 # Petrol - Industry
-def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, switch_to: str, p_ground=0.36, p_air=0.58, p_water=0.06):
-
-    return None
-def disagg_temporal_industry_fuel_switch_petrol(df_gas_switch: pd.DataFrame, state: str, year: int) -> pd.DataFrame:
+def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, switch_to: str):
 
     return None
 
@@ -502,7 +282,8 @@ def hydrogen(year: int, energy_carrier: str) -> pd.DataFrame:
     return df_hydro
 
 
-# Gas & Petrol - calculate the gas that has to be switched to Power/ H2
+# Gas & Petrol 
+# calculate the gas that has to be switched to Power/ H2
 def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, energy_carrier: str) -> pd.DataFrame:
     """
     Determines yearly gas/petrol demand per branch and regional id for heat applications
@@ -573,3 +354,232 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
     df_fossil_switch = df_fossil_switch.loc[:, ~(df_fossil_switch == 0).all()]
 
     return df_fossil_switch
+
+# temaporal disaggregation of gas/petrol demand
+def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, energy_carrier: str) -> pd.DataFrame:
+    """
+    Temporally disaggregates CTS gas demand, which will be switched to
+    electricity or hydrogen, by state.
+
+    Args:
+        df_gas_switch : pd.DataFrame
+            Gas demand by branch, application and NUTS-3 region which will be
+            replaced.
+        state : str
+            Specifies state. Must by one of the entries of bl_dict().values(),
+            ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
+                'BB', 'MV', 'SN', 'ST', 'TH']
+        year : int
+            Year of the data
+    
+    Returns:
+        pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and
+            applications. temperature dependent and independent profiles from gas
+            SLP for temporal disaggregation of df_gas_switch.
+            columns[0]: regional_id
+            columns[1]: industry_sector
+            columns[2]: application
+            values: [float]: 0
+
+        
+    """
+
+    # 0. validate inputs
+    if state not in federal_state_dict().values():
+        raise ValueError(f"Invalid state: {state}")
+    if year not in range(2019, 2051):
+        raise ValueError(f"Invalid year: {year}")
+
+
+
+    # 1. create a multicolumn dataframe from the given dataframe and state:
+    new_df = make_3level_timeseries(df_gas_switch=df_gas_switch, state=state, year=year)
+    """ new_df is a dataframe with the following columns:
+
+    columns:            ['regional_id', 'industry_sector', 'application']
+    index:              [datetime]: year in 15 min timesteps
+    values:             [float]: 0
+    
+    """
+
+
+    # 2. get normalized timeseries for temperature dependent and temperature
+    # independent gas demand in CTS - hourly
+    heat_norm_1h, consumption_total, gas_tempinde_norm_1h = create_heat_norm_cts(state=state, year=year, energy_carrier=energy_carrier)
+
+
+
+    # 3. heat_norm: transform it into a 15-minute resolution using interpolation and normalize
+    """ interpolation:
+    00:00 → 10.0
+    00:15 → NaN
+    00:30 → NaN
+    00:45 → NaN
+    01:00 → 11.0
+    ->
+    00:00 → 10.0
+    00:15 → 10.25
+    00:30 → 10.5
+    00:45 → 10.75
+    01:00 → 11.0
+    """
+    heat_norm_15min_uncomplete = (heat_norm_1h
+        .resample('15min')
+        .asfreq()
+        .interpolate(method='linear', limit_direction='forward', axis=0)
+    )
+    extension = pd.DataFrame(
+        index=pd.date_range(
+            heat_norm_15min_uncomplete.index[-1:].values[0],
+            periods=4,
+            freq='15min'
+        )[-3:],
+        columns=heat_norm_15min_uncomplete.columns
+    )
+    heat_norm_15min = pd.concat([heat_norm_15min_uncomplete, extension]).ffill()
+
+    # normalize over complete year
+    heat_norm_15min = heat_norm_15min.divide(heat_norm_15min.sum(), axis=1)
+    heat_norm_15min = heat_norm_15min.fillna(0.0)
+
+
+    # 4.gas_tempinde_norm: transform it into a 15-minute resolution using interpolation and normalize
+    gas_tempinde_norm_15min_uncomplete = (gas_tempinde_norm_1h
+        .resample('15min').asfreq()
+        .interpolate(method='linear', limit_direction='forward', axis=0))
+    extension = pd.DataFrame(
+        index=pd.date_range(gas_tempinde_norm_15min_uncomplete.index[-1:]
+            .values[0],
+            periods=4,
+            freq='15min'
+        )[-3:],
+        columns=gas_tempinde_norm_15min_uncomplete.columns)
+    gas_tempinde_norm_15min = pd.concat([gas_tempinde_norm_15min_uncomplete, extension]).ffill()
+    # normalize over complete year
+    gas_tempinde_norm_15min = gas_tempinde_norm_15min.divide(gas_tempinde_norm_15min.sum(), axis=1)
+    gas_tempinde_norm_15min = gas_tempinde_norm_15min.fillna(0.0)
+
+
+
+    # 5. create temp disaggregated gas demands per nuts-3, branch and app
+    all_regional_ids = new_df.columns.get_level_values(0).unique()
+    for regional_id in all_regional_ids:
+
+        df_switch_region = df_gas_switch.loc[regional_id]
+        for industry_sector in df_switch_region.index.get_level_values(0).unique():
+            
+            df_switch_branch = df_switch_region.loc[industry_sector]
+            for app in df_switch_branch.index:
+
+                # space heating will be handled with the temperature dependent profile, the others with a general profile
+                if app == 'space_heating':
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm_15min[regional_id, int(industry_sector)]))
+                else:
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (gas_tempinde_norm_15min[regional_id, int(industry_sector)]))
+        
+
+    # 6. drop all columns that have only nan values
+    new_df.dropna(axis=1, how='all', inplace=True)
+
+
+    return new_df
+
+def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, energy_carrier: str, low: float = 0.5) -> pd.DataFrame:
+    """
+    Temporally disaggregates industry gas demand, which will be switched to
+    electricity or hydrogen, by state.
+
+    Parameters
+    -------
+    df_gas_switch : pd.DataFrame
+        Gas demand by branch, application and NUTS-3 region which will be
+        replaced.
+    state : str, default None
+        Specifies state. Must by one of the entries of bl_dict().values(),
+        ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
+         'BB', 'MV', 'SN', 'ST', 'TH']
+    Returns
+    -------
+    pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and
+        applications. uses shift load profiles for temporal disaggregation
+        of df_gas_switch.
+
+    """
+
+    # 0. validate inputs
+    if state not in federal_state_dict().values():
+        raise ValueError(f"Invalid state: {state}")
+    if year not in range(2019, 2051):
+        raise ValueError(f"Invalid year: {year}")
+
+
+
+    # 1. create a multicolumn dataframe from the given dataframe and state:
+    new_df = make_3level_timeseries(df_gas_switch=df_gas_switch, state=state, year=year)
+    """ new_df is a dataframe with the following columns:
+
+    columns:            ['regional_id', 'industry_sector', 'application']
+    index:              [datetime]: year in 15 min timesteps
+    values:             [float]: 0
+    
+    """
+
+
+    # 2. get normalized timeseries for temperature dependent and temperature
+    # independent gas demand in CTS - hourly
+    heat_norm, gas_total, gas_tempinde_norm = create_heat_norm_industry(state=state, year=year, energy_carrier=energy_carrier)
+
+
+    # 3. get shift load profiles
+    # troughput values for the helper function, used for industrial disagg
+    sp_bl = get_shift_load_profiles_by_state_and_year(state=state, low=low, year=year)
+
+
+    # 4. create time index
+    time_index_15min = pd.date_range(start=f"{year}", end=f"{year + 1}", freq="15T")[:-1]
+
+
+
+    # 5. get normalized timeseries for temperature dependent gas demand for
+    # industrial indoor heating, approximated with cts indoor heat with gas SLP 'KO'
+    if 'space_heating' in df_gas_switch.columns.unique(level=1):
+        # upsample heat_norm to quarter hours and interpolate, then normalize
+        heat_norm = (heat_norm.resample('15T').asfreq().interpolate(method='linear', limit_direction='forward', axis=0))
+        # extend DataFrame by 3 more periods
+        extension = pd.DataFrame(index=pd.date_range(heat_norm.index[-1:].values[0], periods=4, freq='15T')[-3:], columns=heat_norm.columns)
+        heat_norm = pd.concat([heat_norm, extension]).fillna(method='ffill')
+        # normalize
+        heat_norm = heat_norm.divide(heat_norm.sum(), axis=1)
+        assert heat_norm.index.equals(time_index_15min), "The time-indizes are not aligned"
+
+
+
+    # start assigning disaggregated demands to columns of new_df by multiplying
+    # shift_load_profiles with yearly demands per region, branch and app
+    assert sp_bl.index.equals(time_index_15min), "The time-indizes are not aligned"
+    # nuts-3 (lk) per state
+
+
+    # 5. get shift load profiles for industry
+    shift_profile_industry_dict = shift_profile_industry()
+
+
+    # 5. create temp disaggregated gas demands per nuts-3, branch and app
+    for regional_id in new_df.columns.get_level_values(0).unique():
+
+        for industry_sector in (df_gas_switch.loc[regional_id].index.get_level_values(0).unique()):
+            
+            for app in df_gas_switch.loc[regional_id][industry_sector].index:
+
+                if app == 'space_heating':
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm[regional_id]))
+                else:
+                    new_df.loc[:, (regional_id, industry_sector, app)] = (df_gas_switch.loc[regional_id][industry_sector, app] * sp_bl[shift_profile_industry_dict[int(industry_sector)]])
+        
+
+    # drop all columns with only zeros
+    new_df = new_df.loc[:, (new_df != 0).any(axis=0)]
+
+
+
+    return new_df
