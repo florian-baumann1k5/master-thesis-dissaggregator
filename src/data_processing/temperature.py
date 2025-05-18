@@ -14,15 +14,17 @@ def allocation_temperature_by_day(year: int, force_preprocessing: bool = False):
     """
     DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
     old function data.t_allo() -> checked, it is the same output as the new function
-    Allocate temperature data to a given year.
+
+    Allocate temperature data to a given year based of a historical year on a daily basis.
 
     Args:
         year: int
 
     Returns:
         - a dataframe with the temperature outside in daily average resolution for a given year.
-        - Index is the datetime index daily
-        - columns are the regional ids
+            - index is the datetime index daily for the historical year!
+            - columns are the regional ids (400)
+            - values are the temperature outside in °C
     """
 
     # 0. validate input

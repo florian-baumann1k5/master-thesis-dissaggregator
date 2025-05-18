@@ -43,4 +43,20 @@ def switch():
 
     return None
 
-switch()
+#switch()
+
+
+def test():
+
+    energy_carrier = "gas"
+    sector = "cts"
+    switch_to = "power"
+    year = 2030
+
+    state = "SH"
+
+    df = temporal_elec_load_from_fuel_switch(year=year, state=state, energy_carrier=energy_carrier, sector=sector, switch_to=switch_to, force_preprocessing=True)
+
+    print(df)
+
+test()

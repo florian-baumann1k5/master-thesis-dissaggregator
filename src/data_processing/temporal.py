@@ -162,7 +162,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
 
     The consumpton for CTS of gas is highly dependent on the temperature since most of it is consumed for heating. 
-    In this function we follow the approcha created by BDEW 
+    In this function we follow the approcha created by BDEW to disaggregate the gas consumption for CTS into hourly values.
 
     Args:
         consumption_data: DataFrame containing consumption data with columns ['regional_id', 'industry_sector']
@@ -179,7 +179,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     hours_of_year = get_hours_of_year(year)
 
 
-    # 2. get the temperature allocation
+    # 2. get the temperature allocation for a future year per
     daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
 
@@ -254,7 +254,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
         regional_id_list = gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str)
 
 
-        # iterate over every regional code in the list_lk...
+        # iterate over every regional code in the list_lk... 'TODO: dauert
         for regional_id in regional_id_list:
 
             logger.info(f"Disaggregating gas consumption for regional id: {regional_id} in state: {state}")

@@ -87,7 +87,7 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
 
 
 
-# CTS:
+# Gas - CTS:
 def temporal_cts_elec_load_from_fuel_switch(year: int, state: str, switch_to: str):
     """
     Converts timeseries of gas demand per NUTS-3 and branch and application to
@@ -258,7 +258,7 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
 
 
 
-# Industry:
+# Gas -Industry:
 def temporal_industry_elec_load_from_fuel_switch(year: int, state: str, switch_to: str):
     """
     Converts timeseries of gas demand per NUTS-3 and branch and application to
@@ -417,10 +417,6 @@ def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str
 
 
 
-
-
-
-
 # Petrol - CTS
 def temporal_cts_elec_load_from_fuel_switch_petrol(year: int, state: str, switch_to: str):
     """
@@ -506,7 +502,7 @@ def hydrogen(year: int, energy_carrier: str) -> pd.DataFrame:
     return df_hydro
 
 
-# calculate the gas that has to be switched
+# Gas & Petrol - calculate the gas that has to be switched to Power/ H2
 def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, energy_carrier: str) -> pd.DataFrame:
     """
     Determines yearly gas/petrol demand per branch and regional id for heat applications
@@ -530,7 +526,7 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
             must be one of ['gas', 'petrol']
     Returns:
         pd.DataFrame:
-            index: regional_id
+            index: regional_id (all 400)
             columns: [industry_sector, application]
             values: gas/petrol demand that needs to be replaced by power or hydrogen
 

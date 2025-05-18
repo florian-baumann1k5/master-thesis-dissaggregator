@@ -200,15 +200,28 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
 
     # 2. get total consumption of all applications by regional_id, indsutry sector and disaggregate temporally (1h steps of the year)
     state_list = [state]
-    gas_total = disagg_temporal_gas_CTS(consumption_data=consumption_data, state_list=state_list, year=year)
+    gas_total = disagg_temporal_gas_CTS(consumption_data=consumption_data, state_list=state_list, year=year)     #TODO: die braucht länger
+
+
+    # sanity check
+    # Reverse lookup: get the key (state number) for the given state abbreviation
+    state_id_prefix = [k for k, v in federal_state_dict().items() if v == state][0]
+    def filter_rows_by_state_prefix(consumption_data, state_id_prefix):
+        prefix = str(state_id_prefix)
+        required_length = 4 if len(prefix) == 1 else 5
+        index_str = consumption_data.index.astype(str)
+        mask = index_str.str.startswith(prefix) & (index_str.str.len() == required_length)
+        return consumption_data[mask]
+    if not np.isclose(filter_rows_by_state_prefix(consumption_data, str(state_id_prefix)).sum().sum(), gas_total.sum().sum()):
+        raise ValueError("Consumption data for state is not equal to the total gas consumption")
 
 
     # 3. get the consumption of ['hot_water', 'mechanical_energy', 'process_heat'] by regional_id
-    gas_tempinde = (disagg_temporal_gas_CTS_water_by_state(state=state, year=year))
+    consumption_temperature_independent = (disagg_temporal_gas_CTS_water_by_state(state=state, year=year)) # TODO: dauert länger und bekomme "FUturteWarnigns"
     
 
     # 4. create space heating timeseries: difference between total heat demand and water heating demand
-    heat_difference = (gas_total - gas_tempinde).clip(lower=0)
+    consumption_temperature_dependent = (gas_total - consumption_temperature_independent).clip(lower=0)
 
 
     # 5. get the temperature allocation
@@ -216,8 +229,8 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
 
 
     # 6. clip heat demand above heating threshold 
-    # DISS Formel 4.15
-    heat_total = heat_difference.droplevel(level=1, axis=1)
+    # DISS Formel 4.15 S. 81
+    heat_total = consumption_temperature_dependent.droplevel(level=1, axis=1)
     mask = temp_allo[temp_allo > 15].isnull()
     mask.index = pd.to_datetime(mask.index)
     mask.columns = mask.columns.astype(int)
@@ -225,19 +238,32 @@ def create_heat_norm_cts(state: str, year: int) -> pd.DataFrame:
     df = heat_masked.fillna(0)
 
 
-    df.columns = heat_difference.columns
+    df.columns = consumption_temperature_dependent.columns
     heat_norm = df.copy()
 
 
-    # 7. normalise (sum per industry sector = 1.0)
+    # 7. normalise (sum per industry_sector = 1.0)
     heat_norm = heat_norm.divide(heat_norm.sum(axis=0), axis=1)
     heat_norm = heat_norm.fillna(0.0)
 
-    gas_tempinde_norm = gas_tempinde.divide(gas_tempinde.sum(axis=0), axis=1)
-    gas_tempinde_norm = gas_tempinde_norm.fillna(0.0)
+    consumption_temperature_independent_norm = consumption_temperature_independent.divide(consumption_temperature_independent.sum(axis=0), axis=1)
+    consumption_temperature_independent_norm = consumption_temperature_independent_norm.fillna(0.0)
 
 
-    return heat_norm, gas_total, gas_tempinde_norm
+
+    # 8. sanity check the normalized data
+    column_sums = heat_norm.sum(axis=0)
+    column_sums_list = list(column_sums.values.astype(float))
+    invalid_columns = column_sums[~pd.Series(column_sums_list).isin([0.0, 1.0]).values]
+    if not invalid_columns.empty:
+        raise ValueError("Sanity check failed: Not all columns in heat_norm sum to 0.0 or 1.0")
+    
+    column_sums = consumption_temperature_independent_norm.sum(axis=0)
+    invalid_columns = column_sums[~column_sums.isin([0.0, 1.0])]
+    if not column_sums.isin([0.0, 1.0]).all():
+        raise ValueError("Sanity check failed: Not all columns in consumption_temperature_independent_norm sum to 0.0 or 1.0")
+
+    return heat_norm, gas_total, consumption_temperature_independent_norm
 
 
 def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, p_ground: float, p_air: float, p_water: float, year: int) -> pd.DataFrame:
