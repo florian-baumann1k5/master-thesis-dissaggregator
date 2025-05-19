@@ -679,11 +679,18 @@ def load_historical_vehicle_consumption_ugr_by_energy_carrier() -> pd.DataFrame:
     return df
 
 
-def load_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+def load_ev_charging_profile(type: str, day_type: str, charging_location: str) -> pd.DataFrame:
     """
     Loads the ev load profile for the given type.
     """
-    raw_file = f"data/raw/electric_vehicles/ev_charging_profiles/ev_charging_profile_{type}_{day_type}.csv"
+
+    if charging_location not in ["home", "all"]:
+        raise ValueError(f"Charging location must be one of ['home', 'all'], you provided {charging_location}")
+
+    if charging_location == "all":
+        raw_file = f"data/raw/electric_vehicles/ev_charging_profiles_all/ev_charging_profile_{type}_{day_type}.csv"
+    elif charging_location == "home":
+        raw_file = f"data/raw/electric_vehicles/ev_charging_profiles_home/ev_charging_profile_{type}_{day_type}.csv"
 
     if not os.path.exists(raw_file):
         raise FileNotFoundError(f"Ev charging profile not found. File not found: {raw_file}")

@@ -506,9 +506,8 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
 
 
 
-# ev charging profile
-
-def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+# ev charging profiles
+def get_normalized_daily_ev_charging_profile_all(type: str, day_type: str) -> pd.DataFrame:
     """
     Load the normalized ev charging profile for the given type and day type.
 
@@ -532,7 +531,7 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
         raise ValueError(f"Day type must be one of ['workday', 'weekend'] but is {day_type}")
 
     # 1. load data
-    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type)
+    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type, charging_location="all")
 
 
     # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
@@ -559,6 +558,60 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
 
 
     return ev_charging_profile_normalized
+
+
+def get_normalized_daily_ev_charging_profile_home(type: str, day_type: str) -> pd.DataFrame:
+    """
+    Load the normalized ev charging profile for the given type and day type.
+
+    Args:
+        type: str
+            The type of the ev charging profile ['total']
+        day_type: str
+            The day type of the ev charging profile ['workday', 'weekend']
+    
+    Returns:
+        pd.DataFrame
+            index: datetime
+            columns: charging_location [home_charging]
+            values: normalized charging profile
+    """
+
+    # 0. validate input
+    if type not in ["total"]:
+        raise ValueError(f"Type must be one of ['total'] but is {type}")
+    if day_type not in ["workday", "weekend"]:
+        raise ValueError(f"Day type must be one of ['workday', 'weekend'] but is {day_type}")
+
+    # 1. load data
+    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type, charging_location="home")
+
+
+    # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
+    ev_charging_profile = ev_charging_profile.iloc[:-1]
+
+
+    # 3. normalize the data
+    ev_charging_profile_normalized = ev_charging_profile / ev_charging_profile.values.sum().sum()
+
+
+    # 4. rename the columns of the dataframe: 
+    ev_charging_profile_normalized.rename(columns={
+        "home_charging[kw/car]":"home_charging", 
+        "work_charging[kw/car]":"work_charging",
+        "public_charging[kw/car]":"public_charging"
+    }, inplace=True)
+
+
+    # 5. validate the result
+    if not np.isclose(ev_charging_profile_normalized.sum().sum(), 1.0):
+        raise ValueError("The sum of the ev charging profile is not 1!")
+    if ev_charging_profile_normalized.isnull().any().any():
+        raise ValueError("There are nan values in the ev charging profile!")
+
+
+    return ev_charging_profile_normalized
+
 
 
 
@@ -641,7 +694,7 @@ def disaggregate_temporal_ev_consumption_for_state(ev_consumption_by_regional_id
 
 
 
-def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataFrame:
+def get_normalized_yearly_ev_charging_profile(year: int, state: str, charging_location: str) -> pd.DataFrame:
     """
     Generate the yearly charging profile for the given state and year.
 
@@ -650,6 +703,8 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
             Year to generate the charging profile for
         state: str
             State to generate the charging profile for
+        charging_location: str
+            Charging location to generate the charging profile for ['all', 'home']
 
     Returns:
         pd.DataFrame
@@ -663,14 +718,20 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
     # 0. validate input
     if state not in federal_state_dict().values():
         raise ValueError(f"state must be in {federal_state_dict().values()}")
+    if charging_location not in ['all', 'home']:
+        raise ValueError(f"charging_location must be in ['all', 'home'] but is {charging_location}")
 
     # 1. build the mask
     mask = create_weekday_workday_holiday_mask(state=state, year=year)
 
 
     # 3. load the charging profiles
-    ev_charging_profile_workday = get_normalized_daily_ev_charging_profile(type="total", day_type="workday")
-    ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile(type="total", day_type="weekend")
+    if charging_location == 'all':
+        ev_charging_profile_workday = get_normalized_daily_ev_charging_profile_all(type="total", day_type="workday")
+        ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile_all(type="total", day_type="weekend")
+    elif charging_location == 'home':
+        ev_charging_profile_workday = get_normalized_daily_ev_charging_profile_home(type="total", day_type="workday")
+        ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile_home(type="total", day_type="weekend")
 
 
     # 0. Multiply the charging profiles by 1,000,000

@@ -2,6 +2,8 @@ import sys
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+
 import datetime
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
@@ -20,7 +22,7 @@ from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
 from src.data_processing.cop import *
 from src.pipeline.pipe_ev_regional_consumption import *
-
+from src.pipeline.pipe_ev_temporal import *
 
 
 path_graphs = "src/utils/thesis_outputs/graphs/"
@@ -33,6 +35,13 @@ def save_plot_with_datetime(plt_obj, name, dpi=300):
     path = os.path.join(path_graphs, filename)
     plt_obj.savefig(path, dpi=dpi)
     plt_obj.show()
+
+def save_dataframe_with_datetime(df, name):
+    now = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{name}_{now}.csv"
+    path = os.path.join(path_graphs, filename)
+    df.to_csv(path)
+    print(f"Saved {filename} to {path}")
 
 
 
@@ -48,7 +57,8 @@ def data_total_ev_consumption():
         total_consumption = df.sum().sum()
         df_total = pd.concat([df_total, pd.DataFrame({"year": [year], "total_consumption": [total_consumption]})])
 
-    df_total.to_csv(os.path.join(path_consumption, "ev_consumption_by_regional_id_kba_2_trend.csv"), index=False)
+    save_dataframe_with_datetime(df_total, "ev_consumption_by_regional_id_kba_2_trend")
+
 
 def graph_ev_consumption():
     # Load CSV files
@@ -88,7 +98,7 @@ def graph_ev_consumption():
 
     save_plot_with_datetime(plt, "ev_consumption_total", dpi=300)
 
-# data_total_ev_consumption()
+data_total_ev_consumption()
 # graph_ev_consumption()
 
 
@@ -203,8 +213,107 @@ def graph_ev_stock_complete():
 
     save_plot_with_datetime(plt, "ev_stock_complete", dpi=300)
 
-
-
 # data_total_ev_stock_future_s1()
 # graph_ev_stock_complete()
-graph_ev_stock_historical()
+#graph_ev_stock_historical()
+
+
+################### charging profiles normalized ######################################################
+path_consumption = "src/utils/thesis_outputs/ev_charging_profiles/"
+def data_charging_profiles_all():
+    df1 = get_normalized_daily_ev_charging_profile_all(type="total", day_type="workday")
+    df2 = get_normalized_daily_ev_charging_profile_all(type="total", day_type="weekend")
+
+    df1.index = pd.to_datetime(df1.index, format='%H:%M:%S').time
+    df2.index = pd.to_datetime(df2.index, format='%H:%M:%S').time
+    
+    df1.index.name = 'time'
+    df2.index.name = 'time'
+
+    df1.to_csv(os.path.join(path_consumption, "ev_charging_profile_normalized_total_workday_all.csv"))
+    df2.to_csv(os.path.join(path_consumption, "ev_charging_profile_normalized_total_weekend_all.csv"))
+
+def data_charging_profiles_home():
+    df1 = get_normalized_daily_ev_charging_profile_home(type="total", day_type="workday")
+    df2 = get_normalized_daily_ev_charging_profile_home(type="total", day_type="weekend")
+
+    df1.index = pd.to_datetime(df1.index, format='%H:%M:%S').time
+    df2.index = pd.to_datetime(df2.index, format='%H:%M:%S').time
+
+    df1.index.name = 'time'
+    df2.index.name = 'time' 
+
+    df1.to_csv(os.path.join(path_consumption, "ev_charging_profile_normalized_total_workday_home.csv"))
+    df2.to_csv(os.path.join(path_consumption, "ev_charging_profile_normalized_total_weekend_home.csv"))
+
+
+def graph_charging_profiles_all():
+    # ! muss für workday und weekend getrennt gemacht werden
+
+    data_path = os.path.join(path_consumption, 'ev_charging_profile_normalized_total_weekend_all.csv')
+    df = pd.read_csv(data_path)
+
+    # Convert 'time' to datetime for better plotting
+    df['time'] = pd.to_datetime(df['time'], format='%H:%M:%S')
+
+    # Plotting
+    plt.figure(figsize=(12, 6))
+
+    plt.plot(df['time'], df['home_charging'], label='Home Charging')
+    plt.plot(df['time'], df['work_charging'], label='Work Charging')
+    plt.plot(df['time'], df['public_charging'], label='Public Charging')
+
+    # Formatting plot
+    plt.title('Normalized EV Charging Profiles (Weekend)', fontsize=16)
+    plt.xlabel('Time of Day', fontsize=14)
+    plt.ylabel('Normalized Energy Consumption', fontsize=14)
+    plt.grid(True)
+
+    # Improve x-axis time formatting
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    plt.xticks(rotation=45)
+
+    plt.legend()
+    plt.tight_layout()
+
+    save_plot_with_datetime(plt, "ev_charging_profile_normalized_total_weekend_all", dpi=300)
+
+def graph_charging_profiles_home():
+    # ! muss für workday und weekend getrennt gemacht werden
+
+    data_path = os.path.join(path_consumption, 'ev_charging_profile_normalized_total_weekend_home.csv')
+    df = pd.read_csv(data_path)
+
+    # Convert 'time' to datetime for better plotting
+    df['time'] = pd.to_datetime(df['time'], format='%H:%M:%S')
+
+    # Plotting
+    plt.figure(figsize=(12, 6))
+
+    plt.plot(df['time'], df['home_charging'], label='Home Charging')
+
+    # Formatting plot
+    plt.title('Normalized EV Charging Profiles (Weekend)', fontsize=16)
+    plt.xlabel('Time of Day', fontsize=14)
+    plt.ylabel('Normalized Energy Consumption', fontsize=14)
+    plt.grid(True)
+
+    # Improve x-axis time formatting
+    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+    plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=1))
+    plt.xticks(rotation=45)
+
+    plt.legend()
+    plt.tight_layout()
+
+    save_plot_with_datetime(plt, "ev_charging_profile_normalized_total_weekend_home", dpi=300)
+
+#data_charging_profiles_home()
+#data_charging_profiles_all()
+#graph_charging_profiles_all()
+#graph_charging_profiles_home()
+
+
+#df = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=2024, szenario="KBA_2", s2_szenario="trend")
+#print(df)

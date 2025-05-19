@@ -75,7 +75,13 @@ def electric_vehicle_consumption_by_region_id_and_temporal_resolution(year: int,
 
 
         # 2.2. generate yearly charging profile (state based to include state-holidays)
-        yearly_charging_profile = get_normalized_yearly_ev_charging_profile(year=year, state=state)
+
+        if szenario == "KBA_1" or szenario == "KBA_2":
+            charging_location = "all"
+        elif szenario == "UGR":
+            charging_location = "home"
+            
+        yearly_charging_profile = get_normalized_yearly_ev_charging_profile(year=year, state=state, charging_location=charging_location)
 
 
         # 2.3. disaggregate the data by temporal resolution

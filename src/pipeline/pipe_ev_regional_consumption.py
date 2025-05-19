@@ -229,6 +229,8 @@ def s3_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 
 # Main function combining s1, s2 and s3
+# ! for KVB_1 & KVB_2 this returns the total consumption of cars ( home_charging + work_charging + public_charging)
+# ! for UGR this only returns the consumption of home_charging
 def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_szenario: str = None, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Loads the registered electric vehicles by regional id for the given year in the past or future
