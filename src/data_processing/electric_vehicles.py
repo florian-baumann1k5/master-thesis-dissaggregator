@@ -114,6 +114,7 @@ def registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     if year < 2017:
         year_in_dataset = 2017
     elif year > 2024:
+        logger.info(f"Year {year} is not in the dataset. Returning the last year of the dataset: 2024")
         year_in_dataset = 2024
     else:
         year_in_dataset = year
@@ -145,7 +146,7 @@ def calculate_existing_ev_stock(year: int) -> int:
     return existing_ev_stock
 
 
-def s1_future_ev_stock_15mio_by_2030(year: int, baseline_year: int = 2025, baseline_ev: float = 1.6e6, total_stock: float = 49e6) -> float:
+def s1_future_ev_stock_15mio_by_2030(year: int, baseline_year: int = 2024, baseline_ev: float = 1.6e6, total_stock: float = 49e6) -> float:
     """
     Estimate EV fleet size (absolute number of vehicles) in Germany for a given year
     between baseline_year and final_year, using piecewise linear interpolation.
@@ -499,71 +500,6 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
 
     # 11. filter for the requested year
     proj = proj.loc[[year]]
-
-
-    return proj
-
-
-def get_fiture_s3():
-
-
-    # 1. load last year of existing data & validate it
-    historic_consumption_df = get_historical_vehicle_consumption_ugr_by_energy_carrier(LAST_YEAR_EXISTING_DATA_UGR)
-    if historic_consumption_df.shape[0] != 1:
-        raise ValueError("`historic_consumption_df` must contain exactly one row")
-    if "power[mwh]" not in historic_consumption_df.columns:
-        raise ValueError("power[mwh] not found in historic_consumption_df columns")
-    if historic_consumption_df.index.name != "year":
-        raise ValueError("year not found in historic_consumption_df index")
-
-
-
-    df0 = historic_consumption_df
-    base_year = int(df0.index[0])
-    target_year = 2045
-
-    # 2. Identify fuels and set efficiencies
-    fuel_cols = [col for col in df0.columns if col not in ('year', 'power[mwh]')]
-    # TODO: fill in real efficiency factors here (between 0 and 1)
-    efficiency = {
-        'biodiesel[mwh]': 0.37,
-        'bioethanol[mwh]': 0.38,
-        'biogas[mwh]': 0.39,
-        'diesel[mwh]': 0.37,
-        'liquefied_petroleum_gas[mwh]': 0.36,
-        'natural_gas[mwh]': 0.39,
-        'petrol[mwh]': 0.38,
-    }
-
-    # Capture the original 2022 values
-    orig = df0.loc[base_year]
-
-    # 3. Prepare the projection DataFrame
-    years = np.arange(base_year, target_year + 1)
-    proj = pd.DataFrame(index=years)
-
-    # 4. Linearly interpolate each fuel to zero
-    span = target_year - base_year
-    for f in fuel_cols:
-        proj[f] = orig[f] * (1 - (proj.index - base_year) / span)
-        proj[f] = proj[f].clip(lower=0)
-
-    # 5. Compute saved energy per fuel
-    saved = pd.DataFrame(index=years, columns=fuel_cols)
-    for f in fuel_cols:
-        saved[f] = orig[f] - proj[f]
-
-    # 6. Compute additional power from saved energy
-    delta_power = pd.Series(0, index=years)
-    for f in fuel_cols:
-        eff = efficiency.get(f, 0)
-        delta_power += saved[f] * eff
-
-    # 7. Build projected power series
-    proj['power[mwh]'] = orig['power[mwh]'] + delta_power
-
-    # 8. (Optional) reset index if you like
-    proj = proj.reset_index().rename(columns={'index': 'year'})
 
 
     return proj
