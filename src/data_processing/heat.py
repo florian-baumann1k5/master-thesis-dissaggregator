@@ -758,6 +758,9 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     if df_temp_elec_from_gas_switch.isna().any().any():
         print("Warning: NaN values found in final combined dataframe")
 
+    # TODO: df_temp_hp_medium_heat is Heatpump
+    # TODO: df_electrode_switch is electrode heater
+
 
     return df_temp_elec_from_gas_switch
 
@@ -765,14 +768,12 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
 
 
-def hydrogen_after_switch(df_gas_switch: pd.DataFrame) -> pd.DataFrame:
+def hydrogen_after_switch(df_gas_switch: pd.DataFrame, energy_carrier: str) -> pd.DataFrame:
     """
     Determines hydrogen consumption to replace gas consumption.
 
-    Returns
-    -------
-    pd.DataFrame() with regional hydrogen consumption per consumer group and
-        application.
+    Returns:
+        pd.DataFrame() with regional hydrogen consumption per consumer group and application.
 
     """
     # define slice for easier DataFrame selection
@@ -781,14 +782,26 @@ def hydrogen_after_switch(df_gas_switch: pd.DataFrame) -> pd.DataFrame:
     # for non-energetic use of hydrogen:
     # conversion from natural gas to hydrogen in steam reforming has an
     # efficiency of about 70%
+
+
+    if energy_carrier == "gas":
+        efficiency_levels = get_efficiency_level_by_application_gas()
+    elif energy_carrier == "petrol":
+        efficiency_levels = get_efficiency_level_by_application_petrol()
+    else:
+        raise ValueError(f"Invalid energy_carrier: {energy_carrier}")
+
+
+
     df_hydro = df_gas_switch.copy()
-    idx = pd.IndexSlice
-    efficiency = get_efficiency_level_by_application_gas('non_energetic_use')
-    df_hydro.loc[:, idx[:, 'non_energetic_use']] *= efficiency
+    df_hydro.loc[:, col[:, :, 'non_energetic_use']] = (
+        df_hydro.loc[:, col[:, :, 'non_energetic_use']] * (efficiency_levels['non_energetic_use']))
 
     # for energetic use of hydrogen:
     # process heat applications are assumed to thave the same energy conversion
     # efficiency for natural gas and hydrogen
 
     return df_hydro
+
+
 

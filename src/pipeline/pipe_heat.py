@@ -52,22 +52,25 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
     
 
     # selects the correct function to use based on the energy carrier and sector
-    if energy_carrier == "gas":
+    if switch_to == "power":
+        if energy_carrier == "gas":
 
-        if sector == "cts":
-            temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
-        elif sector == "industry":
-            temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
-        else:
-            raise ValueError(f"Invalid sector: {sector}")
-        
-    if energy_carrier == "petrol":
-        if sector == "cts":
-            temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to=switch_to)
-        elif sector == "industry":
-            temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to=switch_to)
-        else:
-            raise ValueError(f"Invalid sector: {sector}")
+            if sector == "cts":
+                temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
+            elif sector == "industry":
+                temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch_gas(year=year, state=state, switch_to=switch_to)
+            else:
+                raise ValueError(f"Invalid sector: {sector}")
+            
+        if energy_carrier == "petrol":
+            if sector == "cts":
+                temporal_fuel_switch = temporal_cts_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to=switch_to)
+            elif sector == "industry":
+                temporal_fuel_switch = temporal_industry_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to=switch_to)
+            else:
+                raise ValueError(f"Invalid sector: {sector}")
+    elif switch_to == "hydrogen":
+        temporal_fuel_switch = hydrogen(year=year, energy_carrier=energy_carrier, state=state)
         
     
 
@@ -254,8 +257,59 @@ def temporal_cts_elec_load_from_fuel_switch_petrol(year: int, state: str, switch
 
 # Petrol - Industry
 def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, switch_to: str):
+    """
+    Converts timeseries of gas demand per NUTS-3 and branch and application to
+        electric consumption timeseries. Uses COP timeseries for heat
+        applications. uses efficiency for mechanical energy.
 
-    return None
+    Args:
+        df_temp_gas_switch : pd.DataFrame()
+            timestamp as index, multicolumns with nuts-3, branch and applications.
+            contains temporally disaggregated gas demand for fuel switch
+        p_ground, p_air, p_water : float, default 0.36, 0.58, 0.06
+            percentage of ground/air/water heat pumps sum must be 1
+
+    Returns:
+        pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and
+            applications. temperature dependent and independent profiles from gas
+            SLP for temporal disaggregation of df_gas_switch.
+
+    """
+
+    p_ground = get_heatpump_distribution()["p_ground"]
+    p_air = get_heatpump_distribution()["p_air"]
+    p_water = get_heatpump_distribution()["p_water"]
+    energy_carrier = "petrol"
+    
+    # 0. validate inputs
+    if p_ground + p_air + p_water != 1:
+        raise ValueError("sum of percentage of ground/air/water heat pumps must be 1")
+    
+    
+
+    # 1. get gas demand for fuel switch
+    sector = "industry"
+    df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year, energy_carrier="gas")
+
+
+    # 2. disaggregate gas demand for fuel switch
+    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year, energy_carrier=energy_carrier)
+
+
+    # 4. load fuel switch share for power electrode
+    df_electrode = load_fuel_switch_share(sector="industry", switch_to="electrode")
+    df_electrode = (df_electrode.loc[[isinstance(x, int) for x in df_electrode["industry_sector"]]].set_index("industry_sector").copy())
+    df_electrode.index = df_electrode.index.astype(str)
+
+
+    # 3. calculate total demand
+    df_temp_elec_from_gas_switch = calculate_total_demand_industry(df_temp_gas_switch=df_temp_gas_switch, df_electrode= df_electrode,year=year, energy_carrier=energy_carrier)
+
+
+    # Drop columns with all zeros
+    df_temp_elec_from_gas_switch = df_temp_elec_from_gas_switch.loc[:, (df_temp_elec_from_gas_switch != 0).any(axis=0)]
+    
+    return df_temp_elec_from_gas_switch
 
 
 
@@ -268,18 +322,34 @@ def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, s
 
 
 # hydrogen after switch
-def hydrogen(year: int, energy_carrier: str) -> pd.DataFrame:
+def hydrogen(year: int, energy_carrier: str, state: str) -> pd.DataFrame:
     """
     Determines hydrogen consumption to replace gas consumption.
     """
     
     df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector="industry", switch_to="hydrogen", year=year, energy_carrier=energy_carrier)
 
-    df_hydro = hydrogen_after_switch(df_gas_switch=df_gas_switch)
+
+    df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year, energy_carrier=energy_carrier)
+
+    df_hydro = hydrogen_after_switch(df_gas_switch=df_temp_gas_switch, energy_carrier=energy_carrier)
 
     # Remove columns with only zeros
     df_hydro = df_hydro.loc[:, (df_hydro != 0).any(axis=0)]
     return df_hydro
+
+
+
+""" aus 12. Hydrogen aus 05_Demo_CTS_Industry_disaggregation_applications_results_flo.ipynb 
+def strombedarf_electrolyse = hydrogen_after_switch / 0.7
+    -> das ist derstrombedarf dafür draufgeht mit strom den H2 zu erzeugen
+
+
+
+def disagg_temporal_applications_hp
+    -> create_hp_load(
+
+"""
 
 
 # Gas & Petrol 

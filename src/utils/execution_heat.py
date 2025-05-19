@@ -48,9 +48,9 @@ def switch():
 
 def test():
 
-    energy_carrier = "gas"
+    energy_carrier = "petrol"
     sector = "industry"
-    switch_to = "hydrogen"
+    switch_to = "power"
     year = 2030
 
     state = "TH"
