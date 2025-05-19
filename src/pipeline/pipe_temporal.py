@@ -24,7 +24,16 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
         e.g. for cts gas: 8760 rows x 23200 (=400*58) columns = 2.032.3200  values -> 3.59GB with full float precision 18
     """
 
-    # 0. check cache
+    # 0. validate the input
+    if sector not in ['cts', 'industry']:
+        raise ValueError("`sector` must be 'cts' or 'industry'")
+    if energy_carrier not in ['power', 'gas', 'petrol']:
+        raise ValueError("`energy_carrier` must be 'power', 'gas' or 'petrol'")
+    if year < 2000 or year > 2045:
+        raise ValueError("`year` must be between 2015 and 2050")
+
+
+    # 0.1 check if the cache exists
     if not force_preprocessing:
         consumption_disaggregate_temporal = load_consumption_disaggregate_temporal_cache(sector=sector, energy_carrier=energy_carrier, year=year)
 
@@ -33,13 +42,16 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
             return consumption_disaggregate_temporal
 
 
-    # 1. Get the consumption data
-    consumption_data = disagg_applications_efficiency_factor(sector=sector, energy_carrier=energy_carrier, year=year)
-    consumption_data = consumption_data.T.groupby(level=0).sum().T
+    # 1. Get the consumption data with efficiency factor
+    consumption_data = disagg_applications_efficiency_factor(sector=sector, energy_carrier=energy_carrier, year=year, force_preprocessing=force_preprocessing)
 
 
+
+    # 2. disaggregate the consumption data based on the energy carrier and sector
     if sector == "industry":
-        consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5)
+        # sum over the applications but with efficiency factor
+        consumption_data = consumption_data.T.groupby(level=0).sum().T
+        consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5, force_preprocessing=force_preprocessing)
 
         # TODO: aus temporal application
         # if energy_carrier == "gas":
@@ -47,12 +59,34 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
             # ...
 
     elif sector == "cts":
-        if energy_carrier == "gas":  
+        if energy_carrier == "gas":
+             # sum over the applications but with efficiency factor
+            consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
 
-
         elif energy_carrier == "power":
+             # sum over the applications but with efficiency factor
+            consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disaggregate_temporal_power_CTS(consumption_data=consumption_data, year=year)
+
+        elif energy_carrier == "petrol":
+
+            # resolve with SLPs
+
+            consumption_disaggregate_temporal = disagg_temporal_petrol_CTS(consumption_data=consumption_data, year=year)
+
+        
+
+
+
+
+
+
+    # sanity check
+    if not np.isclose(consumption_disaggregate_temporal.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
+        raise ValueError(f"The sum of the disaggregated temporal consumption is not equal to the sum of the initial consumption data for {sector} and {energy_carrier} in year {year}")
+    if consumption_disaggregate_temporal.isna().any().any():
+        raise ValueError(f"The disaggregated temporal consumption contains NaN values for {sector} and {energy_carrier} in year {year}")
 
 
     # 2. save to cache

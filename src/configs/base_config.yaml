@@ -49,8 +49,11 @@ temperature_allocation_cache_dir: "data/processed/temperature/temperature_alloca
 
 
 # Heat
-era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
 era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"
+era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
+
+temporal_elec_load_from_fuel_switch_cache_dir: "data/processed/heat/temporal_elec_load_from_fuel_switch"
+temporal_elec_load_from_fuel_switch_cache_file: "temporal_elec_load_from_fuel_switch_{year}_{state}_{energy_carrier}_{sector}_{switch_to}.csv"
 
 
 # Electric Vehicles

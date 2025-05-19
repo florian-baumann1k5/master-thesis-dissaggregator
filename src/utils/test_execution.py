@@ -17,16 +17,15 @@ from src.pipeline.pipe_temporal import *
 from src.pipeline.pipe_heat import *
 from src.data_processing.heat import *
 from src.data_processing.cop import *
-from src.data_processing.electric_vehicles import *
-from src.pipeline.pipe_ev_regional_consumption import *
 
-x = 29
+
+x = 12
 
 
 if x == 1:
 
 
-    df1= cop_ts(year=2050, source="waste heat", delta_t=80)
+    df1= load_decomposition_factors_temperature_industry()
     print(df1)
 
 elif x == 2:
@@ -68,13 +67,13 @@ elif x == 11:
     None
 
 elif x == 12:
-    None
+    df = disaggregate_temporal(year=2035, sector="cts", energy_carrier="gas")
 
 elif x == 13:
     df = get_total_gas_industry_self_consuption(2015, force_preprocessing=True)
 
 elif x == 14:
-    df = get_regional_energy_consumption(year=2015)
+    df = get_consumption_data_historical_and_future(year=2035)
 
 elif x == 15:
     df = get_CTS_power_slp(state="BW", year=2015)
@@ -97,7 +96,7 @@ elif x == 20: # disagg_daily_gas_slp_cts
     print(df)
 
 elif x == 21:
-    df = sector_fuel_switch_fom_gas(sector="cts", switch_to="power", year=2029)
+    df = sector_fuel_switch_fom_gas_petrol(sector="cts", switch_to="power", year=2029)
     print(df)
 
 elif x == 22:
@@ -121,7 +120,7 @@ elif x == 25:
     state = "SL"
     sector = "industry"
 
-    #df_gas_switch = sector_fuel_switch_fom_gas(sector=sector, switch_to=switch_to, year=year)
+    #df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector=sector, switch_to=switch_to, year=year)
     #df_temp_gas_switch = disagg_temporal_industry_fuel_switch(df_gas_switch=df_gas_switch, state=state, year=year)
     #print(df_gas_switch)
     df_gas_switch = temporal_industry_elec_load_from_fuel_switch(state=state, switch_to=switch_to, year=year)
@@ -131,19 +130,6 @@ elif x == 26:
     year = 2030
     state = "SL"
     df = hydrogen(year=year)
-    print(df)
-
-
-elif x == 27:
-    df = get_historical_vehicle_consumption_ugr_by_energy_carrier(year=2021)
-    print(df)
-
-elif x == 28:
-    df = get_future_vehicle_consumption_ugr_by_energy_carrier(year=2030)
-    print(df)
-
-elif x == 29:
-    df = electric_vehicle_consumption_by_regional_id(year=2036, szenario="UGR")
     print(df)
 
 else:

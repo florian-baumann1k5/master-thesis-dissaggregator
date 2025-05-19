@@ -254,34 +254,57 @@ def translate_application_columns_mapping() -> list:
        'WZ':                                    'industry_sector'
     }
 
-def get_efficiency_level_by_application(application):
+def get_efficiency_level_by_application_gas():
     """
     old fct: get_efficiency_level()
     
-    Returns value for given key from dictionary with efficiencies of
-    gas applications.
-
-    Args:
-        application : str
+    Returns dictionary with efficiencies of gas applications.
     
     Returns:
-        float : efficiency level for given application
+        dict : efficiency level for each application
 
     """
-    eff_gas_dict = {'mechanical_energy': 0.4,
-                    'non_energetic_use': 0.7,
-                    'process_heat': 0.96,
-                    'process_heat_100_to_200C': 0.9,
-                    'process_heat_200_to_500C': 0.9,
-                    'process_heat_below_100C': 0.96,
-                    'process_heat_above_500C': 0.8,
-                    'space_heating': 0.96,
-                    'hot_water': 0.96}
-    try:
-        return eff_gas_dict[application]
-    except KeyError:
-        raise ValueError(f"No efficiency level found for application: {application}")
+    return {
+        'mechanical_energy': 0.4,
+        'non_energetic_use': 0.7,
+        'process_heat': 0.96,
+        'process_heat_100_to_200C': 0.9,
+        'process_heat_200_to_500C': 0.9,
+        'process_heat_below_100C': 0.96,
+        'process_heat_above_500C': 0.8,
+        'space_heating': 0.96,
+        'hot_water': 0.96}
+
+
+
+def get_efficiency_level_by_application_petrol():
+    """    
+    Returns dictionary with efficiencies of petrol applications.
+
     
+    Returns:
+        dict : efficiency level for given application
+
+    """
+    return {
+        'mechanical_energy': 0.4,
+        'process_heat': 0.96,
+        'process_heat_100_to_200C': 0.9,
+        'process_heat_200_to_500C': 0.9,
+        'process_heat_below_100C': 0.96,
+        'process_heat_above_500C': 0.8,
+        'space_heating': 0.96,
+        'hot_water': 0.96}
+    
+def get_heatpump_distribution() -> dict:
+    """
+    Get the distribution of heat pumps (ground, air, water) by energy carrier.
+    """
+    return {
+        "p_ground": 0.36,
+        "p_air": 0.58,
+        "p_water": 0.06
+    }
 
 # EVS
 def get_total_car_stock() -> int:

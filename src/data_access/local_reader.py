@@ -149,6 +149,48 @@ def load_decomposition_factors_temperature_industry() -> pd.DataFrame:
     
     return df_decom_temp_industry
 
+def load_decomposition_factors_petrol() -> pd.DataFrame:
+    """
+    Load the decomposition factors for the energy carriers petrol.
+
+    Returns:
+        pd.DataFrame:
+            - index: industry_sectors
+            - columns: applications
+    """
+    raw_file_petrol = "data/raw/dimensionless/decompositionfactors_petrol_general_2023.csv"
+
+    df = pd.read_csv(raw_file_petrol, sep=';', decimal=',')
+    df.set_index('industry_sectors', inplace=True)
+
+    # multiply all columns by 0,01 except for industry_sectors or sector
+    for col in df.columns:
+        if col != 'industry_sectors' and col != 'sector':
+            df[col] = df[col] * 0.01
+
+    return df
+
+def load_decomposition_factors_process_heat_industry() -> pd.DataFrame:
+    """
+    Load the decomposition factors for the process heat industry.
+
+    Returns:
+        pd.DataFrame:
+            - index: industry_sectors
+            - columns: applications
+    """
+    raw_file= "data/raw/dimensionless/decomposition_factors_process_heat.csv"
+
+    df = pd.read_csv(raw_file, sep=';', decimal=',')
+    df.set_index('industry_sectors', inplace=True)
+
+    # multiply all columns by 0,01 except for industry_sectors;sector
+    for col in df.columns:
+        if col != 'industry_sectors' and col != 'sector':
+            df[col] = df[col] * 0.01
+
+    return df
+
 
 # gas self consumption
 def load_gas_industry_self_consuption(year: int) -> pd.DataFrame:
@@ -347,6 +389,15 @@ def load_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
         pd.DataFrame:
             - index: WZ
     """
+
+
+    # validate inputs
+    if sector not in ["cts", "industry"]:
+        raise ValueError(f"Sector must be one of ['cts', 'industry'], you provided {sector}")
+    if switch_to not in ["power", "hydrogen", "electrode"]:
+        raise ValueError(f"Switch to must be one of ['power', 'hydrogen', 'electrode'], you provided {switch_to}")
+    if sector == "cts" and switch_to == "hydrogen":
+        raise ValueError(f"For CTS all the energy is switched to power!")
 
     SHEET = {
         "cts": {

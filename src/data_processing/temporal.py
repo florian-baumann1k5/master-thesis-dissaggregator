@@ -4,7 +4,7 @@ import holidays
 import datetime
 from datetime import timedelta
 from typing import Dict, Tuple
-
+import time
 
 
 from src import logger
@@ -17,7 +17,7 @@ from src.data_processing.consumption import *
 
 
 # main functions
-def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5) -> pd.DataFrame:
+def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, low=0.5, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Calculates the temporal distribution of industrial energy consumption for a
     given energy carrier and year using standard load profiles. 
@@ -56,7 +56,7 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
 
 
     # 2. Get Standard Load Profiles
-    slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=False)
+    slp = get_shift_load_profiles_by_year(year=year, low=low, force_preprocessing=force_preprocessing)
     slp.index = pd.to_datetime(slp.index)
 
 
@@ -155,14 +155,14 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
     return final_df
 
 
-def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
+def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
     """
-    Disaggregates the temporal distribution of gas consumption for CTS in a given year.
+    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
 
     DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
 
     The consumpton for CTS of gas is highly dependent on the temperature since most of it is consumed for heating. 
-    In this function we follow the approcha created by BDEW 
+    In this function we follow the approcha created by BDEW to disaggregate the gas consumption for CTS into hourly values.
 
     Args:
         consumption_data: DataFrame containing consumption data with columns ['regional_id', 'industry_sector']
@@ -179,7 +179,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     hours_of_year = get_hours_of_year(year)
 
 
-    # 2. get the temperature allocation
+    # 2. get the temperature allocation for a future year per
     daily_temperature_allocation = allocation_temperature_by_day(year=year)
 
 
@@ -254,7 +254,7 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
         regional_id_list = gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str)
 
 
-        # iterate over every regional code in the list_lk...
+        # iterate over every regional code in the list_lk... 'TODO: dauert
         for regional_id in regional_id_list:
 
             logger.info(f"Disaggregating gas consumption for regional id: {regional_id} in state: {state}")
@@ -274,48 +274,34 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
             tw_df_lk.columns = tw_df_lk.columns.get_level_values(1)
             tw_df_lk.columns = tw_df_lk.columns.astype(int)
 
-
-
             tw_df_lk.index = pd.DatetimeIndex(tw_df_lk.index)
-
             last_hour = tw_df_lk.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
 
-
-
              # add the first day of the year year+1 to the tw_df_lk
             tw_df_lk = pd.concat([tw_df_lk, last_hour])
-
 
             # add the hours to the tw_df_lk and remove the last hour -> got hours for the whole year: 2018-01-01 00:00:00 to 2018-12-31 23:00:00
             # Values for every hour of a day are the same
             tw_df_lk = tw_df_lk.resample('h').ffill()
             tw_df_lk = tw_df_lk[:-1]
 
-
-
             # get from temp_calender_df for every day the Tagestyp=Wochentag and the coulumn of the regional code we are currently iterating over
             temp_cal = temp_calender_df.copy()
             temp_cal = temp_cal[['Date', 'Tagestyp', regional_id]].set_index("Date")
 
-
             last_hour = temp_cal.copy()[-1:]
             last_hour.index = last_hour.index + timedelta(1)
 
-
             temp_cal = pd.concat([temp_cal, last_hour])
-
-
 
             #temp_cal.index = pd.to_datetime(temp_cal.index)
             temp_cal = temp_cal.resample('h').ffill()
-
             temp_cal = temp_cal[:-1]
             temp_cal['Stunde'] = pd.DatetimeIndex(temp_cal.index).time
             temp_cal = temp_cal.set_index(["Tagestyp", regional_id, 'Stunde'])
 
-    
-
+            # iterate over all load profiles/ industry_sectors
             for slp in list(dict.fromkeys(load_profiles_cts_gas().values())):
 
 
@@ -328,7 +314,6 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
                     slp_profil.columns).time
                 slp_profil = slp_profil.stack()
 
-                # TODO FLO REF: deiser code block gibt es genau so 3x inder datei
                 # First, compute the 'Prozent' column
                 temp_cal['Prozent'] = [slp_profil[x] for x in temp_cal.index]
 
@@ -354,10 +339,12 @@ def disagg_temporal_gas_CTS(consumption_data: pd.DataFrame, year: int, state_lis
     df.columns = pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                     df.columns.str.split('_')])
     
+
+    # sanity check
+    if df.isna().any().any():
+        raise ValueError(f"The disaggregated temporal consumption contains NaN values in year {year}")
+    
     return df
-
-
-
 
 
 def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame: 
@@ -436,6 +423,25 @@ def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -
 
     
     return DF
+
+
+def disagg_temporal_petrol_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
+    """
+    Disaggregate the consumption data for petrol in the CTS sector like gas
+    """
+
+    df = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
+
+    # sanity check
+    if not np.isclose(df.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
+        raise ValueError(f"The sum of the disaggregated temporal consumption is not equal to the sum of the initial consumption data in year {year}")
+    if df.isna().any().any():
+        raise ValueError(f"The disaggregated temporal consumption contains NaN values in year {year}")
+
+    return df
+
+
+
 
 
 # utils
@@ -719,10 +725,10 @@ def get_shift_load_profiles_by_year(year: int, low: float = 0.5, force_preproces
 
     # 1. load from cache if not force_preprocessing and cache exists
     if not force_preprocessing:
-         shift_load_profiles = load_shift_load_profiles_by_year_cache(year=year)
+         combined_slp = load_shift_load_profiles_by_year_cache(year=year)
 
-         if shift_load_profiles is not None:
-            return shift_load_profiles
+         if combined_slp is not None:
+            return combined_slp
     
     # 2. get states
     states = federal_state_dict().values()
@@ -764,12 +770,6 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
             index: days of the year
     """
 
-    # check cache
-    if not force_preprocessing:
-        df = load_disagg_daily_gas_slp_cts_cache(state=state, year=year)
-        if df is not None:
-            logger.info(f"Load disagg_daily_gas_slp_cts from cache for state: {state} and year: {year}")
-            return df
 
     # 0. get the number of days in the year
     days_of_year = get_days_of_year(year)
@@ -843,11 +843,13 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
                                          index=tw_norm.index,
                                          columns=gv_slp.columns))
             tw_lk_wz = pd.concat([tw_lk_wz, tw_lk_wz_slp], axis=1)
+        tw_lk_wz.index = pd.to_datetime(tw_lk_wz.index)
+        tw_lk_wz.index.name = 'Date'
         tageswerte = pd.concat([tageswerte, tw_lk_wz], axis=1)
 
 
 
-    tageswerte.iloc[:days_of_year] = tageswerte.iloc[days_of_year:].values
+    tageswerte = tageswerte.dropna(how='all')
     df = tageswerte.iloc[:days_of_year]
     
 
@@ -861,14 +863,19 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
     df.columns = pd.MultiIndex.from_tuples([safe_split(col) for col in df.columns], names=["regional_id", "industry_sector"])
     
 
-    # 3. save to cache
+    # sanity check that df is not empty or only contains 0.0
     if df.isna().any().any():
         raise ValueError("DataFrame contains NaN values")
-    processed_dir = load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_dir']
-    processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['disagg_daily_gas_slp_cts_cache_file'].format(state=state, year=year))
-    os.makedirs(processed_dir, exist_ok=True)
-    logger.info(f"Save disagg_daily_gas_slp_cts to cache for state: {state} and year: {year}")
-    df.to_csv(processed_file)    
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    if df.sum().sum() == 0.0:
+        raise ValueError("DataFrame only contains 0.0")
+    if df.shape[0] != days_of_year:
+        raise ValueError(f"DataFrame has {df.shape[0]} rows, but should have {days_of_year}")
+
+    
+
+
 
     return df
 
@@ -992,7 +999,7 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
 
 
 
-def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
+def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrier: str):
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
@@ -1025,6 +1032,7 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
 
     # 2. get the temperature allocation
     daily_temperature_allocation = allocation_temperature_by_day(year=year)
+    daily_temperature_allocation.columns = daily_temperature_allocation.columns.astype(str)
 
 
     # Below 15°C the water heating demand is assumed to be constant
@@ -1037,15 +1045,16 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
     
 
     # for state in bl_dict().values():
-    logger.info('Working on state: {}.'.format(state))
-    tw_df, gv_lk = disagg_daily_gas_slp_water(state, daily_temperature_allocation, year=year)
+    logger.info(f'Working on state: {state}.')
+    tw_df, gv_lk = disagg_daily_gas_slp_water(state, daily_temperature_allocation, year=year, energy_carrier=energy_carrier)
     
     gv_lk = (gv_lk.assign(federal_state=[federal_state_dict().get(int(x[:-3]))
                                 for x in gv_lk.index.astype(str)]))
     
 
-    t_allo_df = daily_temperature_allocation[gv_lk.loc[gv_lk['federal_state'] == state]
-                                    .index.astype(str)]
+    daily_temperature_allocation.columns = daily_temperature_allocation.columns.map(str)
+    regional_ids = gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str).tolist()
+    t_allo_df = daily_temperature_allocation[regional_ids]
 
     t_allo_df.values[:] = 100  # changed
     t_allo_df = t_allo_df.astype('int32')
@@ -1139,15 +1148,22 @@ def disagg_temporal_gas_CTS_water_by_state(state: str, year: int):
 
 
     df = df.drop(columns=gv_lk.index.astype(str))
-    df.columns =\
-        pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
+    df.columns = pd.MultiIndex.from_tuples([(int(x), int(y)) for x, y in
                                     df.columns.str.split('_')])
+    
+    # sanity check
+    if df.isna().any().any():
+        raise ValueError("DataFrame contains NaN values")
+    if df.empty:
+        raise ValueError("DataFrame is empty")
+    if df.sum().sum() == 0.0:
+        raise ValueError("DataFrame only contains 0.0")
 
     return df
 
 
 
-def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: int):
+def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: int, energy_carrier: str):
     """
     Returns daily demand of gas with a given yearly demand in MWh
     per district and SLP.
@@ -1164,12 +1180,12 @@ def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: in
     days_of_year = get_days_of_year(year)
 
 
-    # 2. filter gas consumption
+    # 2. filter consumption
     # returns:
     #   index: regional_id
     #   columns: industry_sectors
     #   values: consumption of ['hot_water', 'mechanical_energy', 'process_heat'] per industry_sector and regional_id
-    df_eff = disagg_applications_efficiency_factor(energy_carrier="gas", sector="cts", year=year)
+    df_eff = disagg_applications_efficiency_factor(energy_carrier=energy_carrier, sector="cts", year=year)
     df_eff_reordered = df_eff.reorder_levels(order=[1, 0], axis=1)
     df_eff_selected = df_eff_reordered.loc[:, ['hot_water', 'mechanical_energy', 'process_heat']]
     gv_lk = df_eff_selected.groupby(level=1, axis=1).sum()
@@ -1211,7 +1227,8 @@ def disagg_daily_gas_slp_water(state: str, temperatur_df: pd.DataFrame, year: in
 
         tw = pd.DataFrame(np.multiply(h_slp.values, F_wd_slp.values),
                           index=h_slp.index, columns=h_slp.columns)
-        tw_norm = tw/tw.sum()
+        tw_norm = tw / tw.sum()
+        tw_norm.columns = tw_norm.columns.astype(str)
         gv_df = (gv_lk.loc[gv_lk['default_load_profile'] == slp].drop(columns=['default_load_profile'])
                       .stack().reset_index())
         tw_lk_wz = pd.DataFrame(index=h_slp.index)

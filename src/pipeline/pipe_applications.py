@@ -15,8 +15,8 @@ disagg_applications_efficiency_factor()
 def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame: #TODO
     """
     equals spacial.disagg_applications_eff() in old code
-    TODO: currently it just uses the employees as coinsumption since iterative regional dissaggregation is not implemented yet
 
+    Takes the current consumption data and dissaggragates it for applications and applies efficiency enhancement factors
     
 
     Args:
@@ -50,25 +50,26 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
             return consumption_data_with_efficiency_factor
 
     
-    # 2. get consumption data dissaggregated by industry sector and regional_id for a year and energy carrier[power, gas]
-    consumption_data_sectors_regional = get_consumption_data(year=year, energy_carrier=energy_carrier)
-
-
-    # 3. filter for relevant sector:
-    sectors_industry_sectors = dict_cts_or_industry_per_industry_sector()[sector]
-    consumption_data_sectors_regional = consumption_data_sectors_regional.loc[consumption_data_sectors_regional.index.intersection(sectors_industry_sectors)]
+    # 2. get consumption data dissaggregated by industry sector and regional_id for a year and energy carrier[power, gas, petrol]
+    consumption_data_sectors_regional = get_consumption_data_per_indsutry_sector_energy_carrier(year=year, cts_or_industry=sector, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
 
     # 4. dissaggregate for applications - cosnumption data is already fiilterd to contain only relevant industry_sectors(cts/industry)
     consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data_sectors_regional, year=year, sector=sector, energy_carrier=energy_carrier)
 
+    # 5. sanity check
+    if not np.isclose(consumption_data_dissaggregated.sum().sum(), consumption_data_sectors_regional.sum().sum()):
+        raise ValueError("The sum of the disaggregated consumption must be the same as the sum of the initial consumption data!")
+
+    # 6. apply efficiency effect, for petrol we use gas efficiency enhancement factors
+    energy_carrier_eff = energy_carrier
+    if energy_carrier == "petrol":
+        energy_carrier_eff = "gas"
+
+    consumption_data_with_efficiency_factor = apply_efficiency_factor(consumption_data=consumption_data_dissaggregated, sector=sector, energy_carrier=energy_carrier_eff, year=year)
 
 
-    # 5. apply efficiency effect
-    consumption_data_with_efficiency_factor = apply_efficiency_factor(consumption_data=consumption_data_dissaggregated, sector=sector, energy_carrier=energy_carrier, year=year)
-
-
-    # 6. save to cache
+    # 7. save to cache
     logger.info("Saving to cache...")
     processed_dir = load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_dir']
     processed_file = os.path.join(processed_dir, load_config("base_config.yaml")['consumption_data_with_efficiency_factor_cache_file'].format(sector=sector, energy_carrier=energy_carrier, year=year))

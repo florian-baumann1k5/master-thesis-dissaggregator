@@ -5,9 +5,15 @@ from src.configs.mappings import *
 
 
 
-def dissaggregate_for_applications(consumption_data, year, sector, energy_carrier):
+def dissaggregate_for_applications(consumption_data: pd.DataFrame, year: int, sector: str, energy_carrier: str):
     """
-    Dissaggregate the consumption data based on applications.
+    Dissaggregate the consumption data to applications.
+
+    Possible applications:
+        ['lighting', 'information_communication_technology', 'space_cooling', 'process_cooling', 
+        'mechanical_energy', 'space_heating', 'hot_water', 'process_heat_below_100C', 'process_heat_100_to_200C', 
+        'process_heat_200_to_500C', 'process_heat_above_500C']
+
 
     Args:
         consumption_data (pd.DataFrame): Consumption data
@@ -24,45 +30,66 @@ def dissaggregate_for_applications(consumption_data, year, sector, energy_carrie
                 regional_ids
     """
 
-    # 1. load decomposition factors only for the relevant industry_sectors and energy_carrier
-    decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
-
-    # 2. call the correct function based on the energy_carrier; 
-    # only gas-industry is an exception since we have to consider industrial_power_plants
-    if energy_carrier == "gas" and sector == "industry":
-        df =  disagg_applications_gas_industry(consumption_data, decomp, year)
-        """
-        400 rows x 261 columns 
-        """
+    # validate the input
+    if consumption_data.isna().any().any():
+        raise ValueError(f"The consumption data contains NaN values for {sector} and {energy_carrier} in year {year}")
+    if energy_carrier not in ["gas", "power", "petrol"]:
+        raise ValueError(f"Energy carrier {energy_carrier} not supported")
+    if sector not in ["industry", "cts"]:
+        raise ValueError(f"Sector {sector} not supported")
     
-    elif (energy_carrier == "gas" and sector == "cts") or (energy_carrier == "power"):
-        df =  disagg_applications_default(consumption_data, decomp)
-        """ gas cts
-        400 rows x 290 columns
-        """
-        """ power industry
-        400 rows x 319 columns
-        """
-        """ power cts
-        400 rows x 464 columns
-        """
+
+    
+    if energy_carrier == "gas" or energy_carrier == "power":
+        # 1. load decomposition factors only for the relevant industry_sectors and energy_carrier
+        decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
+
+        # 2. call the correct function based on the energy_carrier; 
+        # only gas-industry is an exception since we have to consider industrial_power_plants
+        if energy_carrier == "gas" and sector == "industry":
+            df =  disagg_applications_gas_industry(consumption_data, decomp, year)
+            """
+            400 rows x 261 columns 
+            """
+        
+        elif (energy_carrier == "gas" and sector == "cts") or (energy_carrier == "power"):
+            df =  disagg_applications_default(consumption_data, decomp)
+            """ gas cts
+            400 rows x 290 columns
+            """
+            """ power industry
+            400 rows x 319 columns
+            """
+            """ power cts
+            400 rows x 464 columns
+            """
 
     elif energy_carrier == "petrol":
-        df = disagg_applications_petrol(consumption_data, decomp) # TODO: add petrol
+
+        # 1. load decomposition factors only for the relevant industry_sectors and energy_carrier
+        decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
+
+        # 2. call the correct function based on the energy_carrier; 
+        # only gas-industry is an exception since we have to consider industrial_power_plants
+        df = disagg_applications_petrol(consumption_data, decomp)
+        """ petrol industry
+        400 rows x 290 columns
         """
+        """ petrol cts
+        400 rows x 290 columns
         """
 
     # 3. set indexname
     df.index.name = "regional_id"
 
     # 4. validate the output
-    new_df_sum = df.sum().sum()
-    total_sum = consumption_data.sum().sum()
-    msg = (
-        f"The sum of the disaggregated consumption must be the same as the sum of the initial consumption data! "
-        f"New sum: {new_df_sum}, initial consumption sum: {total_sum}"
-    )
-    assert np.isclose(total_sum, new_df_sum), msg
+    total_sum = consumption_data.values.sum()
+    new_df_sum = df.values.sum()
+    if not np.isclose(total_sum, new_df_sum):
+        raise ValueError(
+            f"The sum of the disaggregated consumption must be the same as the sum of the initial consumption data! "
+            f"New sum: {new_df_sum}, initial consumption sum: {total_sum}"
+        )
 
     return df
 
@@ -124,7 +151,7 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     400 rows x 704 columns: 400 regions x 704 (industry sectors x applications)
     """
 
-    # 5. Efficient fill: loop only over industry sectors    for industry in industry_sectors:
+    # 5. Efficient fill: loop only over industry sectors
     for industry in industry_sectors:
         sector_consumption = consumption_data_no_selfgen[industry]  # Series: index = regions
         app_shares = decomp_gas_temp.loc[industry]               # Series: index = applications
@@ -193,17 +220,49 @@ def disagg_applications_default(consumption_data, decomp):
     return new_df
 
 
-def disagg_applications_petrol(): #TODO: add petrol
+def disagg_applications_petrol(consumption_data: pd.DataFrame, decomp: pd.DataFrame) -> pd.DataFrame:
     """
     Perfrom dissagregation based on applications of the final energy usage
+
+    Args:
+        consumption_data (pd.DataFrame): Consumption data
+        decomp (pd.DataFrame): Decomposition factors for applications
+
+    Returns:
+        pd.DataFrame: Disaggregated consumption data with MultiIndex columns (industry_sector, application).
     """
-    return None
+    
+    # 1. For each application, multiply sectoral consumption by its factor
+    app_frames = []
+    for app in decomp.columns:
+        # Multiply consumption_data (sectors × regions) by the factor for this app
+        df_app = consumption_data.mul(decomp[app], axis=0)
+        # Transpose so that regions become the rows
+        df_app_t = df_app.T
+        # Label columns with a MultiIndex: (industry_sector, application)
+        df_app_t.columns = pd.MultiIndex.from_product([df_app_t.columns, [app]])
+        app_frames.append(df_app_t)
+
+    # 2. Concatenate all applications side by side
+    result = pd.concat(app_frames, axis=1)
+
+    # 3. (Optional) Sort the MultiIndex columns by sector then application
+    result = result.sort_index(axis=1, level=[0, 1])
+
+
+    # sanity check
+    if not np.isclose(result.sum().sum(), consumption_data.sum().sum()):
+        raise ValueError("The sum of the disaggregated consumption must be the same as the sum of the initial consumption data!")
+
+
+
+    return result
 
 
 
 
 
-def get_application_dissaggregation_factors(sector: str, energy_carrier: str): # TODO: add petrol   #TODO:  add cache?
+def get_application_dissaggregation_factors(sector: str, energy_carrier: str):
     """
     Get the application dissaggregation factors for a given industry and energy carrier.
     (is the "usage" dataframe in the spatial.disagg_applications fct):
@@ -226,7 +285,6 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         pd.DataFrame: Application dissaggregation factors
     """
 
-    # 1. load decomposition factors and validate inputs
     if energy_carrier == "gas" and sector == "industry":
         decomp_temp = load_decomposition_factors_temperature_industry()
         decomp_gas = load_decomposition_factors_gas()
@@ -289,8 +347,63 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str): #
         # drop unneeded columns
         decomp = decomp.drop(columns={"electricity_grid", "electricity_self_generation"})
     
+    elif energy_carrier == "petrol" and sector == "industry":
+        decomp = load_decomposition_factors_petrol()
+        decomp = decomp.drop(columns={"sector"})
+        assert np.allclose(decomp.sum(axis=1), 1.0), "Row sums are not all 1!"
+        
+        industry_sectors = dict_cts_or_industry_per_industry_sector()['industry']
+        decomp = decomp.loc[decomp.index.intersection(industry_sectors)]
+
+
+        # combine and disaggregate the process_heat further
+        decomp_process_heat = load_decomposition_factors_process_heat_industry()
+        decomp_process_heat = decomp_process_heat.drop(columns={"sector"})
+        assert np.allclose(decomp_process_heat.sum(axis=1), 1.0), "Row sums are not all 1!"
+
+        # 1. Filter to overlapping sectors
+        common_sectors = decomp.index.intersection(decomp_process_heat.index)
+        df1 = decomp.loc[common_sectors]
+        df2 = decomp_process_heat.loc[common_sectors]
+
+        # 2. Merge on index, suffixing the duplicate 'sector' and 'process_heat_total'
+        df = df1.merge(
+            df2,
+            left_index=True, right_index=True,
+        )
+
+        # 3. Compute the new process‐heat shares
+        bands = [
+            'process_heat_below_100C',
+            'process_heat_100_to_200C',
+            'process_heat_200_to_500C',
+            'process_heat_above_500C'
+        ]
+        for band in bands:
+            df[band] = df['process_heat'] * df[band]
+
+        # 4. Drop the original sector columns and the total
+        df_final = df.drop(columns=['process_heat'])
+
+        # 5. validate the output
+        assert np.allclose(df_final.sum(axis=1), 1.0), "Row sums are not all 1!"
+        decomp = df_final
+       
+
+    elif energy_carrier == "petrol" and sector == "cts":
+        decomp = load_decomposition_factors_petrol()
+        decomp = decomp.drop(columns={"sector"})
+        cts_sectors = dict_cts_or_industry_per_industry_sector()['cts']
+        decomp = decomp.loc[decomp.index.intersection(cts_sectors)]
+
     else:
         raise ValueError(f"Energy carrier {energy_carrier} and/or industry {sector} not supported")
+    
+
+    # validate that all rows sum to 1
+    decomp_sum = decomp.sum(axis=1)
+    if not np.isclose(decomp_sum, 1.0).all():
+        raise ValueError("The sum of the fractions for each row in the decomposition factors does not equal 1.0")
     
     return decomp
 
