@@ -48,6 +48,9 @@ def save_dataframe_with_datetime(df, name):
 
 ################### total consumption per year 2017-2045 ######################################################
 path_consumption = "src/utils/thesis_outputs/ev_consumption/"
+"""
+For kvb this also incluede public/home charging!
+"""
 def data_total_ev_consumption():
     print("Done")
     df_total = pd.DataFrame()
