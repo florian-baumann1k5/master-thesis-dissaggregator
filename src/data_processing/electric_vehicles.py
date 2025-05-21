@@ -131,6 +131,28 @@ def registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     df = load_registered_electric_vehicles_by_regional_id(year=year_in_dataset)
     return df
 
+def share_of_commercial_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Load the share of commercial vehicles by regional id for the given year.
+
+    Data from sourece is only available from the years 2017-2024
+    
+    """
+    # 1. load data
+    if year < 2017:
+        year_in_dataset = 2017
+    elif year > 2024:
+        logger.info(f"Year {year} is not in the dataset. Returning the last year of the dataset: 2024")
+        year_in_dataset = 2024
+    else:
+        year_in_dataset = year
+
+
+    df = load_share_of_commercial_vehicles_by_regional_id(year=year_in_dataset)
+
+
+    return df
+
 
 def calculate_existing_ev_stock(year: int) -> int:
     """

@@ -615,6 +615,23 @@ def load_registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     df.set_index('regional_id', inplace=True)
     return df
 
+
+def load_share_of_commercial_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Loads the share of commercial vehicles by regional id for the given year.
+    """
+    raw_file = f"data/raw/electric_vehicles/share_of_commercial_vehicles_by_regional_id/share_of_commercial_vehicles_{year}.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Registered electric vehicles by regional id for year {year} not found. File not found: {raw_file}")
+    
+    df = pd.read_csv(raw_file, sep=';')
+
+    df['regional_id'] = df['regional_id'].astype(int)
+    df.set_index('regional_id', inplace=True)
+
+    return df
+
 def load_avg_km_by_car() -> pd.DataFrame:
     """
     Loads the average km by car for 2018-2022 in germany.

@@ -315,3 +315,4 @@ def get_total_car_stock() -> int:
     total_car_stock_germany_2024 = 49339166
     return total_car_stock_germany_2024
 
+

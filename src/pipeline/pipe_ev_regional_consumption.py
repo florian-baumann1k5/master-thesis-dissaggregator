@@ -38,12 +38,21 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
     # 1. load data
     number_of_registered_evs = registered_electric_vehicles_by_regional_id(year=year)
+    share_of_commercial_vehicles = share_of_commercial_vehicles_by_regional_id(year=year)
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
+    # validation
+    if not number_of_registered_evs.equals(share_of_commercial_vehicles.index):
+        raise ValueError("number_of_registered_evs and share_of_commercial_vehicles must have the same index")
 
-    # 2. calculate consumption
-    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=number_of_registered_evs, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
+    # 2. calculate the number of private vehicles
+    number_of_commercial_vehicles = number_of_registered_evs * share_of_commercial_vehicles
+    number_of_private_vehicles = number_of_registered_evs - number_of_commercial_vehicles
+
+
+    # 3. calculate consumption
+    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=number_of_private_vehicles, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
     return ev_consumption_by_region 
@@ -68,6 +77,7 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
         raise ValueError("Year must be between 2000 and 2050, year is " + str(year))
     
     # 1. load data
+    share_of_commercial_vehicles_regional_id = share_of_commercial_vehicles_by_regional_id(year=year)
     existing_ev_stock = calculate_existing_ev_stock(year=LAST_YEAR_EXISTING_DATA_KBA)
     total_existing_car_stock = get_total_car_stock()
 
@@ -76,21 +86,25 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     # political target: 15mio electric vehicles by 2030
     number_of_evs = s1_future_ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA_KBA, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
 
-
-    # 3. load consumption data
+    # 4. load consumption data
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
 
-    # 4. calculate the consumption
+    # 5. calculate the consumption
     ev_consumption = calculate_electric_vehicle_consumption(data_in=number_of_evs, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
-    # 5. dissaggregate the total consumption into region_ids
+    # 6. dissaggregate the total consumption into region_ids
     ev_consumption_by_region = regional_dissaggregation_ev_consumption(ev_consumption=ev_consumption)
 
 
-    return ev_consumption_by_region
+    # 7. get only the private vehicles consumption
+    cosumption_of_commercial_vehicles = ev_consumption_by_region * share_of_commercial_vehicles_regional_id
+    cosumption_of_private_vehicles = ev_consumption_by_region - cosumption_of_commercial_vehicles
+
+
+    return cosumption_of_private_vehicles
 
 
 def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") -> pd.DataFrame:
@@ -126,9 +140,10 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     number_of_evs = s2_future_ev_stock(year=year, szenario=szenario)
 
 
-    # 2. load consumption data
+    # 2. load data
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
+    share_of_commercial_vehicles_regional_id = share_of_commercial_vehicles_by_regional_id(year=year)
 
 
     # 3. calculate the consumption
@@ -138,8 +153,12 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     # 4. dissaggregate the total consumption into region_ids
     ev_consumption_by_region = regional_dissaggregation_ev_consumption(ev_consumption=ev_consumption)
 
+    # 5. get only the private vehicles consumption
+    cosumption_of_commercial_vehicles = ev_consumption_by_region * share_of_commercial_vehicles_regional_id
+    cosumption_of_private_vehicles = ev_consumption_by_region - cosumption_of_commercial_vehicles
 
-    return ev_consumption_by_region
+
+    return cosumption_of_private_vehicles
 
 
 # main function for s1 and s2
