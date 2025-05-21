@@ -7,8 +7,8 @@ from src.pipeline.pipe_ev_regional_consumption import *
 from src.utils.utils import *
 
 
-FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data"]
-LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data"]
+FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data_kba"]
+LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data_kba"]
 FIRST_YEAR_EXISTING_DATA_UGR = load_config()["first_year_existing_fuel_consumption_ugr"]
 LAST_YEAR_EXISTING_DATA_UGR = load_config()["last_year_existing_fuel_consumption_ugr"]
 

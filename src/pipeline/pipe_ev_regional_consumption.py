@@ -6,8 +6,8 @@ from src.configs.mappings import *
 from src.configs.config_loader import load_config
 
 
-FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data"]
-LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data"]
+FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data_kba"]
+LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data_kba"]
 FIRST_YEAR_EXISTING_DATA_UGR = load_config()["first_year_existing_fuel_consumption_ugr"]
 LAST_YEAR_EXISTING_DATA_UGR = load_config()["last_year_existing_fuel_consumption_ugr"]
 
@@ -289,7 +289,7 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
     # 1. load the data
     # KBA Szenario
     if "KBA" in szenario:
-        ev_consumption_by_region = s1_2_electric_vehicle_consumption(year=year, szenario=szenario, s2_szenario=s2_szenario)
+        ev_consumption_by_region = s1_2_electric_vehicle_consumption(year=year, szenario=szenario, s2_szenario=s2_szenario)        
         
     # UGR Szenario
     elif "UGR" in szenario:

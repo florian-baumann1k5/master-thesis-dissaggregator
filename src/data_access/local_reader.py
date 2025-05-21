@@ -617,9 +617,7 @@ def load_registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
 
 def load_avg_km_by_car() -> pd.DataFrame:
     """
-    Loads the average km by car for 2003-2023 in germany.
-    Source: https://de.statista.com/statistik/daten/studie/251743/umfrage/durchschnittliche-fahrleistung-von-personenkraftwagen-in-deutschland/
-    with data from the "Deutsche Automobil Treuhand (DAT) Report"s
+    Loads the average km by car for 2018-2022 in germany.
 
     """
     raw_file = "data/raw/electric_vehicles/avg_km_by_car.csv"

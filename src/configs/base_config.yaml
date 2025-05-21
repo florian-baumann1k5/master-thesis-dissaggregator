@@ -57,8 +57,8 @@ temporal_elec_load_from_fuel_switch_cache_file: "temporal_elec_load_from_fuel_sw
 
 
 # Electric Vehicles
-first_year_existing_registration_data: 2007
-last_year_existing_registration_data: 2024
+first_year_existing_registration_data_kba: 2017
+last_year_existing_registration_data_kba: 2024
 
 first_year_existing_fuel_consumption_ugr: 2014
 last_year_existing_fuel_consumption_ugr: 2022

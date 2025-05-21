@@ -50,18 +50,26 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
     return ev_consumption
 
 
-def calculate_avg_km_by_car(year: int) -> int:
+def calculate_avg_km_by_car(year: int) -> float:
     """
     Calculate the average km by car for the given year.
 
-    Datasource only contains the years 2003-2023.
+    Datasource only contains the years 2018-2022.
+
+    Args:
+        year: int
+            The year to calculate the average km by car for
+
+    Returns:
+        float
+            The average km by car for the given year [float]
     """
 
     # 1. find the year
-    if year < 2003:
-        year_in_dataset = 2003
-    elif year > 2023:
-        year_in_dataset = 2023
+    if year < 2018:
+        year_in_dataset = 2018
+    elif year > 2022:
+        year_in_dataset = 2022
     else:
         year_in_dataset = year
 
@@ -207,7 +215,7 @@ def get_normalized_ev_distribution_by_region() -> pd.DataFrame:
                 - ev_share: float
                     The share of electric vehicles in the region
     """
-    year = load_config()["last_year_existing_registration_data"]
+    year = load_config()["last_year_existing_registration_data_kba"]
 
     # 1. load total number of registered electric vehicles by region
     evs_by_region = registered_electric_vehicles_by_regional_id(year=year)
