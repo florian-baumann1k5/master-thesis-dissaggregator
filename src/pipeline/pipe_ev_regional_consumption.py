@@ -43,16 +43,16 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
     # validation
-    if not number_of_registered_evs.equals(share_of_commercial_vehicles.index):
-        raise ValueError("number_of_registered_evs and share_of_commercial_vehicles must have the same index")
+    #if not number_of_registered_evs.equals(share_of_commercial_vehicles.index):
+    #    raise ValueError("number_of_registered_evs and share_of_commercial_vehicles must have the same index")
 
     # 2. calculate the number of private vehicles
-    number_of_commercial_vehicles = number_of_registered_evs * share_of_commercial_vehicles
-    number_of_private_vehicles = number_of_registered_evs - number_of_commercial_vehicles
-
+    df = number_of_registered_evs.join(share_of_commercial_vehicles)
+    df["number_of_evs"] = df["number_of_registered_evs"] * (1-df["share_of_commercial_vehicles"])
+    df.drop(columns=["share_of_commercial_vehicles", "number_of_registered_evs"], inplace=True)
 
     # 3. calculate consumption
-    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=number_of_private_vehicles, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
+    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=df, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
     return ev_consumption_by_region 
@@ -100,11 +100,12 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 
     # 7. get only the private vehicles consumption
-    cosumption_of_commercial_vehicles = ev_consumption_by_region * share_of_commercial_vehicles_regional_id
-    cosumption_of_private_vehicles = ev_consumption_by_region - cosumption_of_commercial_vehicles
+    ev_consumption_private_by_region = ev_consumption_by_region.join(share_of_commercial_vehicles_regional_id)
+    ev_consumption_private_by_region["power[mwh]"] = ev_consumption_private_by_region["power[mwh]"] * (1-ev_consumption_private_by_region["share_of_commercial_vehicles"])
+    ev_consumption_private_by_region.drop(columns=["share_of_commercial_vehicles"], inplace=True)
 
 
-    return cosumption_of_private_vehicles
+    return ev_consumption_private_by_region
 
 
 def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") -> pd.DataFrame:
@@ -154,11 +155,12 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     ev_consumption_by_region = regional_dissaggregation_ev_consumption(ev_consumption=ev_consumption)
 
     # 5. get only the private vehicles consumption
-    cosumption_of_commercial_vehicles = ev_consumption_by_region * share_of_commercial_vehicles_regional_id
-    cosumption_of_private_vehicles = ev_consumption_by_region - cosumption_of_commercial_vehicles
+    ev_consumption_private_by_region = ev_consumption_by_region.join(share_of_commercial_vehicles_regional_id)
+    ev_consumption_private_by_region["power[mwh]"] = ev_consumption_private_by_region["power[mwh]"] * (1-ev_consumption_private_by_region["share_of_commercial_vehicles"])
+    ev_consumption_private_by_region.drop(columns=["share_of_commercial_vehicles"], inplace=True)
 
 
-    return cosumption_of_private_vehicles
+    return ev_consumption_private_by_region
 
 
 # main function for s1 and s2

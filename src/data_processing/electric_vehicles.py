@@ -13,7 +13,11 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
 
     Args:
         data_in: float | pd.DataFrame
-            The input data. If float, it is interpreted as the number of electric vehicles. If pd.DataFrame, it is interpreted as the number of electric vehicles by year.
+            The input data. If float, it is interpreted as the number of electric vehicles. 
+            If pd.DataFrame, it is interpreted as the number of electric vehicles by year.
+            must have the following columns:
+                - number_of_evs
+                - regional_id
         avg_km_per_ev: int
             The average km per ev.
         avg_mwh_per_km: float
@@ -35,7 +39,7 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
     # 3. check if the data is a dataframe
     if isinstance(data_in, pd.DataFrame):
         # 3. rename the column in the dataframe
-        ev_consumption.rename(columns={'number_of_registered_evs': 'power[mwh]'}, inplace=True)
+        ev_consumption.rename(columns={'number_of_evs': 'power[mwh]'}, inplace=True)
 
         # 4. make the ev_consumption[mwh] column float
         ev_consumption['power[mwh]'] = ev_consumption['power[mwh]'].astype(float)
@@ -90,7 +94,7 @@ def calculate_avg_mwh_per_km() -> int:
     Assumption from source [notion 30]: avg consumption is 0.21 kwh/km
     """
 
-    # assumption from source: avg consumption is 0.21 kwh/km = 0.00021 mwh/km
+    # assumption from source: avg consumption is 21 kwh/100km = 0.00021 mwh/km
 
     avg_mwh_per_km = 0.00021
 
