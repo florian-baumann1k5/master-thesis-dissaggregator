@@ -619,7 +619,7 @@ def graph_ev_consumption_temporal_1h_1month():
     plt.title("Total Work Charging Load Over Time (1h Resolution)")
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    save_plot_with_datetime(plt, path_output, "ev_consumption_temporal_ugr_2035_may_1h", dpi=300)
 
 def graph_ev_consumption_temporal_1h_1week():
 
@@ -629,7 +629,7 @@ def graph_ev_consumption_temporal_1h_1week():
     df_raw.index = pd.to_datetime(df_raw.index)
 
     # Filter for the first week of May
-    df = df_raw[(df_raw.index.month == 5) & (df_raw.index.day <= 7)]
+    df = df_raw[(df_raw.index.month == 5) & (df_raw.index.day <= 14)]
 
     df_work = df.loc[:, df.columns.get_level_values(1) == "home_charging"]
 
@@ -643,12 +643,13 @@ def graph_ev_consumption_temporal_1h_1week():
     plt.figure(figsize=(12, 5))
     plt.plot(work_hourly.index, work_hourly.values, label="Total Work Charging")
     plt.xlabel("Time")
-    plt.ylabel("Electricity Consumption [MWh]")
-    plt.title("Total Work Charging Load Over Time (1h Resolution)")
+    plt.ylabel("Consumption [MWh]")
     plt.grid(True)
     plt.tight_layout()
-    plt.show()
+    #plt.show()
+    save_plot_with_datetime(plt, path_output, "ev_consumption_temporal_ugr_2035_may_2week_1h", dpi=300)
 
 
 #data_ev_consumption_temporal_2035_may()
+#graph_ev_consumption_temporal_1h_1month()
 graph_ev_consumption_temporal_1h_1week()
