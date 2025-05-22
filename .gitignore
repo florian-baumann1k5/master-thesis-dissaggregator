@@ -4,6 +4,7 @@
 # Preprocessed data & cache
 data/processed/*
 data/api_cache/*
+src/utils/thesis_outputs/ev_consumption_temporal/*.csv
 
 # 
 
