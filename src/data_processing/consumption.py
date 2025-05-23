@@ -577,7 +577,16 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     gv_LK_real.index.name = "ags"
     gv_LK_real.index = gv_LK_real.index.astype("int64")
 
-    petro_LK_real = pd.DataFrame(regional_energy_consumption_jevi['total[MWh]'])
+
+    # for petrol we first have gto normalize the jevi data to the total consumption of petrol bc there is no jevi petrol
+    total_petrol = sector_energy_consumption_ugr['petrol[MWh]'].sum()
+    total_total_jevi = regional_energy_consumption_jevi['total[MWh]'].sum()
+    factor_normalization = total_petrol / total_total_jevi
+    petro_LK_real = pd.DataFrame(regional_energy_consumption_jevi['total[MWh]'] * factor_normalization)
+    # sanity check
+    if not np.isclose(petro_LK_real['total[MWh]'].sum(), total_petrol):
+        raise ValueError("The total consumption of petrol is not equal to the total consumption of petrol in the UGR")
+    
     petro_LK_real.rename(columns={'total[MWh]': 'Verbrauch in MWh'}, inplace=True)
     petro_LK_real.index.name = "ags"
     petro_LK_real.index = petro_LK_real.index.astype("int64")
@@ -628,10 +637,12 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     spez_gv_lk = pd.DataFrame(index=spez_gv.index, columns=lk_ags)
     spez_sv_lk = pd.DataFrame(index=spez_sv.index, columns=lk_ags)
     spez_petrol_lk = pd.DataFrame(index=spez_petro.index, columns=lk_ags)
+
     for lk in lk_ags:
         spez_gv_lk[lk] = spez_gv['spez. GV']
         spez_sv_lk[lk] = spez_sv['spez. SV']
         spez_petrol_lk[lk] = spez_petro['spez. Petro']
+
     sv_lk_wz = bze_je_lk_wz * spez_sv_lk  # absolute electricty demand per dis
     gv_lk_wz = bze_je_lk_wz * spez_gv_lk  # absolute gas demand per district
     petro_lk_wz = bze_je_lk_wz * spez_petrol_lk  # absolute petrol demand per district
@@ -944,6 +955,8 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     total_power_consumption = spez_sv_lk * bze_je_lk_wz
     total_gas_consumption = spez_gv_lk * bze_je_lk_wz
     total_petrol_consumption = spez_petrol_lk * bze_je_lk_wz
+
+
 
 
     # validation: check for Nan values

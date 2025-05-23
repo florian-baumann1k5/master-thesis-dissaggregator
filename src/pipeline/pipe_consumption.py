@@ -65,7 +65,7 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
 
 
 # fiter get_consumption_data() for cts or industry
-def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_industry: str, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
+def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_industry: str, energy_carrier: str, force_preprocessing: bool = True) -> pd.DataFrame:
     """
     Get consumption data for a specific year and filter it per cts or industry
     = spacial.disagg_CTS_industry()
@@ -122,8 +122,8 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     year_for_projection = None
 
     # 0. validate the year
-    if year < 2000 or year > 2050:
-        raise ValueError("Year must be between 2000 and 2050")
+    if year < 2000 or year > 2045:
+        raise ValueError("Year must be between 2000 and 2045")
     
 
     # 1. set the years for getting the URG data and for projection
