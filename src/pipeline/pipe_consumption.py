@@ -132,8 +132,6 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
         year = ugr_genisis_year_end
 
     
-
-
     # 1. Get the raw UGR data
     # gas does also include other gases
     # gas does not include self generation, power does

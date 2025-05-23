@@ -316,3 +316,16 @@ def get_total_car_stock() -> int:
     return total_car_stock_germany_2024
 
 
+def get_efficiency_factor_by_fuel_type_compared_to_ev():
+    """
+    Returns dictionary with efficiencies of fuel types compared to BEVs.
+    """
+    return {
+        'diesel[mwh]': 0.233,
+        'biodiesel[mwh]': 0.233,
+        'liquefied_petroleum_gas[mwh]': 0.273,
+        'natural_gas[mwh]': 0.273,
+        'petrol[mwh]': 0.313,
+        'bioethanol[mwh]': 0.273,
+        'biogas[mwh]': 0.273,
+    }

@@ -412,7 +412,7 @@ def get_historical_vehicle_consumption_ugr_by_energy_carrier(year: int) -> pd.Da
 
 
 
-def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: int = 2045, force_preprocessing: bool = False) -> pd.DataFrame:
+def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: int = 2045, force_preprocessing: bool = True) -> pd.DataFrame:
     """
     Returns a DataFrame with the energy consumption of private households by energy carrier for a given year.
 
@@ -475,15 +475,7 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
 
     # 2. Identify fuels and set efficiencies
     fuel_cols = [col for col in historic_consumption_df.columns if col not in ('year', 'power[mwh]')]
-    efficiency = {
-        'biodiesel[mwh]': 0.37,
-        'bioethanol[mwh]': 0.38,
-        'biogas[mwh]': 0.39,
-        'diesel[mwh]': 0.37,
-        'liquefied_petroleum_gas[mwh]': 0.36,
-        'natural_gas[mwh]': 0.39,
-        'petrol[mwh]': 0.38,
-    }
+    efficiency = get_efficiency_factor_by_fuel_type_compared_to_ev()
 
     # Capture the original base_year values
     orig = historic_consumption_df.loc[base_year]

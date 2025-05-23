@@ -51,8 +51,9 @@ def save_dataframe_with_datetime(df, name, path_output):
 
 
 ################### total consumption per year 2017-2045 ######################################################
-path_consumption = "src/utils/thesis_outputs/ev_consumption/"
+path_consumption = "src/utils/thesis_outputs/ev/ev_consumption/"
 """
+this includes home, work and public charging!
 """
 def data_total_ev_consumption_s2():
 
@@ -78,11 +79,11 @@ def data_total_ev_consumption():
 
 def graph_ev_consumption():
     files = {
-        "KBA 1": "src/utils/thesis_outputs/ev_consumption/ev_consumption_by_regional_id_kba_1_20250521_225507_20250521_225509.csv",
-        "KBA 2 - Trend": "src/utils/thesis_outputs/ev_consumption/ev_consumption_by_regional_id_kba_2_trend_20250521_224632_20250521_224910.csv",
-        "KBA 2 - Regio": "src/utils/thesis_outputs/ev_consumption/ev_consumption_by_regional_id_kba_2_regio_20250521_224632_20250521_225044.csv",
-        "KBA 2 - Ambit": "src/utils/thesis_outputs/ev_consumption/ev_consumption_by_regional_id_kba_2_ambit_20250521_224632_20250521_224835.csv",
-        "UGR": "src/utils/thesis_outputs/ev_consumption/ev_consumption_by_regional_id_ugr_20250521_220240_20250521_220242.csv"
+        "KBA 1": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_1_20250521_225507_20250521_225509.csv",
+        "KBA 2 - Trend": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_trend_20250521_224632_20250521_224910.csv",
+        "KBA 2 - Regio": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_regio_20250521_224632_20250521_225044.csv",
+        "KBA 2 - Ambit": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_ambit_20250521_224632_20250521_224835.csv",
+        "UGR": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_ugr_20250521_220240_20250521_220242.csv"
     }
 
     # Plot setup
@@ -91,6 +92,7 @@ def graph_ev_consumption():
     # Load and plot each scenario
     for label, path in files.items():
         df = pd.read_csv(path)
+        df = df[df["year"].between(2017, 2022)]  # Filter for years 2017 to 2022
         df["total_consumption_million"] = df["total_consumption"] / 1e6
         ax.plot(df["year"], df["total_consumption_million"], label=label)
 
@@ -104,7 +106,7 @@ def graph_ev_consumption():
 
     plt.tight_layout()
 
-    save_plot_with_datetime(plt, path_consumption, "ev_consumption_total", dpi=300)
+    save_plot_with_datetime(plt, path_consumption, "ev_consumption_total_2017_2022", dpi=300)
 
 #data_total_ev_consumption_s2()
 #data_total_ev_consumption()
@@ -113,18 +115,33 @@ def graph_ev_consumption():
 
 
 ################### total consumption s3 devided by energy carriers ######################################################
-path_consumption = "src/utils/thesis_outputs/ev_consumption_s3/"
+path_consumption = "src/utils/thesis_outputs/ev/ev_consumption_s3_by energy_carrier/"
 def graph_ev_consumption_by_energy_carrier_s3():
     # Load data
     csv_path = "data/processed/electric_vehicles/s3_future_ev_consumption/s3_future_ev_consumption.csv"
     df = pd.read_csv(csv_path)
 
-        
     # Set year as index for plotting
     df.set_index("year", inplace=True)
 
-    # Define fuel types (all columns except year)
-    fuel_columns = df.columns
+    # Translate column names to natural language
+    column_translation = {
+        "biodiesel[mwh]": "Biodiesel",
+        "bioethanol[mwh]": "Bioethanol",
+        "biogas[mwh]": "Biogas",
+        "diesel[mwh]": "Diesel",
+        "liquefied_petroleum_gas[mwh]": "Liquefied Petroleum Gas",
+        "natural_gas[mwh]": "Natural Gas",
+        "petrol[mwh]": "Petrol",
+        "power[mwh]": "Electricity"
+    }
+    df.rename(columns=column_translation, inplace=True)
+
+    # Convert consumption from MWh to TWh
+    df = df / 1e6
+
+    # Sort fuel types by consumption in the first year (2025)
+    fuel_columns = df.loc[2025].sort_values().index
 
     # Plotting
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -139,21 +156,24 @@ def graph_ev_consumption_by_energy_carrier_s3():
             bottom += df[fuel]
 
     # Axis labeling
-    ax.set_ylabel("Energy Consumption [MWh]")
+    ax.set_ylabel("Energy Consumption [TWh]")
     ax.set_xlabel("Year")
-    ax.set_title("Energy Consumption by Fuel Type per Year")
-    ax.legend(title="Fuel Type", bbox_to_anchor=(1.05, 1), loc="upper left")
+    # Reverse the order of the legend
+    handles, labels = ax.get_legend_handles_labels()
+    sorted_legend = sorted(zip(handles, labels), key=lambda x: fuel_columns.get_loc(x[1]), reverse=True)
+    handles, labels = zip(*sorted_legend)
+    ax.legend(handles, labels, title="Fuel Type", bbox_to_anchor=(1.05, 1), loc="upper left")
     ax.grid(True, axis='y', linestyle='--', alpha=0.5)
 
     plt.tight_layout()
-    plt.show()
+    save_plot_with_datetime(plt, path_consumption, "ev_consumption_by_energy_carrier_s3", dpi=300)
 
 #graph_ev_consumption_by_energy_carrier_s3()
 
 
 
 ################### total kba ev stock 2017-2045 ######################################################
-path_consumption = "src/utils/thesis_outputs/ev_stock_kba/"
+path_consumption = "src/utils/thesis_outputs/ev/ev_stock_kba/"
 def data_total_ev_stock_historical(owner="commercial"):
 
     df_total = pd.DataFrame()
@@ -212,7 +232,7 @@ def data_total_ev_stock_future_s2():
 
 def graph_ev_stock_historical():
     # Load data
-    df_hist = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_total_kba_2017_2024.csv")
+    df_hist = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_total_kba_2017_2024.csv")
     
     df_hist['total_stock'] /= 1e6
 
@@ -240,8 +260,8 @@ def graph_ev_stock_historical():
     save_plot_with_datetime(plt, "ev_stock_historical_2017_2024", dpi=300)
     
 def graph_ev_stock_historical_stacked():
-    df_com = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_historical_commercial_kba_2017_2024.csv")
-    df_priv = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_historical_private_kba_2017_2024.csv")
+    df_com = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_historical_commercial_kba_2017_2024.csv")
+    df_priv = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_historical_private_kba_2017_2024.csv")
 
     # Merge on year
     merged_df = pd.merge(df_com, df_priv, on="year")
@@ -269,9 +289,9 @@ def graph_ev_stock_historical_stacked():
 
 def graph_ev_stock_complete():
     # Load data
-    df_hist = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_total_private_kba_2017_2024.csv")
-    df_kba1 = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_total_kba_1_private_2025_2045.csv")
-    df_kba2 = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_total_kba_2_private_2025_2045.csv")
+    df_hist = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_total_private_kba_2017_2024.csv")
+    df_kba1 = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_total_kba_1_private_2025_2045.csv")
+    df_kba2 = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_total_kba_2_private_2025_2045.csv")
     
     df_hist['total_stock'] /= 1e6
     df_kba1['total_stock'] /= 1e6
@@ -310,8 +330,8 @@ def graph_ev_stock_complete():
     save_plot_with_datetime(plt, path_consumption, "ev_stock_complete_private", dpi=300)
 
 def graph_ev_stock_historical_percentage():
-    df_com = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_historical_commercial_kba_2017_2024.csv")
-    df_priv = pd.read_csv("src/utils/thesis_outputs/ev_stock_kba/ev_stock_historical_private_kba_2017_2024.csv")
+    df_com = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_historical_commercial_kba_2017_2024.csv")
+    df_priv = pd.read_csv("src/utils/thesis_outputs/ev/ev_stock_kba/ev_stock_historical_private_kba_2017_2024.csv")
 
     # Merge on year
     merged_df = pd.merge(df_com, df_priv, on="year")
@@ -346,12 +366,12 @@ def graph_ev_stock_historical_percentage():
 #graph_ev_stock_historical_percentage()
 
 ################### kba ev stock 2024 by region ######################################################
-path_consumption = "src/utils/thesis_outputs/ev_stock_kba/"
+path_consumption = "src/utils/thesis_outputs/ev/ev_stock_kba/"
 def graph_ev_stock_kba_2024():
     # Load EV data and normalize regional_id to string
 
     # Load the AGS to NUTS3 mapping file
-    nuts3_map = pd.read_csv("src/utils/thesis_outputs/t_nuts3_lk.csv", dtype={"id_ags": str, "natcode_nuts3": str})
+    nuts3_map = pd.read_csv("src/utils/thesis_outputs/ev/t_nuts3_lk.csv", dtype={"id_ags": str, "natcode_nuts3": str})
     nuts3_map["ags_5"] = nuts3_map["id_ags"].str[:-3]
     
     ev_df = registered_electric_vehicles_by_regional_id(year=2024)
@@ -380,7 +400,7 @@ def graph_ev_stock_kba_2024():
     """
 
     # Load the GeoJSON NUTS3 shapefile from Eurostat
-    gdf = gpd.read_file("src/utils/thesis_outputs/NUTS_RG_20M_2024_4326.geojson")  # update path
+    gdf = gpd.read_file("src/utils/thesis_outputs/ev/NUTS_RG_20M_2024_4326.geojson")  # update path
     gdf = gdf[(gdf["LEVL_CODE"] == 3) & (gdf["CNTR_CODE"] == "DE")]
 
     merged_gdf = gdf.merge(ev_df, left_on="NUTS_ID", right_on="nuts3", how="left")
@@ -430,7 +450,7 @@ def graph_ev_stock_kba_2024():
 
 
 ################### charging profiles normalized ######################################################
-path_consumption = "src/utils/thesis_outputs/ev_charging_profiles/"
+path_consumption = "src/utils/thesis_outputs/ev/ev_charging_profiles/"
 def data_charging_profiles_all():
     df1 = get_normalized_daily_ev_charging_profile_all(type="total", day_type="workday")
     df2 = get_normalized_daily_ev_charging_profile_all(type="total", day_type="weekend")
@@ -526,7 +546,7 @@ def graph_charging_profiles_home():
 
 
 ################### UGR consumption histroical 2014-2022 ######################################################
-path_output = "src/utils/thesis_outputs/ev_consumption_ugr_historical/"
+path_output = "src/utils/thesis_outputs/ev/ev_consumption_ugr_historical/"
 
 def data_ugr_consumption_historical():
     df_total = pd.DataFrame()
@@ -538,10 +558,9 @@ def data_ugr_consumption_historical():
     df_total.to_csv(os.path.join(path_output, f"ev_consumption_ugr_2014_2022_by_energy_carrier.csv"))
 
 def graph_ugr_consumption_historical():
-    file_path = "src/utils/thesis_outputs/ev_consumption_ugr_historical/ev_consumption_ugr_2014_2022_by_energy_carrier.csv"
+    file_path = "src/utils/thesis_outputs/ev/ev_consumption_ugr_historical/ev_consumption_ugr_2014_2022_by_energy_carrier.csv"
     df = pd.read_csv(file_path)
 
-    # Rename columns to use natural English
     df.columns = [
         "Year", 
         "Biodiesel", 
@@ -560,12 +579,19 @@ def graph_ugr_consumption_historical():
     # Set index to year for plotting convenience
     df.set_index("Year", inplace=True)
 
+    # Convert MWh to TWh for plotting
+    df = df / 1e6
+
+    # Sort columns by total consumption from biggest to smallest
+    column_order = df.sum().sort_values(ascending=False).index
+    df = df[column_order]
+
     # Plot as stacked bar chart
     fig, ax = plt.subplots(figsize=(12, 6))
     df.plot(kind="bar", stacked=True, ax=ax)
 
     # Labeling
-    ax.set_ylabel("Energy Consumption [MWh]")
+    ax.set_ylabel("Energy Consumption [TWh]")
     ax.set_xlabel("Year")
 
     # Set x-axis labels horizontal
@@ -578,12 +604,12 @@ def graph_ugr_consumption_historical():
     save_plot_with_datetime(plt, path_output, "ev_consumption_ugr_2014_2022_by_energy_carrier", dpi=300)
 
 #data_ugr_consumption_historical()
-# graph_ugr_consumption_historical()
+#graph_ugr_consumption_historical()
 
 
 
 ################### one week in 2018 for KBA_2 trend ######################################################
-path_output = "src/utils/thesis_outputs/ev_consumption_temporal/"
+path_output = "src/utils/thesis_outputs/ev/ev_consumption_temporal/"
 
 def data_ev_consumption_temporal_2035_complete_year():
     df = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=2035, szenario="KBA_2", s2_szenario="trend", force_preprocessing=True)
@@ -598,7 +624,7 @@ def data_ev_consumption_temporal_2035_may():
 
 def graph_ev_consumption_temporal_1h_1month():
 
-    file_path = "src/utils/thesis_outputs/ev_consumption_temporal/ev_consumption_temporal_kba_2_trend_2035_may.csv"
+    file_path = "src/utils/thesis_outputs/ev/ev_consumption_temporal/ev_consumption_temporal_kba_2_trend_2035_may.csv"
     df_raw = pd.read_csv(file_path, header=[0, 1], index_col=0)
     df_raw.index = pd.to_datetime(df_raw.index)
 
@@ -623,8 +649,8 @@ def graph_ev_consumption_temporal_1h_1month():
 
 def graph_ev_consumption_temporal_1h_1week():
 
-    #file_path = "src/utils/thesis_outputs/ev_consumption_temporal/ev_consumption_temporal_kba_2_trend_2035_may.csv"
-    file_path = "src/utils/thesis_outputs/ev_consumption_temporal/ev_consumption_temporal_ugr_2035_may.csv"
+    #file_path = "src/utils/thesis_outputs/ev/ev_consumption_temporal/ev_consumption_temporal_kba_2_trend_2035_may.csv"
+    file_path = "src/utils/thesis_outputs/ev/ev_consumption_temporal/ev_consumption_temporal_ugr_2035_may.csv"
     df_raw = pd.read_csv(file_path, header=[0, 1], index_col=0)
     df_raw.index = pd.to_datetime(df_raw.index)
 
@@ -652,4 +678,144 @@ def graph_ev_consumption_temporal_1h_1week():
 
 #data_ev_consumption_temporal_2035_may()
 #graph_ev_consumption_temporal_1h_1month()
-graph_ev_consumption_temporal_1h_1week()
+#graph_ev_consumption_temporal_1h_1week()
+
+
+################### final consumption output for home charging ######################################################
+path_output = "src/utils/thesis_outputs/ev/ev_consumption_final/"
+
+def data_ev_consumption_final_history():
+
+    for year in [2022]:
+        df1 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_1", force_preprocessing=True)
+        #df2 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="trend", force_preprocessing=True)
+        #df3 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="ambit", force_preprocessing=True)
+        #df4 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="regio", force_preprocessing=True)
+        df5 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="UGR" , force_preprocessing=True)
+
+        print(f"year {year} done")
+
+
+    return None
+
+
+def data_ev_consumption_final_future():
+
+    for year in [2025, 2030, 2035, 2040, 2045]:
+        #df1 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_1", force_preprocessing=True)
+        #df2 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="trend", force_preprocessing=True)
+        #df3 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="ambit", force_preprocessing=True)
+        #df4 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="KBA_2", s2_szenario="regio", force_preprocessing=True)
+        df5 = electric_vehicle_consumption_by_region_id_and_temporal_resolution(year=year, szenario="UGR" , force_preprocessing=True)
+
+        print(f"year {year} done")
+
+
+    return None
+
+def graph_ev_consumption_final_history():
+    years = range(2017, 2023)
+
+    # Storage for total values
+    home_kba_totals = []
+    home_ugr_totals = []
+
+    for year in years:
+        print(f"processing year {year}")
+        # Load each file (multi-level columns)
+        path_kba = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_1_None.csv"
+        path_ugr = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_UGR_None.csv"
+
+        df_kba = pd.read_csv(path_kba, header=[0, 1], index_col=0)
+        df_ugr = pd.read_csv(path_ugr, header=[0, 1], index_col=0)
+
+        # Filter only "home_charging" columns
+        home_kba = df_kba.loc[:, df_kba.columns.get_level_values(1) == "home_charging"]
+        home_ugr = df_ugr.loc[:, df_ugr.columns.get_level_values(1) == "home_charging"]
+
+        # Sum all regional_ids and all timepoints and convert to TWh
+        home_kba_totals.append(home_kba.sum().sum() / 1e6)
+        home_ugr_totals.append(home_ugr.sum().sum() / 1e6)
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(years, home_kba_totals, marker="o", label="KBA")
+    plt.plot(years, home_ugr_totals, marker="o", label="UGR")
+
+    plt.xlabel("Year")
+    plt.ylabel("Total Electric Vehicle Home Charging Electricity Consumption [TWh]")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "ev_consumption_final_history", dpi=300)
+
+
+def graph_ev_consumption_final_future():
+    years = [2025, 2030, 2035, 2040, 2045]
+
+    # Storage for total values
+    data = {
+        "year": years,
+        "KBA": [],
+        "KBA2 ambit": [],
+        "KBA2 regio": [],
+        "KBA2 trend": [],
+        "UGR": []
+    }
+
+    for year in years:
+        print(f"processing year {year}")
+        # Load each file (multi-level columns)
+        path_kba = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_1_None.csv"
+        path_kba2_ambit = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_ambit.csv"
+        path_kba2_regio = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_regio.csv"
+        path_kba2_trend = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_trend.csv"
+        path_ugr = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_UGR_None.csv"
+
+        df_kba = pd.read_csv(path_kba, header=[0, 1], index_col=0)
+        df_kba2_ambit = pd.read_csv(path_kba2_ambit, header=[0, 1], index_col=0)
+        df_kba2_regio = pd.read_csv(path_kba2_regio, header=[0, 1], index_col=0)
+        df_kba2_trend = pd.read_csv(path_kba2_trend, header=[0, 1], index_col=0)
+        df_ugr = pd.read_csv(path_ugr, header=[0, 1], index_col=0)
+
+        # Filter only "home_charging" columns
+        home_kba = df_kba.loc[:, df_kba.columns.get_level_values(1) == "home_charging"]
+        home_kba2_ambit = df_kba2_ambit.loc[:, df_kba2_ambit.columns.get_level_values(1) == "home_charging"]
+        home_kba2_regio = df_kba2_regio.loc[:, df_kba2_regio.columns.get_level_values(1) == "home_charging"]
+        home_kba2_trend = df_kba2_trend.loc[:, df_kba2_trend.columns.get_level_values(1) == "home_charging"]
+        home_ugr = df_ugr.loc[:, df_ugr.columns.get_level_values(1) == "home_charging"]
+
+        # Sum all regional_ids and all timepoints and convert to TWh
+        data["KBA"].append(home_kba.sum().sum() / 1e6)
+        data["KBA2 ambit"].append(home_kba2_ambit.sum().sum() / 1e6)
+        data["KBA2 regio"].append(home_kba2_regio.sum().sum() / 1e6)
+        data["KBA2 trend"].append(home_kba2_trend.sum().sum() / 1e6)
+        data["UGR"].append(home_ugr.sum().sum() / 1e6)
+
+    # Save the combined data to a CSV file
+    df_combined = pd.DataFrame(data)
+    save_dataframe_with_datetime(df_combined, "ev_consumption_final_future", path_output)
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    plt.plot(years, data["KBA"], marker="o", label="KBA")
+    plt.plot(years, data["KBA2 ambit"], marker="o", label="KBA2 ambit")
+    plt.plot(years, data["KBA2 regio"], marker="o", label="KBA2 regio")
+    plt.plot(years, data["KBA2 trend"], marker="o", label="KBA2 trend")
+    plt.plot(years, data["UGR"], marker="o", label="UGR")
+
+    plt.xlabel("Year")
+    plt.ylabel("Total Electric Vehicle Home Charging Electricity Consumption [TWh]")
+    plt.xticks(years)  # Ensure x-axis ticks are integers
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "ev_consumption_final_future", dpi=300)
+
+
+#data_ev_consumption_final_future()
+
+#graph_ev_consumption_final_future()
+
+#get_future_vehicle_consumption_ugr_by_energy_carrier(year=2035, force_preprocessing=True)
+
