@@ -12,7 +12,7 @@ disagg_applications_efficiency_factor()
 """
 
 # main function (with cache)
-def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame: #TODO
+def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     equals spacial.disagg_applications_eff() in old code
 

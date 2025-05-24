@@ -325,8 +325,6 @@ def graph_power_consumption_industry_cts_2022():
 ################### candles consumption cts & indsutry by sector 2022 ######################################################
 path_output = "src/utils/thesis_outputs/petrol/consumption_by_sector"
 
-
-
 def graph_petrol_consumption_cts_sectors_2022():
     
 
@@ -357,68 +355,171 @@ def graph_petrol_consumption_cts_sectors_2022():
     save_plot_with_datetime(plt, path_output, "petrol_consumption_by_sectors_2022", dpi=300)
 
 
+#graph_petrol_consumption_cts_sectors_2022()
 
 
-graph_petrol_consumption_cts_sectors_2022()
+################### candles applications petrol for CTS and industry 2022 ######################################################
+
+path_output = "src/utils/thesis_outputs/petrol/applications"
+
+#df1 = disagg_applications_efficiency_factor(sector="cts", energy_carrier="petrol", year=2022, force_preprocessing=True)
+#df2 = disagg_applications_efficiency_factor(sector="industry", energy_carrier="petrol", year=2022, force_preprocessing=True)
+
+#df1 = get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
+
+print("df1")
 
 
+def graph_petrol_applications_cts_industry_2022():
 
+    def load_and_aggregate_multicolumn(filepath: str) -> pd.Series:
+        """
+        Loads a CSV with multi-index columns: [industry_sector, application],
+        sums over all regional_ids, then aggregates by application.
+        Returns consumption in TWh per application.
+        """
+        # Read with MultiIndex columns
+        df = pd.read_csv(filepath, header=[0, 1], index_col=0)
+        
+        # Step 1: Sum over all regional_ids
+        summed = df.sum(axis=0)
 
+        # Step 2: Group by application (level 1 of columns)
+        application_sums = summed.groupby(level=1).sum()
 
+        # Step 3: Convert to TWh
+        return application_sums / 1e6
 
-def data_total_ev_consumption_s2():
+    # Example usage
+    cts_path = "data/processed/pipeline/applications/disagg_applications_efficiency_factor/con_eff_2022_cts_petrol.csv"
+    industry_path = "data/processed/pipeline/applications/disagg_applications_efficiency_factor/con_eff_2022_industry_petrol.csv"
 
-    szenarios = ["ambit", "trend", "regio"]
-    for szenario in szenarios:
-        df_total = pd.DataFrame()
-        for year in range(2017, 2046):
-            df = electric_vehicle_consumption_by_regional_id(year=year, szenario="KBA_2", s2_szenario=szenario,force_preprocessing=True)
-            total_consumption = df.sum().sum()
-            df_total = pd.concat([df_total, pd.DataFrame({"year": [year], "total_consumption": [total_consumption]})])
-        save_dataframe_with_datetime(df_total, f"ev_consumption_by_regional_id_kba_2_{szenario}_{now}", path_consumption)
+    cts_series = load_and_aggregate_multicolumn(cts_path)
+    industry_series = load_and_aggregate_multicolumn(industry_path)
 
+    # Combine and plot
+    df_combined = pd.DataFrame({
+        "CTS": cts_series,
+        "Industry": industry_series
+    }).fillna(0)
 
-def data_total_ev_consumption():
-    df_total = pd.DataFrame()
-
-    for year in range(2017, 2046):
-        df = electric_vehicle_consumption_by_regional_id(year=year, szenario="KBA_1",force_preprocessing=True)
-        total_consumption = df.sum().sum()
-        df_total = pd.concat([df_total, pd.DataFrame({"year": [year], "total_consumption": [total_consumption]})])
-
-    save_dataframe_with_datetime(df_total, f"ev_consumption_by_regional_id_kba_1_{now}", path_consumption)
-
-def graph_ev_consumption():
-    files = {
-        "KBA 1": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_1_20250521_225507_20250521_225509.csv",
-        "KBA 2 - Trend": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_trend_20250521_224632_20250521_224910.csv",
-        "KBA 2 - Regio": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_regio_20250521_224632_20250521_225044.csv",
-        "KBA 2 - Ambit": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_kba_2_ambit_20250521_224632_20250521_224835.csv",
-        "UGR": "src/utils/thesis_outputs/ev/ev_consumption/ev_consumption_by_regional_id_ugr_20250521_220240_20250521_220242.csv"
-    }
-
-    # Plot setup
-    fig, ax = plt.subplots(figsize=(12, 6))
-
-    # Load and plot each scenario
-    for label, path in files.items():
-        df = pd.read_csv(path)
-        df = df[df["year"].between(2017, 2022)]  # Filter for years 2017 to 2022
-        df["total_consumption_million"] = df["total_consumption"] / 1e6
-        ax.plot(df["year"], df["total_consumption_million"], label=label)
-
-    # Formatting
-    ax.set_xlabel("Year")
-    ax.set_ylabel("Total Electric Vehicle Consumption [TWh]")
-
-    # Legend outside
-    ax.legend(loc='lower left', bbox_to_anchor=(1, 0))
-    ax.grid(True)
-
+    # Plotting
+    import matplotlib.pyplot as plt
+    df_combined.plot(kind="bar", figsize=(12, 6))
+    plt.xlabel("Application")
+    plt.ylabel("Petrol Consumption [TWh]")
+    plt.xticks(ha='right')
     plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "petrol_applications_cts_industry_2022", dpi=300)
+    
+    
+def graph_petrol_applications_cts_2022():
 
-    save_plot_with_datetime(plt, path_consumption, "ev_consumption_total_2017_2022", dpi=300)
+    def load_and_aggregate_cts(filepath: str) -> pd.Series:
+        """
+        Loads CTS CSV with MultiIndex columns [industry_sector, application],
+        sums over all regional_ids and industry sectors,
+        and returns total consumption per application in TWh.
+        """
+        df = pd.read_csv(filepath, header=[0, 1], index_col=0)
+        
+        # Rename columns to normal English
+        df.columns = df.columns.set_levels([
+            'Hot Water', 'Mechanical Energy', 'Non-Energetic Use', 'Process Heat', 'Space Heating'
+        ], level=1)
+        
+        summed = df.sum(axis=0)
+        application_sums = summed.groupby(level=1).sum()
+        return application_sums / 1e6  # Convert to TWh
 
-#data_total_ev_consumption_s2()
-#data_total_ev_consumption()
-#graph_ev_consumption()
+    # Load and process CTS data
+    cts_path = "data/processed/pipeline/applications/disagg_applications_efficiency_factor/con_eff_2022_cts_petrol.csv"
+    cts_series = load_and_aggregate_cts(cts_path)
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    cts_series.sort_values(ascending=False).plot(kind="bar", color="steelblue")
+    plt.xlabel("Application")
+    plt.ylabel("Petrol Consumption [TWh]")
+    plt.xticks(ha='right')
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "petrol_applications_cts_2022", dpi=300)
+
+
+def graph_petrol_applications_industry_2022():
+    def load_and_aggregate_industry(filepath: str) -> pd.Series:
+        """
+        Loads Industry CSV with MultiIndex columns [industry_sector, application],
+        sums over all regional_ids and industry sectors,
+        and returns total consumption per application in TWh.
+        """
+        df = pd.read_csv(filepath, header=[0, 1], index_col=0)
+        
+        # Rename columns to normal English
+        df.columns = df.columns.set_levels([
+            'Hot Water', 'Mechanical Energy', 'Non-Energetic Use', 
+            'Process Heat 100 to 200C', 'Process Heat 200 to 500C', 
+            'Process Heat Above 500C', 'Process Heat Below 100C', 
+            'Space Heating'
+        ], level=1)
+        
+        summed = df.sum(axis=0)
+        application_sums = summed.groupby(level=1).sum()
+        return application_sums / 1e6  # Convert to TWh
+
+    # Load and process Industry data
+    industry_path = "data/processed/pipeline/applications/disagg_applications_efficiency_factor/con_eff_2022_industry_petrol.csv"
+    industry_series = load_and_aggregate_industry(industry_path)
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    industry_series.sort_values(ascending=False).plot(kind="bar", color="darkgreen")
+    plt.xlabel("Application")
+    plt.ylabel("Petrol Consumption [TWh]")
+    plt.xticks(ha='right')
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "petrol_applications_industry_2022", dpi=300)
+
+
+
+def graph_petrol_applications_industry_bysector_2022():
+    def load_industry_stacked(filepath: str) -> pd.DataFrame:
+        """
+        Loads industry CSV, returns a DataFrame indexed by application,
+        with columns as industry sectors and values as total consumption in TWh.
+        """
+        df = pd.read_csv(filepath, header=[0, 1], index_col=0)
+        
+        # Step 1: Sum across regional_ids
+        summed = df.sum(axis=0)  # MultiIndex: (sector, application)
+        
+        # Step 2: Convert to TWh
+        summed = summed / 1e6
+        
+        # Step 3: Unstack to get DataFrame: rows = application, cols = sectors
+        df_stacked = summed.unstack(level=0).fillna(0)
+
+        return df_stacked
+
+    # Load and process
+    industry_path = "data/processed/pipeline/applications/disagg_applications_efficiency_factor/con_eff_2022_industry_petrol.csv"
+    df_plot = load_industry_stacked(industry_path)
+
+    # Plot stacked bar chart
+    df_plot.plot(kind="bar", stacked=True, figsize=(12, 6), colormap="tab20")
+    plt.xlabel("Application")
+    plt.ylabel("Electricity Consumption [TWh]")
+    plt.title("Industry Electricity Consumption by Application and Sector (2022, Petrol)")
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
+    #plt.savefig("industry_application_stacked_by_sector.png", dpi=300)
+    plt.show()
+
+
+
+
+#graph_petrol_applications_cts_industry_2022()
+#graph_petrol_applications_cts_2022() used
+#graph_petrol_applications_industry_2022() used
+#graph_petrol_applications_industry_bysector_2022()
+

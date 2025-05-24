@@ -163,11 +163,6 @@ def load_decomposition_factors_petrol() -> pd.DataFrame:
     df = pd.read_csv(raw_file_petrol, sep=';', decimal=',')
     df.set_index('industry_sectors', inplace=True)
 
-    # multiply all columns by 0,01 except for industry_sectors or sector
-    for col in df.columns:
-        if col != 'industry_sectors' and col != 'sector':
-            df[col] = df[col] * 0.01
-
     return df
 
 def load_decomposition_factors_process_heat_industry() -> pd.DataFrame:
