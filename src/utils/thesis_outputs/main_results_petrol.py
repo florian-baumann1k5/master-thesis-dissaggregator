@@ -359,16 +359,11 @@ def graph_petrol_consumption_cts_sectors_2022():
 
 
 ################### candles applications petrol for CTS and industry 2022 ######################################################
-
 path_output = "src/utils/thesis_outputs/petrol/applications"
 
 #df1 = disagg_applications_efficiency_factor(sector="cts", energy_carrier="petrol", year=2022, force_preprocessing=True)
 #df2 = disagg_applications_efficiency_factor(sector="industry", energy_carrier="petrol", year=2022, force_preprocessing=True)
-
 #df1 = get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
-
-print("df1")
-
 
 def graph_petrol_applications_cts_industry_2022():
 
@@ -412,7 +407,7 @@ def graph_petrol_applications_cts_industry_2022():
     plt.tight_layout()
     save_plot_with_datetime(plt, path_output, "petrol_applications_cts_industry_2022", dpi=300)
     
-    
+
 def graph_petrol_applications_cts_2022():
 
     def load_and_aggregate_cts(filepath: str) -> pd.Series:
@@ -444,7 +439,6 @@ def graph_petrol_applications_cts_2022():
     plt.xticks(ha='right')
     plt.tight_layout()
     save_plot_with_datetime(plt, path_output, "petrol_applications_cts_2022", dpi=300)
-
 
 def graph_petrol_applications_industry_2022():
     def load_and_aggregate_industry(filepath: str) -> pd.Series:
@@ -480,8 +474,6 @@ def graph_petrol_applications_industry_2022():
     plt.tight_layout()
     save_plot_with_datetime(plt, path_output, "petrol_applications_industry_2022", dpi=300)
 
-
-
 def graph_petrol_applications_industry_bysector_2022():
     def load_industry_stacked(filepath: str) -> pd.DataFrame:
         """
@@ -515,11 +507,104 @@ def graph_petrol_applications_industry_bysector_2022():
     #plt.savefig("industry_application_stacked_by_sector.png", dpi=300)
     plt.show()
 
-
-
-
 #graph_petrol_applications_cts_industry_2022()
 #graph_petrol_applications_cts_2022() used
 #graph_petrol_applications_industry_2022() used
 #graph_petrol_applications_industry_bysector_2022()
+
+
+################### temporal for CTS and industry 2022 ######################################################
+path_output = "src/utils/thesis_outputs/petrol/temporal"
+
+
+#df1 = disaggregate_temporal(sector="cts", energy_carrier="petrol", year=2022, force_preprocessing=True)
+#print("fertig1")
+
+#df2 = disaggregate_temporal(sector="industry", energy_carrier="petrol", year=2022, force_preprocessing=True)
+#print("fertig2")
+
+#print("fertig")
+
+def data_petrol_temporal_cts_2022():
+    # === Step 1: Load the Data ===
+    cts_file = "data/processed/pipeline/temporal/consumption_disaggregate_temporal/con_disagg_temp_2022_cts_petrol.csv"
+    industry_file = "data/processed/pipeline/temporal/consumption_disaggregate_temporal/con_disagg_temp_2022_industry_petrol.csv"
+    
+    df_cts = pd.read_csv(cts_file, header=[0, 1], index_col=0)
+    df_industry = pd.read_csv(industry_file, header=[0, 1], index_col=0)
+    
+    df_cts.index = pd.to_datetime(df_cts.index)
+    df_industry.index = pd.to_datetime(df_industry.index)
+
+    # === Step 2: Sum across all regional_ids ===
+    df_cts_summed = df_cts.groupby(axis=1, level=1).sum()  # result: columns = industry_sector, index = time
+    df_industry_summed = df_industry.groupby(axis=1, level=1).sum()
+
+    # === Step 3: Combine CTS and Industry Data ===
+    df_combined = pd.DataFrame(index=df_cts_summed.index)
+    df_combined["cts"] = df_cts_summed.sum(axis=1)
+    df_combined["industry"] = df_industry_summed.sum(axis=1)
+
+    # === Step 4: Filter May and Resample to 2h ===
+    df_may = df_combined.loc[df_combined.index.month == 5]
+    df_may_2h = df_may.resample("2H").sum()
+
+    # === Step 5: Save to file ===
+    save_dataframe_with_datetime(df_may_2h, "petrol_consumption_cts_industry_may_2022_2h", path_output)
+
+    # === Step 6: Plot ===
+    plt.figure(figsize=(12, 6))
+    plt.plot(df_may_2h.index, df_may_2h["industry"], label="Industry", color="tab:blue")
+    plt.plot(df_may_2h.index, df_may_2h["cts"], label="CTS", color="tab:orange")
+
+    plt.xlabel("Time (May 2022)")
+    plt.ylabel("Petrol Consumption [MWh]")
+    plt.title("Petrol Consumption by Sector – CTS vs. Industry (May 2022, 2h resolution)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "petrol_consumption_cts_industry_may_2022_2h", dpi=300)
+
+
+def data_petrol_temporal_cts_2022_daily():
+    # === Step 1: Load the Data ===
+    cts_file = "data/processed/pipeline/temporal/consumption_disaggregate_temporal/con_disagg_temp_2022_cts_petrol.csv"
+    industry_file = "data/processed/pipeline/temporal/consumption_disaggregate_temporal/con_disagg_temp_2022_industry_petrol.csv"
+    
+    df_cts = pd.read_csv(cts_file, header=[0, 1], index_col=0)
+    df_industry = pd.read_csv(industry_file, header=[0, 1], index_col=0)
+    
+    df_cts.index = pd.to_datetime(df_cts.index)
+    df_industry.index = pd.to_datetime(df_industry.index)
+
+    # === Step 2: Sum across all regional_ids ===
+    df_cts_summed = df_cts.groupby(axis=1, level=1).sum()  # result: columns = industry_sector, index = time
+    df_industry_summed = df_industry.groupby(axis=1, level=1).sum()
+
+    # === Step 3: Combine CTS and Industry Data ===
+    df_combined = pd.DataFrame(index=df_cts_summed.index)
+    df_combined["cts"] = df_cts_summed.sum(axis=1)
+    df_combined["industry"] = df_industry_summed.sum(axis=1)
+
+    # === Step 4: Resample to daily ===
+    df_daily = df_combined.resample("D").sum()
+
+    # === Step 5: Save to file ===
+    save_dataframe_with_datetime(df_daily, "petrol_consumption_cts_industry_year_2022_daily", path_output)
+
+    # === Step 6: Plot ===
+    plt.figure(figsize=(12, 6))
+    plt.plot(df_daily.index, df_daily["industry"], label="Industry", color="tab:blue")
+    plt.plot(df_daily.index, df_daily["cts"], label="CTS", color="tab:orange")
+
+    plt.xlabel("Time (2022)")
+    plt.ylabel("Petrol Consumption [MWh]")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    save_plot_with_datetime(plt, path_output, "petrol_consumption_cts_industry_year_2022_daily", dpi=300)
+
+#data_petrol_temporal_cts_2022()
+data_petrol_temporal_cts_2022_daily()
+
 

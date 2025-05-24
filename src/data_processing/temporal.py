@@ -430,7 +430,7 @@ def disagg_temporal_petrol_CTS(consumption_data: pd.DataFrame, year: int) -> pd.
     Disaggregate the consumption data for petrol in the CTS sector like gas
     """
 
-    df = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
+    df = disagg_temporal_heat_CTS(consumption_data=consumption_data, year=year)
 
     # sanity check
     if not np.isclose(df.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
