@@ -361,8 +361,7 @@ def graph_petrol_consumption_cts_sectors_2022():
 ################### candles applications petrol for CTS and industry 2022 ######################################################
 path_output = "src/utils/thesis_outputs/petrol/applications"
 
-#df1 = disagg_applications_efficiency_factor(sector="cts", energy_carrier="petrol", year=2022, force_preprocessing=True)
-#df2 = disagg_applications_efficiency_factor(sector="industry", energy_carrier="petrol", year=2022, force_preprocessing=True)
+
 #df1 = get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
 
 def graph_petrol_applications_cts_industry_2022():
@@ -605,6 +604,106 @@ def data_petrol_temporal_cts_2022_daily():
     save_plot_with_datetime(plt, path_output, "petrol_consumption_cts_industry_year_2022_daily", dpi=300)
 
 #data_petrol_temporal_cts_2022()
-data_petrol_temporal_cts_2022_daily()
+#data_petrol_temporal_cts_2022_daily()
+
+
+
+
+################### temporal for CTS and industry 2022 ######################################################
+path_output = "src/utils/thesis_outputs/petrol/heat"
+
+# for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+#     for sector in ["cts", "industry"]:
+#         df = disaggregate_temporal(sector=sector, energy_carrier="petrol", year=year, force_preprocessing=True, float_precision=8)
+
+
+def sector_fuel_switch_fom_gas_petrol_cts():
+    for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+
+        print(f"Processing year: {year}")
+
+
+        def1 = sector_fuel_switch_fom_gas_petrol(year=year, sector="cts", energy_carrier="petrol", switch_to="power", force_preprocessing = True)
+
+        save_dataframe_with_datetime(def1, f"sector_fuel_switch_fom_gas_petrol{year}", path_output)
+
+def sector_fuel_switch_fom_gas_petrol_industry_power():
+    for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+
+        print(f"Processing year: {year}")
+
+
+        def1 = sector_fuel_switch_fom_gas_petrol(year=year, sector="industry", energy_carrier="petrol", switch_to="power", force_preprocessing = True)
+
+        save_dataframe_with_datetime(def1, f"sector_fuel_switch_fom_gas_petrol{year}_industry_power", path_output)
+
+def sector_fuel_switch_fom_gas_petrol_industry_hydrogen():
+    for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+
+        print(f"Processing year: {year}")
+        def1 = sector_fuel_switch_fom_gas_petrol(year=year, sector="industry", energy_carrier="petrol", switch_to="hydrogen", force_preprocessing = True)
+
+        save_dataframe_with_datetime(def1, f"sector_fuel_switch_fom_gas_petrol{year}_industry_hydrogen", path_output)
+
+
+def sector_fuel_switch_fom_gas_petrol_cts_power():
+    years = [2020, 2025, 2030, 2035, 2040, 2045]
+    base_path = "data/processed/heat/temporal_fuel_switch"
+    file_template = "sector_fuel_switch_{}_cts_power_petrol.csv"
+
+    # Load and process data
+    application_data = {}
+
+    for year in years:
+        file_path = os.path.join(base_path, file_template.format(year))
+        df = pd.read_csv(file_path, header=[0, 1], index_col=0)
+        df.columns.names = ['industry_sector', 'application']
+        
+        # Sum over all regional_ids, and group by application
+        df_year = df.groupby(level=1, axis=1).sum().sum(axis=0)
+        application_data[year] = df_year
+    
+    df_application_data = pd.DataFrame(application_data)
+    save_dataframe_with_datetime(df_application_data, "sector_fuel_switch_fom_gas_petrol_cts_power_2020_2045", path_output)
+
+    # Convert to DataFrame
+    df_plot = pd.DataFrame(application_data).T  # Transpose to get years on x-axis
+
+    # Plot
+    ax = df_plot.plot(kind='bar', stacked=True, figsize=(12, 6))
+
+    plt.title("Total Consumption by Application (CTS Power Petrol)")
+    plt.xlabel("Year")
+    plt.ylabel("Total Consumption (e.g., GWh or as in input)")
+    plt.legend(title="Application", bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    #plt.savefig("src/utils/thesis_outputs/cts_power_petrol_application_stackedbar.png", dpi=300)
+    plt.show()
+
+
+sector_fuel_switch_fom_gas_petrol_industry_hydrogen()
+#sector_fuel_switch_fom_gas_petrol_industry_power()
+#sector_fuel_switch_fom_gas_petrol_cts_power()
+
+
+
+
+
+# def data_petrol_heat_cts_elec_load_from_fuel_switch_petrol():
+#     for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+
+#         print(f"Processing year: {year}")
+
+#         total_cts = pd.DataFrame()
+
+#         for state in federal_state_dict().values():
+#             def1 = sector_fuel_switch_fom_gas_petrol(year=year, sector="cts", switch_to="power", force_preprocessing = True)
+#             total_cts = pd.concat([total_cts, def1], axis=1)
+
+#         save_dataframe_with_datetime(total_cts, f"sector_fuel_switch_fom_gas_petrol{year}", path_output)
+
+
 
 
