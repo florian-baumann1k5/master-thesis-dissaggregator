@@ -683,7 +683,7 @@ def sector_fuel_switch_fom_gas_petrol_cts_power():
     plt.show()
 
 
-sector_fuel_switch_fom_gas_petrol_industry_hydrogen()
+#sector_fuel_switch_fom_gas_petrol_industry_hydrogen()
 #sector_fuel_switch_fom_gas_petrol_industry_power()
 #sector_fuel_switch_fom_gas_petrol_cts_power()
 
@@ -691,19 +691,27 @@ sector_fuel_switch_fom_gas_petrol_industry_hydrogen()
 
 
 
-# def data_petrol_heat_cts_elec_load_from_fuel_switch_petrol():
-#     for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+def temporal_cts_elec_load_from_fuel_switch_petrol_power():
+    for year in [2020, 2025, 2030, 2035, 2040, 2045]:
 
-#         print(f"Processing year: {year}")
+        print(f"Processing year: {year}")
 
-#         total_cts = pd.DataFrame()
+        total_cts = pd.DataFrame()
 
-#         for state in federal_state_dict().values():
-#             def1 = sector_fuel_switch_fom_gas_petrol(year=year, sector="cts", switch_to="power", force_preprocessing = True)
-#             total_cts = pd.concat([total_cts, def1], axis=1)
+        for state in federal_state_dict().values():
+            def1 = temporal_cts_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to="power")
+            def1 = def1.groupby(level='application', axis=1).sum()
+            
+            total_cts = pd.concat([total_cts, def1], axis=1)
 
-#         save_dataframe_with_datetime(total_cts, f"sector_fuel_switch_fom_gas_petrol{year}", path_output)
+        save_dataframe_with_datetime(total_cts, f"temporal_cts_elec_load_from_fuel_switch_petrol{year}_power", path_output)
 
 
+temporal_cts_elec_load_from_fuel_switch_petrol_power()
 
-
+"""this will retrun a df with:
+index: daytime
+column[0]: regional_ids
+column[1]: industry_sectors
+column[2]: applications
+"""

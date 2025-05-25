@@ -18,7 +18,7 @@ Assumptions:
 
 
 # Main function
-def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: str, sector: str, switch_to: str, force_preprocessing: bool = False) -> pd.DataFrame:
+def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: str, sector: str, switch_to: str, force_preprocessing: bool = False, float_precision: int = 10) -> pd.DataFrame:
     """
     
     """
@@ -81,7 +81,7 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
     # save to cache
     os.makedirs(cache_dir, exist_ok=True)
     logger.info(f"Save temporal_elec_load_from_fuel_switch to cache for year: {year}, state: {state}, sector: {sector}, energy_carrier: {energy_carrier}, switch_to: {switch_to}")
-    temporal_fuel_switch.to_csv(cache_file)    
+    temporal_fuel_switch.to_csv(cache_file, float_format=f"%.{float_precision}f")    
 
 
 
@@ -395,8 +395,8 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
         raise ValueError(f"For CTS all the energy is switched to power!")
 
     # Define cache directory and file path
-    cache_dir = load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_dir']
-    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_file'].format(year=year, sector=sector, switch_to=switch_to, energy_carrier=energy_carrier))
+    cache_dir = load_config("base_config.yaml")['sector_fuel_switch_fom_gas_petrol_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['sector_fuel_switch_fom_gas_petrol_cache_file'].format(year=year, sector=sector, switch_to=switch_to, energy_carrier=energy_carrier))
 
     # Check if cache exists and load if available
     if os.path.exists(cache_file) and not force_preprocessing:
@@ -489,6 +489,9 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
     # 2. get normalized timeseries for temperature dependent and temperature
     # independent gas demand in CTS - hourly
     heat_norm_1h, consumption_total, gas_tempinde_norm_1h = create_heat_norm_cts(state=state, year=year, energy_carrier=energy_carrier)
+    heat_norm_1h.columns = heat_norm_1h.columns.map(lambda col: tuple(map(str, col)))
+    gas_tempinde_norm_1h.columns = gas_tempinde_norm_1h.columns.map(lambda col: tuple(map(str, col)))
+    
 
 
 
@@ -556,9 +559,9 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
 
                 # space heating will be handled with the temperature dependent profile, the others with a general profile
                 if app == 'space_heating':
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm_15min[regional_id, int(industry_sector)]))
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (heat_norm_15min[str(regional_id), str(industry_sector)]))
                 else:
-                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (gas_tempinde_norm_15min[regional_id, int(industry_sector)]))
+                    new_df[regional_id, industry_sector, app] = ((df_gas_switch.loc[regional_id][industry_sector, app]) * (gas_tempinde_norm_15min[str(regional_id), str(industry_sector)]))
         
 
     # 6. drop all columns that have only nan values

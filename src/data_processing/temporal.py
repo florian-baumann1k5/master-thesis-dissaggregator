@@ -998,6 +998,8 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
     return temperature_df_districts
 
 
+# Heat
+
 
 def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrier: str):
     """

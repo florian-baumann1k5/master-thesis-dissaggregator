@@ -288,6 +288,7 @@ def get_efficiency_level_by_application_petrol():
     """
     return {
         'mechanical_energy': 0.4,
+        'non_energetic_use': 0.7,
         'process_heat': 0.96,
         'process_heat_100_to_200C': 0.9,
         'process_heat_200_to_500C': 0.9,

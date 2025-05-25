@@ -61,6 +61,9 @@ consumption_total_cache_file: "consumption_total_{year}_{state}_{energy_carrier}
 consumption_temp_indep_norm_cache_file: "consumption_temp_indep_norm_{year}_{state}_{energy_carrier}.csv"
 
 
+sector_fuel_switch_fom_gas_petrol_cache_dir: "data/processed/heat/sector_fuel_switch_fom_gas_petrol"
+sector_fuel_switch_fom_gas_petrol_cache_file: "sector_fuel_switch_{year}_{sector}_{switch_to}_{energy_carrier}.csv"
+
 
 
 
