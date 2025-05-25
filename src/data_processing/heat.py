@@ -162,7 +162,7 @@ def make_3level_timeseries(df_gas_switch: pd.DataFrame, state: str, year: int ) 
 
 
 
-def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataFrame:
+def create_heat_norm_cts(state: str, year: int, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Creates normalised heat demand timeseries for CTS per regional_id, and branch
 
@@ -192,16 +192,28 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataF
             columns = [regional_id, industry_sector]
     """
 
+    # Define cache directory and file paths
+    cache_dir = load_config("base_config.yaml")['create_heat_norm_cts_cache_dir']
+    heat_norm_cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['heat_norm_cache_file'].format(year=year, state=state, energy_carrier=energy_carrier))
+    consumption_total_cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['consumption_total_cache_file'].format(year=year, state=state, energy_carrier=energy_carrier))
+    consumption_temp_indep_norm_cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['consumption_temp_indep_norm_cache_file'].format(year=year, state=state, energy_carrier=energy_carrier))
+
+    # Check if cache exists and load if available
+    if os.path.exists(heat_norm_cache_file) and os.path.exists(consumption_total_cache_file) and os.path.exists(consumption_temp_indep_norm_cache_file) and not force_preprocessing:
+        logger.info(f"Loading cached data for year: {year}, state: {state}, energy_carrier: {energy_carrier}")
+        heat_norm = pd.read_csv(heat_norm_cache_file, index_col=0, header=[0, 1], parse_dates=True)
+        consumption_total = pd.read_csv(consumption_total_cache_file, index_col=0, header=[0, 1], parse_dates=True)
+        consumption_temperature_independent_norm = pd.read_csv(consumption_temp_indep_norm_cache_file, index_col=0, header=[0, 1], parse_dates=True)
+        return heat_norm, consumption_total, consumption_temperature_independent_norm
+
 
     # 1. get the consumption data per regional_id and industry_sector (aggregating the applications)
     consumption_data = disagg_applications_efficiency_factor(sector="cts", energy_carrier=energy_carrier, year=year)
     consumption_data = consumption_data.T.groupby(level=0).sum().T
 
-
     # 2. disaggregate consumption of all applications by regional_id, indsutry sector and temporally (1h steps of the year)
     state_list = [state]
     consumption_total = disagg_temporal_heat_CTS(consumption_data=consumption_data, state_list=state_list, year=year)     #TODO: die braucht länger
-
 
     # sanity check
     # Reverse lookup: get the key (state number) for the given state abbreviation
@@ -215,18 +227,14 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataF
     if not np.isclose(filter_rows_by_state_prefix(consumption_data, str(state_id_prefix)).sum().sum(), consumption_total.sum().sum()):
         raise ValueError("Consumption data for state is not equal to the total gas consumption")
 
-
     # 3. get the consumption of ['hot_water', 'mechanical_energy', 'process_heat'] by regional_id
     consumption_temperature_independent = (disagg_temporal_heat_CTS_water_by_state(state=state, year=year, energy_carrier=energy_carrier)) # TODO: dauert länger und bekomme "FUturteWarnigns"
     
-
     # 4. create space heating timeseries: difference between total heat demand and water heating demand
     consumption_temperature_dependent = (consumption_total - consumption_temperature_independent).clip(lower=0)
 
-
     # 5. get the temperature allocation
     temp_allo = allocation_temperature_by_hour(year=year)
-
 
     # 6. clip heat demand above heating threshold 
     # DISS Formel 4.15 S. 81
@@ -237,10 +245,8 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataF
     heat_masked = heat_total[mask]
     df = heat_masked.fillna(0)
 
-
     df.columns = consumption_temperature_dependent.columns
     heat_norm = df.copy()
-
 
     # 7. normalise (sum per industry_sector = 1.0)
     heat_norm = heat_norm.divide(heat_norm.sum(axis=0), axis=1)
@@ -248,8 +254,6 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataF
 
     consumption_temperature_independent_norm = consumption_temperature_independent.divide(consumption_temperature_independent.sum(axis=0), axis=1)
     consumption_temperature_independent_norm = consumption_temperature_independent_norm.fillna(0.0)
-
-
 
     # 8. sanity check the normalized data
     column_sums = heat_norm.sum(axis=0)
@@ -263,6 +267,13 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str) -> pd.DataF
     invalid_columns = [val for val in column_sums_list if not (np.isclose(val, 0.0) or np.isclose(val, 1.0))]
     if invalid_columns:
         raise ValueError("Sanity check failed: Not all columns in consumption_temperature_independent_norm sum to 0.0 or 1.0")
+
+    # Save to cache
+    os.makedirs(cache_dir, exist_ok=True)
+    heat_norm.to_csv(heat_norm_cache_file)
+    consumption_total.to_csv(consumption_total_cache_file)
+    consumption_temperature_independent_norm.to_csv(consumption_temp_indep_norm_cache_file)
+    logger.info(f"Data cached for year: {year}, state: {state}, energy_carrier: {energy_carrier}")
 
     return heat_norm, consumption_total, consumption_temperature_independent_norm
 

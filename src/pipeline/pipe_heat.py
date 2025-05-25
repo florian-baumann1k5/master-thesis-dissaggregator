@@ -222,6 +222,8 @@ def temporal_cts_elec_load_from_fuel_switch_petrol(year: int, state: str, switch
             SLP for temporal disaggregation of df_gas_switch.
 
     """
+
+
     p_ground = get_heatpump_distribution()["p_ground"]
     p_air = get_heatpump_distribution()["p_air"]
     p_water = get_heatpump_distribution()["p_water"]
@@ -249,8 +251,7 @@ def temporal_cts_elec_load_from_fuel_switch_petrol(year: int, state: str, switch
     # 3. calculate total demand
     df_temp_elec_from_petrol_switch = calculate_total_demand_cts(df_temp_gas_switch=df_temp_petrol_switch, year=year, energy_carrier=energy_carrier)
 
-    
-
+   
     return df_temp_elec_from_petrol_switch
 
 
@@ -354,13 +355,13 @@ def disagg_temporal_applications_hp
 
 # Gas & Petrol 
 # calculate the gas that has to be switched to Power/ H2
-def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, energy_carrier: str) -> pd.DataFrame:
+def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Determines yearly gas/petrol demand per branch and regional id for heat applications
     that will be replaced by power or hydrogen in the future.
 
     Assumptions:
-        - Political goal: 0 emmisions by 2045 -> linear reduction of gas demand to that year
+        - Political goal: 0 emissions by 2045 -> linear reduction of gas demand to that year
         - applications: 
             - space_heating/hot_water/process_heat_below_100C:  switch to power(heatpump)
             - process_heat_100_to_200C:                         power(heatpump) and power(electrode)
@@ -393,6 +394,14 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
     if sector == "cts" and switch_to == "hydrogen":
         raise ValueError(f"For CTS all the energy is switched to power!")
 
+    # Define cache directory and file path
+    cache_dir = load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temporal_elec_load_from_fuel_switch_cache_file'].format(year=year, sector=sector, switch_to=switch_to, energy_carrier=energy_carrier))
+
+    # Check if cache exists and load if available
+    if os.path.exists(cache_file) and not force_preprocessing:
+        logger.info(f"Loading cached data for year: {year}, sector: {sector}, switch_to: {switch_to}, energy_carrier: {energy_carrier}")
+        return pd.read_csv(cache_file, index_col=0, header=[0, 1])
 
     # 1. load consumption data by application and wz and region
     df_consumption = disagg_applications_efficiency_factor(year=year, energy_carrier=energy_carrier, sector=sector)
@@ -405,9 +414,8 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
     # 1. load data
     df_fuel_switch = get_fuel_switch_share(sector=sector, switch_to=switch_to)
 
-
     # 2. project fuel switch share to year (0 by 2045 - political goal; linear interpolation)
-    fuel_switch_projected = projection_fuel_switch_share(df_fuel_switch = df_fuel_switch, target_year=year)
+    fuel_switch_projected = projection_fuel_switch_share(df_fuel_switch=df_fuel_switch, target_year=year)
     fuel_switch_projected.index = fuel_switch_projected.index.map(str)
     fuel_switch_projected.columns = fuel_switch_projected.columns.map(str)
     
@@ -422,6 +430,11 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
 
     # 6. Drop columns with all zeros - 
     df_fossil_switch = df_fossil_switch.loc[:, ~(df_fossil_switch == 0).all()]
+
+    # Save to cache
+    os.makedirs(cache_dir, exist_ok=True)
+    df_fossil_switch.to_csv(cache_file)
+    logger.info(f"Data cached for year: {year}, sector: {sector}, switch_to: {switch_to}, energy_carrier: {energy_carrier}")
 
     return df_fossil_switch
 

@@ -55,6 +55,14 @@ era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
 temporal_elec_load_from_fuel_switch_cache_dir: "data/processed/heat/temporal_elec_load_from_fuel_switch"
 temporal_elec_load_from_fuel_switch_cache_file: "temporal_elec_load_from_fuel_switch_{year}_{state}_{energy_carrier}_{sector}_{switch_to}.csv"
 
+create_heat_norm_cts_cache_dir: "data/processed/heat/create_heat_norm_cts"
+heat_norm_cache_file: "heat_norm_{year}_{state}_{energy_carrier}.csv"
+consumption_total_cache_file: "consumption_total_{year}_{state}_{energy_carrier}.csv"
+consumption_temp_indep_norm_cache_file: "consumption_temp_indep_norm_{year}_{state}_{energy_carrier}.csv"
+
+
+
+
 
 # Electric Vehicles
 first_year_existing_registration_data_kba: 2017
