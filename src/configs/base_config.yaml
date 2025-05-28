@@ -2,15 +2,22 @@
 base_year: 2015
 
 
-# PIPELINE CACHES
+# PIPELINE CACHES / OUTPUTS
 consumption_data_cache_file: "con_{year}_{energy_carrier}.csv"
-consumption_data_cache_dir: "data/processed/pipeline/consumption/consumption_data"
+consumption_data_cache_dir: "data/output/consumption/consumption_data"
 
 consumption_data_with_efficiency_factor_cache_file: "con_eff_{year}_{sector}_{energy_carrier}.csv"
-consumption_data_with_efficiency_factor_cache_dir: "data/processed/pipeline/applications/disagg_applications_efficiency_factor"
+consumption_data_with_efficiency_factor_cache_dir: "data/output/applications/disagg_applications_efficiency_factor"
 
 consumption_disaggregate_temporal_cache_file: "con_disagg_temp_{year}_{sector}_{energy_carrier}.csv"
-consumption_disaggregate_temporal_cache_dir: "data/processed/pipeline/temporal/consumption_disaggregate_temporal"
+consumption_disaggregate_temporal_cache_dir: "data/output/temporal/consumption_disaggregate_temporal"
+
+temporal_elec_load_from_fuel_switch_cache_dir: "data/output/heat/temporal_elec_load_from_fuel_switch"
+temporal_elec_load_from_fuel_switch_cache_file: "temporal_elec_load_from_fuel_switch_{year}_{state}_{energy_carrier}_{sector}_{switch_to}.csv"
+
+
+
+
 
 
 # UGR GENEISIS DATA
@@ -51,9 +58,6 @@ temperature_allocation_cache_dir: "data/processed/temperature/temperature_alloca
 # Heat
 era_temperature_data_cache_dir: "data/raw/temporal/ERA_temperature"
 era_temperature_data_cache_file: "ERA_temperature_{year}.nc"
-
-temporal_elec_load_from_fuel_switch_cache_dir: "data/processed/heat/temporal_elec_load_from_fuel_switch"
-temporal_elec_load_from_fuel_switch_cache_file: "temporal_elec_load_from_fuel_switch_{year}_{state}_{energy_carrier}_{sector}_{switch_to}.csv"
 
 create_heat_norm_cts_cache_dir: "data/processed/heat/create_heat_norm_cts"
 heat_norm_cache_file: "heat_norm_{year}_{state}_{energy_carrier}.csv"

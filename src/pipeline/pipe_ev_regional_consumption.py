@@ -3,6 +3,7 @@ import pandas as pd
 from src.data_access.local_reader import *
 from src.data_processing.electric_vehicles import *
 from src.configs.mappings import *
+from src.configs.data import *
 from src.configs.config_loader import load_config
 
 

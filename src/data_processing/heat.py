@@ -3,6 +3,7 @@ import numpy as np
 
 from src.data_access.local_reader import *
 from src.configs.mappings import *
+from src.configs.data import *
 from src.data_processing.temporal import *
 from src.data_processing.temperature import *
 from src.data_processing.cop import *

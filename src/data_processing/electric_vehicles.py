@@ -1,4 +1,6 @@
 import pandas as pd
+
+from src.configs.data import *
 from src.data_access.local_reader import *
 from src.utils.utils import *
 import datetime

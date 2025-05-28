@@ -13,6 +13,8 @@ from src.pipeline.pipe_applications import *
 from src.utils.utils import *
 from src.data_processing.temperature import *
 from src.data_processing.consumption import *
+from src.configs.data import *
+
 
 
 
