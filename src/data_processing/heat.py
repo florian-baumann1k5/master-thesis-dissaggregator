@@ -809,7 +809,7 @@ def hydrogen_after_switch(df_gas_switch: pd.DataFrame, energy_carrier: str) -> p
         df_hydro.loc[:, col[:, :, 'non_energetic_use']] * (efficiency_levels['non_energetic_use']))
 
     # for energetic use of hydrogen:
-    # process heat applications are assumed to thave the same energy conversion
+    # process heat applications are assumed to have the same energy conversion
     # efficiency for natural gas and hydrogen
 
     return df_hydro

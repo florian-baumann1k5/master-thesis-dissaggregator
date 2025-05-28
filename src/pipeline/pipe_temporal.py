@@ -53,11 +53,6 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
         consumption_data = consumption_data.T.groupby(level=0).sum().T
         consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5, force_preprocessing=force_preprocessing)
 
-        # TODO: aus temporal application
-        # if energy_carrier == "gas":
-            #if use_slp_for_sh:
-            # ...
-
     elif sector == "cts":
         if energy_carrier == "gas":
              # sum over the applications but with efficiency factor

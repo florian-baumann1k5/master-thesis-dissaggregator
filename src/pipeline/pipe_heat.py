@@ -570,6 +570,7 @@ def disagg_temporal_cts_fuel_switch(df_gas_switch: pd.DataFrame, state: str, yea
 
     return new_df
 
+
 def disagg_temporal_industry_fuel_switch(df_gas_switch: pd.DataFrame, state: str, year: int, energy_carrier: str, low: float = 0.5) -> pd.DataFrame:
     """
     Temporally disaggregates industry gas demand, which will be switched to

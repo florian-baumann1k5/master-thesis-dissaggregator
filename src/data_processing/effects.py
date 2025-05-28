@@ -59,7 +59,6 @@ def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_
             pow(1 - eff_rate.iloc[0], years_phase1) * pow(1 - eff_rate.iloc[1], years_phase2)
         )
 
-    print(efficiency_factor)
     if not isinstance(efficiency_factor, pd.Series):
         raise ValueError("efficiency_factor is not a Series! Apply efficiency factor will fail.")
 

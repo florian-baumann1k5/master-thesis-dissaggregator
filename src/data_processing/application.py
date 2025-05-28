@@ -56,11 +56,11 @@ def dissaggregate_for_applications(consumption_data: pd.DataFrame, year: int, se
             df =  disagg_applications_default(consumption_data, decomp)
             """ gas cts
             400 rows x 290 columns
-            """
-            """ power industry
+            
+            power industry
             400 rows x 319 columns
-            """
-            """ power cts
+            
+            power cts
             400 rows x 464 columns
             """
 
@@ -74,8 +74,8 @@ def dissaggregate_for_applications(consumption_data: pd.DataFrame, year: int, se
         df = disagg_applications_petrol(consumption_data, decomp)
         """ petrol industry
         400 rows x 290 columns
-        """
-        """ petrol cts
+        
+        petrol cts
         400 rows x 290 columns
         """
 
