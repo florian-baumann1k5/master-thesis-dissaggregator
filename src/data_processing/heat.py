@@ -52,7 +52,7 @@ def get_fuel_switch_share(sector: str, switch_to: str) -> pd.DataFrame:
 
 
 
-def projection_fuel_switch_share(df_fuel_switch: pd.DataFrame, target_year: int, base_year: int = 2019, final_year: int = 2045) -> pd.DataFrame:
+def projection_fuel_switch_share(df_fuel_switch: pd.DataFrame, target_year: int, base_year: int = 2020, final_year: int = 2045) -> pd.DataFrame:
     """
     Projects fuel switch share by branch to target year:
     Linearly project the fuel‑switch shares from base_year to final_year.

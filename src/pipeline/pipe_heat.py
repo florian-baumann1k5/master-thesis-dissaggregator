@@ -393,6 +393,8 @@ def sector_fuel_switch_fom_gas_petrol(sector: str, switch_to: str, year: int, en
         raise ValueError(f"Invalid energy_carrier: {energy_carrier}")
     if sector == "cts" and switch_to == "hydrogen":
         raise ValueError(f"For CTS all the energy is switched to power!")
+    if year not in range(2021, 2046):
+        raise ValueError(f"Invalid year: {year}. Only years from 2021 to 2045 are allowed since we have historical data for 2020 and below.")
 
     # Define cache directory and file path
     cache_dir = load_config("base_config.yaml")['sector_fuel_switch_fom_gas_petrol_cache_dir']

@@ -31,7 +31,6 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
                 level=0: industry_sector
                 level=1: application
     """
-    logger.info(f"TODOD: ceheck ('2', 'Mechanische Energie')für 2030, cts, gas-> meine 0-en ausspuckt aber bei seinem code werte")
 
 
     # 0. validate the input
