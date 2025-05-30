@@ -18,48 +18,30 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-
 def decomp_factors_applications():
-    get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
+    """Get application disaggregation factors for industry petrol."""
+    return get_application_dissaggregation_factors(sector="industry", energy_carrier="petrol")
 
 
+def main():
+    """Main execution function."""
 
-
-def application_data():
-    year = 2044
+    year = 2018
     energy_carrier = "petrol"
     force_preprocessing = True
-    sector = "cts"
+    sector = "industry" 
 
-    df = disagg_applications_efficiency_factor(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
-
-    print(df)
-    return df
-
-
-
-def application_data2():
-    year = 2019
-    energy_carrier = "gas"
-    force_preprocessing = True
-    sector = "cts"
-
-    df = disagg_applications_efficiency_factor(sector=sector, year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
+    df = disagg_applications_efficiency_factor(
+        sector=sector, 
+        year=year, 
+        energy_carrier=energy_carrier, 
+        force_preprocessing=force_preprocessing
+    )
 
     print(df)
-    return df
 
 
-def application_factors():
-    sector = "industry"
-    energy_carrier = "gas"
-
-    decomp = get_application_dissaggregation_factors(sector=sector, energy_carrier=energy_carrier)
-
-    print(decomp)
-
-
-
-application_factors()
+if __name__ == "__main__":
+    main()
 
 

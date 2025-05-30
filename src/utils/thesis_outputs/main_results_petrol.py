@@ -843,7 +843,7 @@ def graph_sector_fuel_switch_fom_gas_petrol_combined_power():
     save_plot_with_datetime(plt, path_output, "sector_fuel_switch_fom_cts_power_petrol_combined_bar", dpi=300)
     plt.show()
 
-graph_sector_fuel_switch_fom_gas_petrol_combined_power()
+#graph_sector_fuel_switch_fom_gas_petrol_combined_power()
 
 def graph_sector_fuel_switch_fom_gas_petrol_cts_power():
     years = [ 2025, 2030, 2035, 2040, 2045]
@@ -885,7 +885,6 @@ def graph_sector_fuel_switch_fom_gas_petrol_cts_power():
 # data_sector_fuel_switch_fom_gas_petrol_cts_power()
 # data_sector_fuel_switch_fom_gas_petrol_industry_power()
 # data_sector_fuel_switch_fom_gas_petrol_industry_hydrogen()
-print("x")
 
 
 
@@ -993,11 +992,59 @@ def data_hydrogen():
 
         save_dataframe_with_datetime(total_cts, f"temporal_industrydata_hydrogen{year}_hydrogen", path_output)
 
-#temporal_temporal_industry_elec_load_from_fuel_switch_petrol_power()
-#data_hydrogen()
 
 
+# industy power
+def graph_indsutry_power_petrol():
+    files = {
+        2025: "src/utils/thesis_outputs/petrol/heat/temporal_industry_elec_load_from_fuel_switch_petrol2025_power_20250526_111517.csv",
+        2030: "src/utils/thesis_outputs/petrol/heat/temporal_industry_elec_load_from_fuel_switch_petrol2030_power_20250526_112248.csv",
+        2035: "src/utils/thesis_outputs/petrol/heat/temporal_industry_elec_load_from_fuel_switch_petrol2035_power_20250526_113042.csv",
+        2040: "src/utils/thesis_outputs/petrol/heat/temporal_industry_elec_load_from_fuel_switch_petrol2040_power_20250526_113931.csv",
+        2045: "src/utils/thesis_outputs/petrol/heat/temporal_industry_elec_load_from_fuel_switch_petrol2045_power_20250526_114700.csv",
+    }
 
+    # Dictionary to collect yearly totals per application
+    yearly_data = {}
+
+    for year, path in files.items():
+        df = pd.read_csv(path, index_col=0)
+
+        # Clean duplicated column names (e.g., "process_heat.1" → "process_heat")
+        df.columns = df.columns.str.replace(r"\.\d+$", "", regex=True)
+
+        # Group by application name (sum duplicates)
+        df_grouped = df.groupby(df.columns, axis=1).sum()
+
+        # Sum across all time steps to get total consumption per application
+        # Convert from MWh to TWh by dividing by 1,000,000
+        yearly_data[year] = df_grouped.sum() / 1_000_000
+
+    # Combine all into one DataFrame
+    df_all_years = pd.DataFrame(yearly_data).T  # rows = years, cols = applications
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    bottom = pd.Series([0] * len(df_all_years), index=df_all_years.index)
+    colors = plt.cm.tab20.colors
+
+    for i, column in enumerate(df_all_years.columns):
+        ax.bar(df_all_years.index, df_all_years[column], bottom=bottom, color=colors[i], label=column)
+        bottom += df_all_years[column]
+
+    # Formatting
+    ax.set_xlabel("Year", fontsize=14)
+    ax.set_ylabel("indiustry power [TWh/year]", fontsize=14)
+    ax.legend(title="Application", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=14)
+    plt.tight_layout()
+    plt.grid(axis='y', linestyle='--', alpha=0.6)
+    plt.show()
+    # Save and Show
+    #save_plot_with_datetime(plt, path_output, "cts_power_petrol_bar_all_years", dpi=300)
+
+
+graph_indsutry_power_petrol()
+print("x")
 #graph_temporal_cts_elec_load_from_fuel_switch_petrol_power()
 
 
