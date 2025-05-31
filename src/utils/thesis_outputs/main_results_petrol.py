@@ -1034,17 +1034,17 @@ def graph_indsutry_power_petrol():
 
     # Formatting
     ax.set_xlabel("Year", fontsize=14)
-    ax.set_ylabel("indiustry power [TWh/year]", fontsize=14)
+    ax.set_ylabel("Industry Power Consumption [TWh/year]", fontsize=14)
     ax.legend(title="Application", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=14)
     plt.tight_layout()
     plt.grid(axis='y', linestyle='--', alpha=0.6)
-    plt.show()
+    #plt.show()
     # Save and Show
-    #save_plot_with_datetime(plt, path_output, "cts_power_petrol_bar_all_years", dpi=300)
+    save_plot_with_datetime(plt, path_output, "graph_indsutry_power_petrol", dpi=300)
 
 
-graph_indsutry_power_petrol()
-print("x")
+#graph_indsutry_power_petrol()
+
 #graph_temporal_cts_elec_load_from_fuel_switch_petrol_power()
 
 
@@ -1057,3 +1057,45 @@ column[2]: applications
 
 
 
+########## petrol consumption without fuel switch ######################################################
+
+def graph_petrol_consumption_2025_2045():
+    years = [2020, 2025, 2030, 2035, 2040, 2045]
+    base_path = Path("data/output/applications/disagg_applications_efficiency_factor")
+
+    # Initialize dicts for totals
+    industry_totals = {}
+    cts_totals = {}
+
+    # Load and aggregate totals
+    for year in years:
+        # Load industry file
+        ind_file = base_path / f"con_eff_{year}_industry_petrol.csv"
+        ind_df = pd.read_csv(ind_file, header=[0, 1], index_col=0)
+        industry_totals[year] = ind_df.sum().sum() / 1_000_000  # Convert to TWh
+
+        # Load cts file
+        cts_file = base_path / f"con_eff_{year}_cts_petrol.csv"
+        cts_df = pd.read_csv(cts_file, header=[0, 1], index_col=0)
+        cts_totals[year] = cts_df.sum().sum() / 1_000_000  # Convert to TWh
+
+    # Create DataFrame for plotting
+    df_plot = pd.DataFrame({
+        'Industry': industry_totals,
+        'CTS': cts_totals
+    }).T
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 6))
+    df_plot.T.plot(kind='bar', ax=ax, width=0.6)
+    ax.set_ylabel("Total Energy Consumption [TWh/year]", fontsize=14)
+    ax.set_xlabel("Year", fontsize=14)
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=0)
+    ax.legend(title="Sector", fontsize=14)
+    ax.grid(axis="y", linestyle="--", alpha=0.7)
+    plt.tight_layout()
+
+    save_plot_with_datetime(plt, path_output, "graph_petrol_consumption_2025_2045", dpi=300)
+
+graph_petrol_consumption_2025_2045()
+print("x")
