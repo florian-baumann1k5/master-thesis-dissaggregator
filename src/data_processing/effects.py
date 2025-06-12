@@ -3,13 +3,11 @@ from src.data_access.local_reader import *
 from src.utils.utils import *
 from src import logger
 
-# Activity drivers = Mengeneffekt
 # used to project consumption data and employees
-
 # apply_efficiency_factor = Effizienzeffekt
 # apply_activity_driver = Mengeneffekt (= project consumption data into the future)
 
-def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_carrier: str, year: int) -> pd.DataFrame: #TODO: add petrol
+def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_carrier: str, year: int) -> pd.DataFrame:
     """
     Computes efficiency enhancement factors for a given sector, energy_carrier, and year.
     DISS 4.5.2 Modellierung des Effizienzeffekts
@@ -175,16 +173,16 @@ def apply_efficiency_factor(consumption_data: pd.DataFrame, sector: str, energy_
 
 def apply_activity_driver(consumption: pd.DataFrame, year_dataset: int, year_future: int):
     """
-    DISS 4.5
+    [DISS 4.5]
     Project energy demand per wz to given year using activity drivers from
     input files. For industry gross value added (gva) per branch is used, for
     CTS energy reference area per branch is used, which is derived from
     projected number of employees
 
     Projects consumption data from publications to future year using different
-    demand driver per sector. for industry use projected gross value added per
-    branch and for CTS use projected consumption area per branch. drivers are
-    imported from data_in folder.
+    demand driver per sector. For industry use projected gross value added per
+    branch and for CTS use projected consumption area per branch. Drivers are
+    imported from 'data/raw/temporal/Activity_drivers.xlsx'.
 
     Args:
         consumption (pd.DataFrame): consumption data

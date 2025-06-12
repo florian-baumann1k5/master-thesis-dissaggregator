@@ -19,7 +19,7 @@ from src.data_processing.heat import *
 from src.data_processing.cop import *
 
 
-x = 12
+x = 27
 
 
 if x == 1:
@@ -131,6 +131,11 @@ elif x == 26:
     state = "SL"
     df = hydrogen(year=year)
     print(df)
+
+elif x == 27:
+    df = disaggregate_temporal(energy_carrier="gas", sector="cts", year=2015, force_preprocessing=True)
+    print(df)
+
 
 else:
     print("x is not 1")

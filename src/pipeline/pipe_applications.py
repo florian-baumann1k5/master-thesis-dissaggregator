@@ -6,18 +6,13 @@ from src.data_processing.application import *
 from src.data_access.local_reader import *
 """
 Dissaggregating the consumption data (per industry sector and regional_id) based on their applications.
-
-disagg_applications_efficiency_factor()
-
 """
 
 # main function (with cache)
 def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year: int, force_preprocessing: bool = False) -> pd.DataFrame:
-    """
-    equals spacial.disagg_applications_eff() in old code
-
+    """    
     Takes the current consumption data and dissaggragates it for applications and applies efficiency enhancement factors
-    
+    (equals spacial.disagg_applications_eff() in old code)
 
     Args:
         sector (str): 'cts' or 'industry'
@@ -53,7 +48,7 @@ def disagg_applications_efficiency_factor(sector: str, energy_carrier: str, year
     consumption_data_sectors_regional = get_consumption_data_per_indsutry_sector_energy_carrier(year=year, cts_or_industry=sector, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
 
 
-    # 4. dissaggregate for applications - cosnumption data is already fiilterd to contain only relevant industry_sectors(cts/industry)
+    # 4. dissaggregate for applications - consumption data is already filtered to contain only relevant industry_sectors(cts/industry)
     consumption_data_dissaggregated = dissaggregate_for_applications(consumption_data=consumption_data_sectors_regional, year=year, sector=sector, energy_carrier=energy_carrier)
 
     # 5. sanity check

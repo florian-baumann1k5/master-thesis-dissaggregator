@@ -5,10 +5,10 @@ from src.data_processing.employees import get_employees_per_industry_sector_and_
 from src.configs.config_loader import load_config
 from src.data_access.local_reader import *
 from src.data_processing.effects import *
-# Pipeline functions combining the data_processing functions to generate wanted the data
 
 
-# main function with cache and energy carrier
+
+# main function with cache: Consumption data for a specific year and energy carrier
 def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Get consumption data for a specific year.
@@ -96,10 +96,11 @@ def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_in
     return filtered_consumption_data
 
 
-
+# get all energy carriers and sectors for a specific year
 def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     """
-    Get historical and projected consumption data (2000-2050) for a specific year: Consumption per industry_sector [88?] and regional_ids [400]
+    Get historical and projected consumption data (2000-2050) for a specific year: Consumption per industry_sector [88] and regional_ids [400]
+
     
     Args:
         year (int): The year to get consumption data for

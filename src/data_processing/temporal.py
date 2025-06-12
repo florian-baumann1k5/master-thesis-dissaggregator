@@ -159,9 +159,10 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
 
 def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
     """
-    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
+    [DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen]
 
-    DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
+    
+    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
 
     The consumpton for CTS of gas is highly dependent on the temperature since most of it is consumed for heating. 
     In this function we follow the approcha created by BDEW to disaggregate the gas consumption for CTS into hourly values.
@@ -186,9 +187,10 @@ def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_li
 
 
     # 3. create a empty dataframe with all regional ids and 15min steps
-    df = pd.DataFrame(0, columns=daily_temperature_allocation.columns,
-                    index=pd.date_range((str(year) + '-01-01'),
-                                        periods=hours_of_year, freq='h'))
+    df = pd.DataFrame(0, 
+                        columns=daily_temperature_allocation.columns,
+                        index=pd.date_range((str(year) + '-01-01'),
+                        periods=hours_of_year, freq='h'))
 
     # 4. iterate over all states
     for state in state_list:
@@ -881,6 +883,7 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
 
     return df
 
+
 def gas_slp_weekday_params(state: int, year: int):
     """
     Return the weekday-parameters of the gas standard load profiles
@@ -1000,8 +1003,9 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
     return temperature_df_districts
 
 
-# Heat
 
+
+# Fuel Switch disaggregation
 
 def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrier: str):
     """

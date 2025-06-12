@@ -14,6 +14,8 @@ from src.utils.utils import *
 from src.data_processing.normalization import *
 # This file contains the functions for the consumption data. Will be used in the pipeline "consumption".
 
+
+
 def get_ugr_data_ranges(year, force_preprocessing=False):
     """
     Get UGR (Underlying Energy Requirements) data for a specific year. 
@@ -237,7 +239,6 @@ def resolve_ugr_industry_sector_ranges_by_employees(ugr_data_ranges: pd.DataFram
 
 def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
     """
-    NEW
     Returns the industry self consumption of a year in MWh.
     
     original source (UGR) does not include gas consumption for self generation in industrial sector
@@ -247,9 +248,8 @@ def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
 
     preprocessing in the file load_config("base_config.yaml")['gas_industry_self_consumption_cache_file']
 
-    Returns
-    ------------
-    number with the total industrygas self consumption in MWh
+    Returns:
+        number with the total industrygas self consumption in MWh
     """
 
        # Validate year and adjust to available data range
@@ -263,10 +263,7 @@ def get_total_gas_industry_self_consuption(year, force_preprocessing=False):
 
     # Load the cache DataFrame.
     # This should be a DataFrame with a "year" column and a "gas_industry_self_consumption" column.
-    cache_df = load_gas_industry_self_consuption_cache()  # Assumes a function that returns a DataFrame
-
-    # Load existing cache (expects a DataFrame with columns "year" and "gas_industry_self_consumption")
-    cache_df = load_gas_industry_self_consuption_cache()  # This function should return a DataFrame.
+    cache_df = load_gas_industry_self_consuption_cache()
     
     # If not forcing preprocessing and the cache already contains an entry for this year, return that value.
     if not force_preprocessing and not cache_df.empty and (year in cache_df['year'].values):
@@ -483,7 +480,7 @@ def calculate_regional_energy_consumption(consumption_data, energy_carrier, year
     This is only necessary for industry, for CTS we are using the employees data.
 
     Returns:
-        - totatl consumption per regional_id and industry_sector for all industry_sectors for the given energy_carrier
+        totatl consumption per regional_id and industry_sector for all industry_sectors for the given energy_carrier
         pd.DataFrame:
             - index: industry_sectors
             - columns: regional_ids
@@ -544,7 +541,7 @@ def calculate_iteratively_industry_regional_consumption(sector_energy_consumptio
     Resolves the the consumption per industry_sector (from UGR) to regional_ids (with the help of JEVI) in an iterative approach.
     This applies only to the industry sector with heavy energy consumption; CTS industry sector is resolved by the employees data.
 
-    !!! The code logic is copied from the old dissaggregator, not from process explaint in the Diss
+    !!! The code logic is copied from the old dissaggregator, not from process explained in the Diss paper
 
 
     Args:

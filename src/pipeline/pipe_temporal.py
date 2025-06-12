@@ -67,7 +67,6 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
             consumption_disaggregate_temporal = disaggregate_temporal_power_CTS(consumption_data=consumption_data, year=year)
 
         elif energy_carrier == "petrol":
-
             # resolve with SLPs
             consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disagg_temporal_petrol_CTS(consumption_data=consumption_data, year=year)

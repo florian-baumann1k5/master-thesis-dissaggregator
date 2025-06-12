@@ -21,7 +21,7 @@ def load_raw_ugr_data() -> pd.DataFrame:
     raw_file = load_config("base_config.yaml")['ugr_genisis_data_file'] 
     return pd.read_csv(raw_file, delimiter=';')
 
-def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this a config function
+def load_genisis_wz_sector_mapping_file() -> pd.DataFrame:
     raw_file = "src/configs/genisis_wz_dict.csv"
     return pd.read_csv(raw_file)
 
@@ -30,7 +30,6 @@ def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this 
 def load_activity_driver_employees() -> pd.DataFrame:
     raw_file = "data/raw/temporal/Activity_drivers.xlsx"
 
-    #TODO: make this a csv file
     df_driver_industry = pd.read_excel(raw_file, sheet_name=("drivers_industry_emp"), skiprows=1).set_index('year')
     df_driver_cts = pd.read_excel(raw_file, sheet_name=("drivers_cts_emp"), skiprows=1).set_index('year')
     emp_total = df_driver_industry.join(df_driver_cts)
@@ -46,7 +45,6 @@ def load_activity_driver_consumption() -> pd.DataFrame:
     """
     raw_file = "data/raw/temporal/Activity_drivers.xlsx"
 
-    #TODO: make this a csv file
     drivers_industry_gva = pd.read_excel(raw_file, sheet_name=("drivers_industry_gva"), skiprows=1).set_index('year')
     drivers_cts_area = pd.read_excel(raw_file, sheet_name=("drivers_cts_area"), skiprows=1).set_index('year')
     drivers_total = drivers_industry_gva.join(drivers_cts_area).fillna(0.0)

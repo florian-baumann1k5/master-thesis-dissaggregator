@@ -34,3 +34,22 @@ def test():
     df_total.to_csv(os.path.join(path, "ev_consumption_by_regional_id_kba_2_trend.csv"), index=False)
 
 test()
+
+
+def main():
+    """Function to run the fuel switch from petrol to power"""
+
+    energy_carrier = "petrol"
+    sector = "industry"
+    switch_to = "power"
+    year = 2030
+    state = "TH"
+
+    df = temporal_elec_load_from_fuel_switch(year=year, state=state, energy_carrier=energy_carrier, sector=sector, switch_to=switch_to, force_preprocessing=True)
+    print(df)
+
+
+if __name__ == "__main__":
+    main()
+
+    (Information Systems Management (Wirtschaftsinformatik))

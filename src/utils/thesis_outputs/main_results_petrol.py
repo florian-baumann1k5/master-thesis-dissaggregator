@@ -1099,3 +1099,9 @@ def graph_petrol_consumption_2025_2045():
 
 graph_petrol_consumption_2025_2045()
 print("x")
+
+
+
+
+
+
