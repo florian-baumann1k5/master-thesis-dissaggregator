@@ -1011,10 +1011,10 @@ def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrie
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
-    detailed : bool, default False
-        If True return 'per district and branch' else only 'per district'
-    use_nuts3code : bool, default False
-        If True use NUTS-3 codes as region identifiers.
+    year : int
+        The year to disaggregate.
+    energy_carrier : str
+        The energy carrier to disaggregate.
     state : str, default None
         Specifies state. Must by one of the entries of bl_dict().values(),
         ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
@@ -1100,7 +1100,7 @@ def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrie
 
 
 
-            # add the first day of the year year+1 to the tw_df_lk
+        # add the first day of the year year+1 to the tw_df_lk
         tw_df_lk = pd.concat([tw_df_lk, last_hour])
 
 

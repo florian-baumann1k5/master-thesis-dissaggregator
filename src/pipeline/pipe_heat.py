@@ -20,7 +20,26 @@ Assumptions:
 # Main function
 def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: str, sector: str, switch_to: str, force_preprocessing: bool = False, float_precision: int = 10) -> pd.DataFrame:
     """
-    
+    Calculates the electricity demand that is needed to replace the gas or petrol consumption.
+
+    Args:
+        year : int
+            The year to calculate the electricity demand for.
+        state : str
+            The state to calculate the electricity demand for.
+        energy_carrier : str
+            The energy carrier to calculate the electricity demand for.
+        sector : str
+            The sector to calculate the electricity demand for.
+        switch_to : str
+            The target energy carrier to calculate the electricity demand for.
+        force_preprocessing : bool, default False
+            If True, the function will not use the cache and will recalculate the data.
+        float_precision : int, default 10
+            The precision of the float numbers.
+
+    Returns:
+        pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and applications
     """
 
     p_ground = get_heatpump_distribution()["p_ground"]
@@ -323,9 +342,21 @@ def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, s
 
 
 # hydrogen after switch
-def hydrogen(year: int, energy_carrier: str, state: str) -> pd.DataFrame:
+def temporal_hydrogen_load_from_fuel_switch(year: int, energy_carrier: str, state: str) -> pd.DataFrame:
     """
     Determines hydrogen consumption to replace gas consumption.
+
+    Args:
+        year : int
+            The year to calculate the hydrogen demand for.
+        energy_carrier : str
+            The energy carrier to calculate the hydrogen demand for.
+        state : str
+            The state to calculate the hydrogen demand for.
+
+    Returns:
+        pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and applications
+        
     """
     
     df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector="industry", switch_to="hydrogen", year=year, energy_carrier=energy_carrier)

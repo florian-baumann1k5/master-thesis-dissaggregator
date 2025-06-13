@@ -11,11 +11,11 @@ def main():
     """Disaggregate the yearly consumption to a temporal resolution"""
 
     year = 2045
-    energy_carrier = "power"
+    energy_carrier = "petrol"
     force_preprocessing = True
     sector = "industry"
 
-    df = get_consumption_data(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing)
+    df = disaggregate_temporal(year=year, energy_carrier=energy_carrier, force_preprocessing=force_preprocessing, sector=sector)
 
     print(df)
 
