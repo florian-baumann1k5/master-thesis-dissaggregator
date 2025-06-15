@@ -9,11 +9,10 @@ from src.data_processing.cop import *
 Assumptions:
     - Political goal: 0 emmisions by 2045 -> linear reduction of gas demand to that year
     - applications: 
-        - space_heating/hot_water/process_heat_below_100C:  switch to power(heatpump)
-        - process_heat_100_to_200C:                         power(heatpump) and power(electrode)
-        - process_heat_200_to_500C:                         power(electrode)
+        - space_heating/hot_water/process_heat_below_100C:  switch to power 
+        - process_heat_100_to_200C:                         power 
+        - process_heat_200_to_500C:                         power 
         - process_heat_above_500C:                          H2 (-> no H2 switch for CTS)
-        - non_energetic_use:                                H2
 """
 
 
@@ -89,7 +88,7 @@ def temporal_elec_load_from_fuel_switch(year: int, state: str, energy_carrier: s
             else:
                 raise ValueError(f"Invalid sector: {sector}")
     elif switch_to == "hydrogen":
-        temporal_fuel_switch = hydrogen(year=year, energy_carrier=energy_carrier, state=state)
+        temporal_fuel_switch = temporal_hydrogen_load_from_fuel_switch(year=year, energy_carrier=energy_carrier, state=state)
         
     
 
@@ -336,13 +335,8 @@ def temporal_industry_elec_load_from_fuel_switch_petrol(year: int, state: str, s
 
 
 
-
-
-
-
-
-# hydrogen after switch
-def temporal_hydrogen_load_from_fuel_switch(year: int, energy_carrier: str, state: str) -> pd.DataFrame:
+# Main function hydrogen
+def temporal_hydrogen_load_from_fuel_switch(year: int, energy_carrier: str, state: str, force_preprocessing: bool = False, float_precision: int = 10) -> pd.DataFrame:
     """
     Determines hydrogen consumption to replace gas consumption.
 
@@ -358,6 +352,13 @@ def temporal_hydrogen_load_from_fuel_switch(year: int, energy_carrier: str, stat
         pd.DataFrame() : timestamp as index, multicolumns with nuts-3, branch and applications
         
     """
+    # 0.1 get from cache if available
+    cache_dir = load_config("base_config.yaml")['temporal_hydrogen_load_from_fuel_switch_cache_dir']
+    cache_file = os.path.join(cache_dir, load_config("base_config.yaml")['temporal_hydrogen_load_from_fuel_switch_cache_file'].format(year=year, state=state, energy_carrier=energy_carrier))
+    if os.path.exists(cache_file) and not force_preprocessing:
+        logger.info(f"Load temporal_hydrogen_load_from_fuel_switch from cache for year: {year}, state: {state}, energy_carrier: {energy_carrier}")
+        temporal_fuel_switch =  pd.read_csv(cache_file)
+        return temporal_fuel_switch
     
     df_gas_switch = sector_fuel_switch_fom_gas_petrol(sector="industry", switch_to="hydrogen", year=year, energy_carrier=energy_carrier)
 
@@ -368,20 +369,14 @@ def temporal_hydrogen_load_from_fuel_switch(year: int, energy_carrier: str, stat
 
     # Remove columns with only zeros
     df_hydro = df_hydro.loc[:, (df_hydro != 0).any(axis=0)]
+
+
+    # save to cache
+    os.makedirs(cache_dir, exist_ok=True)
+    logger.info(f"Save temporal_hydrogen_load_from_fuel_switch to cache for year: {year}, state: {state}, energy_carrier: {energy_carrier}")
+    df_hydro.to_csv(cache_file, float_format=f"%.{float_precision}f")    
     return df_hydro
 
-
-
-""" aus 12. Hydrogen aus 05_Demo_CTS_Industry_disaggregation_applications_results_flo.ipynb 
-def strombedarf_electrolyse = hydrogen_after_switch / 0.7
-    -> das ist derstrombedarf dafür draufgeht mit strom den H2 zu erzeugen
-
-
-
-def disagg_temporal_applications_hp
-    -> create_hp_load(
-
-"""
 
 
 # Gas & Petrol 

@@ -68,7 +68,8 @@ consumption_temp_indep_norm_cache_file: "consumption_temp_indep_norm_{year}_{sta
 sector_fuel_switch_fom_gas_petrol_cache_dir: "data/processed/heat/sector_fuel_switch_fom_gas_petrol"
 sector_fuel_switch_fom_gas_petrol_cache_file: "sector_fuel_switch_{year}_{sector}_{switch_to}_{energy_carrier}.csv"
 
-
+temporal_hydrogen_load_from_fuel_switch_cache_dir: "data/output/heat/temporal_hydrogen_load_from_fuel_switch"
+temporal_hydrogen_load_from_fuel_switch_cache_file: "temporal_hydrogen_load_from_fuel_switch_{year}_{state}_{energy_carrier}.csv"
 
 
 # Electric Vehicles

@@ -963,19 +963,23 @@ def graph_temporal_cts_elec_load_from_fuel_switch_petrol_power(): # passt
 
 ## Industry
 def data_temporal_temporal_industry_elec_load_from_fuel_switch_petrol_power():
-    for year in [2020, 2025, 2030, 2035, 2040, 2045]:
+    for year in [2025, 2035, 2045]:
 
         print(f"Processing year: {year}")
 
         total_cts = pd.DataFrame()
 
         for state in federal_state_dict().values():
+            print(f"Processing state: {state}")
             def1 = temporal_industry_elec_load_from_fuel_switch_petrol(year=year, state=state, switch_to="power")
             def1 = def1.groupby(level='application', axis=1).sum()
             
             total_cts = pd.concat([total_cts, def1], axis=1)
 
         save_dataframe_with_datetime(total_cts, f"temporal_industry_elec_load_from_fuel_switch_petrol{year}_power", path_output)
+
+
+
 
 def data_hydrogen():
     for year in [2020, 2025, 2030, 2035, 2040, 2045]:
@@ -1097,7 +1101,7 @@ def graph_petrol_consumption_2025_2045():
 
     save_plot_with_datetime(plt, path_output, "graph_petrol_consumption_2025_2045", dpi=300)
 
-graph_petrol_consumption_2025_2045()
+#graph_petrol_consumption_2025_2045()
 print("x")
 
 

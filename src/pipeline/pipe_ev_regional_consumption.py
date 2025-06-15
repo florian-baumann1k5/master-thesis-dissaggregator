@@ -63,6 +63,7 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
 
     Political Target by the german government: 15mio Electric vehicles by 2030.
+    Assumption: only EVs by 2045
 
     Args:
         year: int
@@ -164,7 +165,7 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     return ev_consumption_private_by_region
 
 
-# main function for s1 and s2
+# main function for s1 and s2: KBA approaches
 def s1_2_electric_vehicle_consumption(year: int, szenario: str, s2_szenario: str) -> pd.DataFrame:
     """
     Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
@@ -251,7 +252,7 @@ def s3_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 
 # Main function combining s1, s2 and s3
-# ! for KVB_1 & KVB_2 this returns the total consumption of cars ( home_charging + work_charging + public_charging)
+# ! for KBA_1 & KBA_2 this returns the total consumption of cars (home_charging + work_charging + public_charging)
 # ! for UGR this only returns the consumption of home_charging
 def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_szenario: str = None, force_preprocessing: bool = False) -> pd.DataFrame:
     """

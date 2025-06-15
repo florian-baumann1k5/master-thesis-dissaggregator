@@ -766,11 +766,11 @@ def graph_ev_consumption_final_future():
     for year in years:
         print(f"processing year {year}")
         # Load each file (multi-level columns)
-        path_kba = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_1_None.csv"
-        path_kba2_ambit = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_ambit.csv"
-        path_kba2_regio = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_regio.csv"
-        path_kba2_trend = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_trend.csv"
-        path_ugr = f"data/processed/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_UGR_None.csv"
+        path_kba = f"data/output/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_1_None.csv"
+        path_kba2_ambit = f"data/output/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_ambit.csv"
+        path_kba2_regio = f"data/output/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_regio.csv"
+        path_kba2_trend = f"data/output/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_KBA_2_trend.csv"
+        path_ugr = f"data/output/electric_vehicles/electric_vehicle_consumption_by_regional_id_temporal/electric_vehicle_consumption_by_regional_id_temporal_{year}_UGR_None.csv"
 
         df_kba = pd.read_csv(path_kba, header=[0, 1], index_col=0)
         df_kba2_ambit = pd.read_csv(path_kba2_ambit, header=[0, 1], index_col=0)
@@ -810,8 +810,12 @@ def graph_ev_consumption_final_future():
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
-    save_plot_with_datetime(plt, path_output, "ev_consumption_final_future", dpi=300)
 
+    plt.show()
+    #save_plot_with_datetime(plt, path_output, "ev_consumption_final_future", dpi=300)
+
+
+graph_ev_consumption_final_future()
 
 #data_ev_consumption_final_future()
 
