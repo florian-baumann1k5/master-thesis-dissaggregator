@@ -2,7 +2,9 @@ import pandas as pd
 
 # Load both CSV files
 lk_df = pd.read_csv("data/raw/regional/ags_lk_changes/landkreise_2023.csv")
-ev_df = pd.read_csv("data/raw/electric_vehicles/registered_evs_by_regional_id/registered_evs_2018.csv")
+
+# ev_df = pd.read_csv("data/raw/electric_vehicles/registered_evs_by_regional_id/registered_evs_2018.csv")
+ev_df = pd.read_csv("data/raw/electric_vehicles/share_of_commercial_vehicles_by_regional_id/share_of_commercial_vehicles_2017.csv", sep=';')
 
 # Extract unique regional_ids
 lk_ids = set(lk_df['regional_id'].dropna().unique())

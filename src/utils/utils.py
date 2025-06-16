@@ -49,15 +49,7 @@ def group_industry_sectors(df, mapping_dict=industry_sector_groups()):
     # Ensure all df column names are strings for comparison
     df_columns_str = [str(col) for col in result_df.columns]
 
-    #Validation
-    # Compare each key in mapping_dict to df columns and print result
-    # for group_label in mapping_dict:
-    #     if group_label in df_columns_str:
-    #         print(f"{group_label}: ✅ found in df.columns")
-    #     else:
-    #         print(f"{group_label}: ❌ NOT found in df.columns")
-    
-    # industry_sector 35 is missing in the result_df
+
     return result_df
 
 

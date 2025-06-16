@@ -13,6 +13,8 @@ from src.pipeline.pipe_applications import *
 from src.utils.utils import *
 from src.data_processing.temperature import *
 from src.data_processing.consumption import *
+from src.configs.data import *
+
 
 
 
@@ -157,9 +159,10 @@ def disaggregate_temporal_industry(consumption_data: pd.DataFrame, year: int, lo
 
 def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_list: list = federal_state_dict().values()) -> pd.DataFrame:
     """
-    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
+    [DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen]
 
-    DISS 4.4.3.2 Erstellung von Wärmebedarfszeitreihen
+    
+    Disaggregates the temporal distribution of heat consumption for CTS in a given year.
 
     The consumpton for CTS of gas is highly dependent on the temperature since most of it is consumed for heating. 
     In this function we follow the approcha created by BDEW to disaggregate the gas consumption for CTS into hourly values.
@@ -184,9 +187,10 @@ def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_li
 
 
     # 3. create a empty dataframe with all regional ids and 15min steps
-    df = pd.DataFrame(0, columns=daily_temperature_allocation.columns,
-                    index=pd.date_range((str(year) + '-01-01'),
-                                        periods=hours_of_year, freq='h'))
+    df = pd.DataFrame(0, 
+                        columns=daily_temperature_allocation.columns,
+                        index=pd.date_range((str(year) + '-01-01'),
+                        periods=hours_of_year, freq='h'))
 
     # 4. iterate over all states
     for state in state_list:
@@ -254,7 +258,7 @@ def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_li
         regional_id_list = gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str)
 
 
-        # iterate over every regional code in the list_lk... 'TODO: dauert
+        # iterate over every regional code in the list_lk... 'info: dauert
         for regional_id in regional_id_list:
 
             logger.info(f"Disaggregating gas consumption for regional id: {regional_id} in state: {state}")
@@ -427,10 +431,10 @@ def disaggregate_temporal_power_CTS(consumption_data: pd.DataFrame, year: int) -
 
 def disagg_temporal_petrol_CTS(consumption_data: pd.DataFrame, year: int) -> pd.DataFrame:
     """
-    Disaggregate the consumption data for petrol in the CTS sector like gas
+    Disaggregate the consumption data for petrol in the CTS sector handeled like gas
     """
 
-    df = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
+    df = disagg_temporal_heat_CTS(consumption_data=consumption_data, year=year)
 
     # sanity check
     if not np.isclose(df.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
@@ -879,6 +883,7 @@ def disagg_daily_gas_slp_cts(gas_consumption: pd.DataFrame, state: str, temperat
 
     return df
 
+
 def gas_slp_weekday_params(state: int, year: int):
     """
     Return the weekday-parameters of the gas standard load profiles
@@ -999,14 +1004,17 @@ def h_value(slp: str, regional_id_list: list, temperature_allocation: pd.DataFra
 
 
 
+
+# Fuel Switch disaggregation
+
 def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrier: str):
     """
     Disagreggate spatial data of CTS' gas demand temporally.
 
-    detailed : bool, default False
-        If True return 'per district and branch' else only 'per district'
-    use_nuts3code : bool, default False
-        If True use NUTS-3 codes as region identifiers.
+    year : int
+        The year to disaggregate.
+    energy_carrier : str
+        The energy carrier to disaggregate.
     state : str, default None
         Specifies state. Must by one of the entries of bl_dict().values(),
         ['SH', 'HH', 'NI', 'HB', 'NW', 'HE', 'RP', 'BW', 'BY', 'SL', 'BE',
@@ -1092,7 +1100,7 @@ def disagg_temporal_heat_CTS_water_by_state(state: str, year: int, energy_carrie
 
 
 
-            # add the first day of the year year+1 to the tw_df_lk
+        # add the first day of the year year+1 to the tw_df_lk
         tw_df_lk = pd.concat([tw_df_lk, last_hour])
 
 

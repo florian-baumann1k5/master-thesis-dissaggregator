@@ -12,9 +12,10 @@ src_excel = "utils_flo/ev_ugr_to_csv/Standardlastprofile_Elektrofahrzeuge_Anhang
 
 #sheet = f"HT{i}_Wochenende"
 sheet = "Alle_Wochenende"
+#sheet = "Alle_Werktag"
 #x = sheet.split("_")[0].lower()
 #day = "weekend"
-# day = "weekend"
+#day = "workday"
 
 x = "total"
 day = "weekend"
@@ -23,8 +24,8 @@ day = "weekend"
 raw = pd.read_excel(src_excel, sheet_name=sheet, header=None)
 
 
-# delete the columns 1;2;3;4;5;6
-raw = raw.drop(columns=[1,2,3,4,5, 6])
+# delete the columns
+raw = raw.drop(columns=[4,5,6,7,8,9])
 
 
 # delete the first 5 rows
@@ -47,7 +48,7 @@ raw.index.name = "time"
 
 
 
-dst_csv = f"utils_flo/ev_ugr_to_csv/ev_charging_profile_{x}_{day}.csv"
+dst_csv = f"utils_flo/ev_ugr_to_csv/ev_charging_profile_home_{x}_{day}.csv"
 
 
 raw.to_csv(dst_csv, sep=";", decimal=".")

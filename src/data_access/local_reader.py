@@ -21,7 +21,7 @@ def load_raw_ugr_data() -> pd.DataFrame:
     raw_file = load_config("base_config.yaml")['ugr_genisis_data_file'] 
     return pd.read_csv(raw_file, delimiter=';')
 
-def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this a config function
+def load_genisis_wz_sector_mapping_file() -> pd.DataFrame:
     raw_file = "src/configs/genisis_wz_dict.csv"
     return pd.read_csv(raw_file)
 
@@ -30,7 +30,6 @@ def load_genisis_wz_sector_mapping_file() -> pd.DataFrame: #TODO low: make this 
 def load_activity_driver_employees() -> pd.DataFrame:
     raw_file = "data/raw/temporal/Activity_drivers.xlsx"
 
-    #TODO: make this a csv file
     df_driver_industry = pd.read_excel(raw_file, sheet_name=("drivers_industry_emp"), skiprows=1).set_index('year')
     df_driver_cts = pd.read_excel(raw_file, sheet_name=("drivers_cts_emp"), skiprows=1).set_index('year')
     emp_total = df_driver_industry.join(df_driver_cts)
@@ -46,7 +45,6 @@ def load_activity_driver_consumption() -> pd.DataFrame:
     """
     raw_file = "data/raw/temporal/Activity_drivers.xlsx"
 
-    #TODO: make this a csv file
     drivers_industry_gva = pd.read_excel(raw_file, sheet_name=("drivers_industry_gva"), skiprows=1).set_index('year')
     drivers_cts_area = pd.read_excel(raw_file, sheet_name=("drivers_cts_area"), skiprows=1).set_index('year')
     drivers_total = drivers_industry_gva.join(drivers_cts_area).fillna(0.0)
@@ -162,11 +160,6 @@ def load_decomposition_factors_petrol() -> pd.DataFrame:
 
     df = pd.read_csv(raw_file_petrol, sep=';', decimal=',')
     df.set_index('industry_sectors', inplace=True)
-
-    # multiply all columns by 0,01 except for industry_sectors or sector
-    for col in df.columns:
-        if col != 'industry_sectors' and col != 'sector':
-            df[col] = df[col] * 0.01
 
     return df
 
@@ -615,11 +608,26 @@ def load_registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     df.set_index('regional_id', inplace=True)
     return df
 
+
+def load_share_of_commercial_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Loads the share of commercial vehicles by regional id for the given year.
+    """
+    raw_file = f"data/raw/electric_vehicles/share_of_commercial_vehicles_by_regional_id/share_of_commercial_vehicles_{year}.csv"
+
+    if not os.path.exists(raw_file):
+        raise FileNotFoundError(f"Registered electric vehicles by regional id for year {year} not found. File not found: {raw_file}")
+    
+    df = pd.read_csv(raw_file, sep=';')
+
+    df['regional_id'] = df['regional_id'].astype(int)
+    df.set_index('regional_id', inplace=True)
+
+    return df
+
 def load_avg_km_by_car() -> pd.DataFrame:
     """
-    Loads the average km by car for 2003-2023 in germany.
-    Source: https://de.statista.com/statistik/daten/studie/251743/umfrage/durchschnittliche-fahrleistung-von-personenkraftwagen-in-deutschland/
-    with data from the "Deutsche Automobil Treuhand (DAT) Report"s
+    Loads the average km by car for 2018-2022 in germany.
 
     """
     raw_file = "data/raw/electric_vehicles/avg_km_by_car.csv"
@@ -679,11 +687,18 @@ def load_historical_vehicle_consumption_ugr_by_energy_carrier() -> pd.DataFrame:
     return df
 
 
-def load_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+def load_ev_charging_profile(type: str, day_type: str, charging_location: str) -> pd.DataFrame:
     """
     Loads the ev load profile for the given type.
     """
-    raw_file = f"data/raw/electric_vehicles/ev_charging_profiles/ev_charging_profile_{type}_{day_type}.csv"
+
+    if charging_location not in ["home", "all"]:
+        raise ValueError(f"Charging location must be one of ['home', 'all'], you provided {charging_location}")
+
+    if charging_location == "all":
+        raw_file = f"data/raw/electric_vehicles/ev_charging_profiles_all/ev_charging_profile_{type}_{day_type}.csv"
+    elif charging_location == "home":
+        raw_file = f"data/raw/electric_vehicles/ev_charging_profiles_home/ev_charging_profile_{type}_{day_type}.csv"
 
     if not os.path.exists(raw_file):
         raise FileNotFoundError(f"Ev charging profile not found. File not found: {raw_file}")

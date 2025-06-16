@@ -1,4 +1,6 @@
 import pandas as pd
+
+from src.configs.data import *
 from src.data_access.local_reader import *
 from src.utils.utils import *
 import datetime
@@ -13,7 +15,11 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
 
     Args:
         data_in: float | pd.DataFrame
-            The input data. If float, it is interpreted as the number of electric vehicles. If pd.DataFrame, it is interpreted as the number of electric vehicles by year.
+            The input data. If float, it is interpreted as the number of electric vehicles. 
+            If pd.DataFrame, it is interpreted as the number of electric vehicles by year.
+            must have the following columns:
+                - number_of_evs
+                - regional_id
         avg_km_per_ev: int
             The average km per ev.
         avg_mwh_per_km: float
@@ -35,7 +41,7 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
     # 3. check if the data is a dataframe
     if isinstance(data_in, pd.DataFrame):
         # 3. rename the column in the dataframe
-        ev_consumption.rename(columns={'number_of_registered_evs': 'power[mwh]'}, inplace=True)
+        ev_consumption.rename(columns={'number_of_evs': 'power[mwh]'}, inplace=True)
 
         # 4. make the ev_consumption[mwh] column float
         ev_consumption['power[mwh]'] = ev_consumption['power[mwh]'].astype(float)
@@ -50,18 +56,26 @@ def calculate_electric_vehicle_consumption(data_in: float | pd.DataFrame, avg_km
     return ev_consumption
 
 
-def calculate_avg_km_by_car(year: int) -> int:
+def calculate_avg_km_by_car(year: int) -> float:
     """
     Calculate the average km by car for the given year.
 
-    Datasource only contains the years 2003-2023.
+    Datasource only contains the years 2018-2022.
+
+    Args:
+        year: int
+            The year to calculate the average km by car for
+
+    Returns:
+        float
+            The average km by car for the given year [float]
     """
 
     # 1. find the year
-    if year < 2003:
-        year_in_dataset = 2003
-    elif year > 2023:
-        year_in_dataset = 2023
+    if year < 2018:
+        year_in_dataset = 2018
+    elif year > 2022:
+        year_in_dataset = 2022
     else:
         year_in_dataset = year
 
@@ -82,7 +96,7 @@ def calculate_avg_mwh_per_km() -> int:
     Assumption from source [notion 30]: avg consumption is 0.21 kwh/km
     """
 
-    # assumption from source: avg consumption is 0.21 kwh/km = 0.00021 mwh/km
+    # assumption from source: avg consumption is 21 kwh/100km = 0.00021 mwh/km
 
     avg_mwh_per_km = 0.00021
 
@@ -114,12 +128,35 @@ def registered_electric_vehicles_by_regional_id(year: int) -> pd.DataFrame:
     if year < 2017:
         year_in_dataset = 2017
     elif year > 2024:
+        logger.info(f"Year {year} is not in the dataset. Returning the last year of the dataset: 2024")
         year_in_dataset = 2024
     else:
         year_in_dataset = year
 
 
     df = load_registered_electric_vehicles_by_regional_id(year=year_in_dataset)
+    return df
+
+def share_of_commercial_vehicles_by_regional_id(year: int) -> pd.DataFrame:
+    """
+    Load the share of commercial vehicles by regional id for the given year.
+
+    Data from sourece is only available from the years 2017-2024
+    
+    """
+    # 1. load data
+    if year < 2017:
+        year_in_dataset = 2017
+    elif year > 2024:
+        logger.info(f"Year {year} is not in the dataset. Returning the last year of the dataset: 2024")
+        year_in_dataset = 2024
+    else:
+        year_in_dataset = year
+
+
+    df = load_share_of_commercial_vehicles_by_regional_id(year=year_in_dataset)
+
+
     return df
 
 
@@ -145,7 +182,7 @@ def calculate_existing_ev_stock(year: int) -> int:
     return existing_ev_stock
 
 
-def s1_future_ev_stock_15mio_by_2030(year: int, baseline_year: int = 2025, baseline_ev: float = 1.6e6, total_stock: float = 49e6) -> float:
+def s1_future_ev_stock_15mio_by_2030(year: int, baseline_year: int = 2024, baseline_ev: float = 1.6e6, total_stock: float = 49e6) -> float:
     """
     Estimate EV fleet size (absolute number of vehicles) in Germany for a given year
     between baseline_year and final_year, using piecewise linear interpolation.
@@ -206,7 +243,7 @@ def get_normalized_ev_distribution_by_region() -> pd.DataFrame:
                 - ev_share: float
                     The share of electric vehicles in the region
     """
-    year = load_config()["last_year_existing_registration_data"]
+    year = load_config()["last_year_existing_registration_data_kba"]
 
     # 1. load total number of registered electric vehicles by region
     evs_by_region = registered_electric_vehicles_by_regional_id(year=year)
@@ -377,7 +414,7 @@ def get_historical_vehicle_consumption_ugr_by_energy_carrier(year: int) -> pd.Da
 
 
 
-def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: int = 2045, force_preprocessing: bool = False) -> pd.DataFrame:
+def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: int = 2045, force_preprocessing: bool = True) -> pd.DataFrame:
     """
     Returns a DataFrame with the energy consumption of private households by energy carrier for a given year.
 
@@ -440,15 +477,7 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
 
     # 2. Identify fuels and set efficiencies
     fuel_cols = [col for col in historic_consumption_df.columns if col not in ('year', 'power[mwh]')]
-    efficiency = {
-        'biodiesel[mwh]': 0.37,
-        'bioethanol[mwh]': 0.38,
-        'biogas[mwh]': 0.39,
-        'diesel[mwh]': 0.37,
-        'liquefied_petroleum_gas[mwh]': 0.36,
-        'natural_gas[mwh]': 0.39,
-        'petrol[mwh]': 0.38,
-    }
+    efficiency = get_efficiency_factor_by_fuel_type_compared_to_ev()
 
     # Capture the original base_year values
     orig = historic_consumption_df.loc[base_year]
@@ -504,75 +533,9 @@ def get_future_vehicle_consumption_ugr_by_energy_carrier(year: int, end_year: in
     return proj
 
 
-def get_fiture_s3():
 
-
-    # 1. load last year of existing data & validate it
-    historic_consumption_df = get_historical_vehicle_consumption_ugr_by_energy_carrier(LAST_YEAR_EXISTING_DATA_UGR)
-    if historic_consumption_df.shape[0] != 1:
-        raise ValueError("`historic_consumption_df` must contain exactly one row")
-    if "power[mwh]" not in historic_consumption_df.columns:
-        raise ValueError("power[mwh] not found in historic_consumption_df columns")
-    if historic_consumption_df.index.name != "year":
-        raise ValueError("year not found in historic_consumption_df index")
-
-
-
-    df0 = historic_consumption_df
-    base_year = int(df0.index[0])
-    target_year = 2045
-
-    # 2. Identify fuels and set efficiencies
-    fuel_cols = [col for col in df0.columns if col not in ('year', 'power[mwh]')]
-    # TODO: fill in real efficiency factors here (between 0 and 1)
-    efficiency = {
-        'biodiesel[mwh]': 0.37,
-        'bioethanol[mwh]': 0.38,
-        'biogas[mwh]': 0.39,
-        'diesel[mwh]': 0.37,
-        'liquefied_petroleum_gas[mwh]': 0.36,
-        'natural_gas[mwh]': 0.39,
-        'petrol[mwh]': 0.38,
-    }
-
-    # Capture the original 2022 values
-    orig = df0.loc[base_year]
-
-    # 3. Prepare the projection DataFrame
-    years = np.arange(base_year, target_year + 1)
-    proj = pd.DataFrame(index=years)
-
-    # 4. Linearly interpolate each fuel to zero
-    span = target_year - base_year
-    for f in fuel_cols:
-        proj[f] = orig[f] * (1 - (proj.index - base_year) / span)
-        proj[f] = proj[f].clip(lower=0)
-
-    # 5. Compute saved energy per fuel
-    saved = pd.DataFrame(index=years, columns=fuel_cols)
-    for f in fuel_cols:
-        saved[f] = orig[f] - proj[f]
-
-    # 6. Compute additional power from saved energy
-    delta_power = pd.Series(0, index=years)
-    for f in fuel_cols:
-        eff = efficiency.get(f, 0)
-        delta_power += saved[f] * eff
-
-    # 7. Build projected power series
-    proj['power[mwh]'] = orig['power[mwh]'] + delta_power
-
-    # 8. (Optional) reset index if you like
-    proj = proj.reset_index().rename(columns={'index': 'year'})
-
-
-    return proj
-
-
-
-# ev charging profile
-
-def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.DataFrame:
+# ev charging profiles
+def get_normalized_daily_ev_charging_profile_all(type: str, day_type: str) -> pd.DataFrame:
     """
     Load the normalized ev charging profile for the given type and day type.
 
@@ -596,7 +559,7 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
         raise ValueError(f"Day type must be one of ['workday', 'weekend'] but is {day_type}")
 
     # 1. load data
-    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type)
+    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type, charging_location="all")
 
 
     # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
@@ -623,6 +586,60 @@ def get_normalized_daily_ev_charging_profile(type: str, day_type: str) -> pd.Dat
 
 
     return ev_charging_profile_normalized
+
+
+def get_normalized_daily_ev_charging_profile_home(type: str, day_type: str) -> pd.DataFrame:
+    """
+    Load the normalized ev charging profile for the given type and day type.
+
+    Args:
+        type: str
+            The type of the ev charging profile ['total']
+        day_type: str
+            The day type of the ev charging profile ['workday', 'weekend']
+    
+    Returns:
+        pd.DataFrame
+            index: datetime
+            columns: charging_location [home_charging]
+            values: normalized charging profile
+    """
+
+    # 0. validate input
+    if type not in ["total"]:
+        raise ValueError(f"Type must be one of ['total'] but is {type}")
+    if day_type not in ["workday", "weekend"]:
+        raise ValueError(f"Day type must be one of ['workday', 'weekend'] but is {day_type}")
+
+    # 1. load data
+    ev_charging_profile = load_ev_charging_profile(type=type, day_type=day_type, charging_location="home")
+
+
+    # 2. cut the last entry of the dataframe since the data is one 10min step too long (145 instead of 144)
+    ev_charging_profile = ev_charging_profile.iloc[:-1]
+
+
+    # 3. normalize the data
+    ev_charging_profile_normalized = ev_charging_profile / ev_charging_profile.values.sum().sum()
+
+
+    # 4. rename the columns of the dataframe: 
+    ev_charging_profile_normalized.rename(columns={
+        "home_charging[kw/car]":"home_charging", 
+        "work_charging[kw/car]":"work_charging",
+        "public_charging[kw/car]":"public_charging"
+    }, inplace=True)
+
+
+    # 5. validate the result
+    if not np.isclose(ev_charging_profile_normalized.sum().sum(), 1.0):
+        raise ValueError("The sum of the ev charging profile is not 1!")
+    if ev_charging_profile_normalized.isnull().any().any():
+        raise ValueError("There are nan values in the ev charging profile!")
+
+
+    return ev_charging_profile_normalized
+
 
 
 
@@ -705,7 +722,7 @@ def disaggregate_temporal_ev_consumption_for_state(ev_consumption_by_regional_id
 
 
 
-def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataFrame:
+def get_normalized_yearly_ev_charging_profile(year: int, state: str, charging_location: str) -> pd.DataFrame:
     """
     Generate the yearly charging profile for the given state and year.
 
@@ -714,6 +731,8 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
             Year to generate the charging profile for
         state: str
             State to generate the charging profile for
+        charging_location: str
+            Charging location to generate the charging profile for ['all', 'home']
 
     Returns:
         pd.DataFrame
@@ -727,14 +746,20 @@ def get_normalized_yearly_ev_charging_profile(year: int, state: str) -> pd.DataF
     # 0. validate input
     if state not in federal_state_dict().values():
         raise ValueError(f"state must be in {federal_state_dict().values()}")
+    if charging_location not in ['all', 'home']:
+        raise ValueError(f"charging_location must be in ['all', 'home'] but is {charging_location}")
 
     # 1. build the mask
     mask = create_weekday_workday_holiday_mask(state=state, year=year)
 
 
     # 3. load the charging profiles
-    ev_charging_profile_workday = get_normalized_daily_ev_charging_profile(type="total", day_type="workday")
-    ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile(type="total", day_type="weekend")
+    if charging_location == 'all':
+        ev_charging_profile_workday = get_normalized_daily_ev_charging_profile_all(type="total", day_type="workday")
+        ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile_all(type="total", day_type="weekend")
+    elif charging_location == 'home':
+        ev_charging_profile_workday = get_normalized_daily_ev_charging_profile_home(type="total", day_type="workday")
+        ev_charging_profile_weekend = get_normalized_daily_ev_charging_profile_home(type="total", day_type="weekend")
 
 
     # 0. Multiply the charging profiles by 1,000,000

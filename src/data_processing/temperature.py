@@ -204,13 +204,13 @@ def get_temp_outside_hourly_for_regions(year: int):
 
     if len(datetime_index) != expected_hours:
          # This check is mostly for internal consistency of date_range logic
-         print(f"Warning: Mismatch between calculated hours ({expected_hours}) and generated index length ({len(datetime_index)}). Using index length.")
+         logger.warning(f"Warning: Mismatch between calculated hours ({expected_hours}) and generated index length ({len(datetime_index)}). Using index length.")
          expected_hours = len(datetime_index)
 
     # 8. Prepare data: Set index and select 'values'
     # Ensure no duplicate regions, keep first if duplicates exist
     if temp_outside_hourly['id_region'].duplicated().any():
-        print("Warning: Duplicate 'id_region' found. Keeping the first occurrence.")
+        logger.warning("Warning: Duplicate 'id_region' found. Keeping the first occurrence.")
         temp_unique_regions = temp_outside_hourly.drop_duplicates(subset=['id_region'], keep='first')
     else:
         temp_unique_regions = temp_outside_hourly
@@ -246,14 +246,14 @@ def get_temp_outside_hourly_for_regions(year: int):
             processed_data[region_id] = hourly_list
 
         except (SyntaxError, ValueError, TypeError) as e:
-             print(f"Error processing data for region {region_id}: {e}")
+             logger.warning(f"Error processing data for region {region_id}: {e}")
              raise ValueError(f"Failed to process 'values' for region {region_id}. Ensure it's a valid list/array (or string representation) with correct length.") from e
 
 
 
     final_df = pd.DataFrame(processed_data, index=datetime_index)
 
-    print(f"Successfully created DataFrame with shape {final_df.shape}")
+    logger.info(f"Successfully created DataFrame with shape {final_df.shape}")
     return final_df
 
 

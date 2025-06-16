@@ -1,6 +1,8 @@
 import pandas as pd
 
 from src.data_processing.temporal import *
+from src.data_processing.application import *
+
 
 
 
@@ -53,16 +55,11 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
         consumption_data = consumption_data.T.groupby(level=0).sum().T
         consumption_disaggregate_temporal = disaggregate_temporal_industry(consumption_data=consumption_data, year=year, low=0.5, force_preprocessing=force_preprocessing)
 
-        # TODO: aus temporal application
-        # if energy_carrier == "gas":
-            #if use_slp_for_sh:
-            # ...
-
     elif sector == "cts":
         if energy_carrier == "gas":
              # sum over the applications but with efficiency factor
             consumption_data = consumption_data.T.groupby(level=0).sum().T
-            consumption_disaggregate_temporal = disagg_temporal_gas_CTS(consumption_data=consumption_data, year=year)
+            consumption_disaggregate_temporal = disagg_temporal_heat_CTS(consumption_data=consumption_data, year=year)
 
         elif energy_carrier == "power":
              # sum over the applications but with efficiency factor
@@ -70,17 +67,11 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
             consumption_disaggregate_temporal = disaggregate_temporal_power_CTS(consumption_data=consumption_data, year=year)
 
         elif energy_carrier == "petrol":
-
             # resolve with SLPs
-
+            consumption_data = consumption_data.T.groupby(level=0).sum().T
             consumption_disaggregate_temporal = disagg_temporal_petrol_CTS(consumption_data=consumption_data, year=year)
 
         
-
-
-
-
-
 
     # sanity check
     if not np.isclose(consumption_disaggregate_temporal.sum().sum(), consumption_data.sum().sum(), atol=1e-6):
@@ -99,11 +90,4 @@ def disaggregate_temporal(energy_carrier: str, sector: str, year: int, force_pre
 
 
     return consumption_disaggregate_temporal
-
-
-
-
-
-
-
 

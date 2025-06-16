@@ -56,11 +56,11 @@ def dissaggregate_for_applications(consumption_data: pd.DataFrame, year: int, se
             df =  disagg_applications_default(consumption_data, decomp)
             """ gas cts
             400 rows x 290 columns
-            """
-            """ power industry
+            
+            power industry
             400 rows x 319 columns
-            """
-            """ power cts
+            
+            power cts
             400 rows x 464 columns
             """
 
@@ -74,15 +74,15 @@ def dissaggregate_for_applications(consumption_data: pd.DataFrame, year: int, se
         df = disagg_applications_petrol(consumption_data, decomp)
         """ petrol industry
         400 rows x 290 columns
-        """
-        """ petrol cts
+        
+        petrol cts
         400 rows x 290 columns
         """
 
     # 3. set indexname
     df.index.name = "regional_id"
 
-    # 4. validate the output
+    # 4. sanity check: validate the output
     total_sum = consumption_data.values.sum()
     new_df_sum = df.values.sum()
     if not np.isclose(total_sum, new_df_sum):
@@ -101,7 +101,7 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
 
     Args:
         consumption_data (pd.DataFrame): Consumption data: columns: industry_sectors, index: regional_ids ; already filtered to contain only relevant industry_sectors(cts/industry)
-        decomp_gas_temp (pd.DataFrame): Decomposition factors for gas and temperature APPLICATIONS
+        decomp_gas_temp (pd.DataFrame): Decomposition factors for gas and temperature applications
         year (int): Year
 
     Returns:
@@ -109,7 +109,6 @@ def disagg_applications_gas_industry(consumption_data, decomp_gas_temp, year):
     """
 
     # 1. load factor_gas_no_selfgen factors
-    logger.info("##### TODO: fix this here. Not for all years the cache is already existing!!!")
     factor_gas_no_selfgen = load_factor_gas_no_selfgen_cache(year)
     factor_gas_selfgen = 1 - factor_gas_no_selfgen
 
@@ -246,14 +245,13 @@ def disagg_applications_petrol(consumption_data: pd.DataFrame, decomp: pd.DataFr
     # 2. Concatenate all applications side by side
     result = pd.concat(app_frames, axis=1)
 
-    # 3. (Optional) Sort the MultiIndex columns by sector then application
+    # 3. Sort the MultiIndex columns by sector then application
     result = result.sort_index(axis=1, level=[0, 1])
 
 
     # sanity check
     if not np.isclose(result.sum().sum(), consumption_data.sum().sum()):
         raise ValueError("The sum of the disaggregated consumption must be the same as the sum of the initial consumption data!")
-
 
 
     return result
@@ -275,6 +273,8 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str):
                                                             'process_heat_200_to_500C', 'process_heat_above_500C']
     energy_carrier == "power" and industry == "cts"         8: ['lighting', 'information_communication_technology', 'space_cooling', 'process_cooling', 'mechanical_energy', 
                                                             'process_heat', 'space_heating', 'hot_water']
+
+    For the industry sectr we split up the "process heat" into temperature bands.
 
 
     Args:
@@ -400,7 +400,7 @@ def get_application_dissaggregation_factors(sector: str, energy_carrier: str):
         raise ValueError(f"Energy carrier {energy_carrier} and/or industry {sector} not supported")
     
 
-    # validate that all rows sum to 1
+    # sanity check: validate that all rows sum to 1
     decomp_sum = decomp.sum(axis=1)
     if not np.isclose(decomp_sum, 1.0).all():
         raise ValueError("The sum of the fractions for each row in the decomposition factors does not equal 1.0")

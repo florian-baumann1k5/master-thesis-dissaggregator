@@ -5,10 +5,10 @@ from src.data_processing.employees import get_employees_per_industry_sector_and_
 from src.configs.config_loader import load_config
 from src.data_access.local_reader import *
 from src.data_processing.effects import *
-# Pipeline functions combining the data_processing functions to generate wanted the data
 
 
-# main function with cache and energy carrier
+
+# main function with cache: Consumption data for a specific year and energy carrier
 def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Get consumption data for a specific year.
@@ -65,7 +65,7 @@ def get_consumption_data(year: int, energy_carrier: str, force_preprocessing: bo
 
 
 # fiter get_consumption_data() for cts or industry
-def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_industry: str, energy_carrier: str, force_preprocessing: bool = False) -> pd.DataFrame:
+def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_industry: str, energy_carrier: str, force_preprocessing: bool = True) -> pd.DataFrame:
     """
     Get consumption data for a specific year and filter it per cts or industry
     = spacial.disagg_CTS_industry()
@@ -96,10 +96,11 @@ def get_consumption_data_per_indsutry_sector_energy_carrier(year: int, cts_or_in
     return filtered_consumption_data
 
 
-
+# get all energy carriers and sectors for a specific year
 def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     """
-    Get historical and projected consumption data (2000-2050) for a specific year: Consumption per industry_sector [88?] and regional_ids [400]
+    Get historical and projected consumption data (2000-2050) for a specific year: Consumption per industry_sector [88] and regional_ids [400]
+
     
     Args:
         year (int): The year to get consumption data for
@@ -122,8 +123,8 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
     year_for_projection = None
 
     # 0. validate the year
-    if year < 2000 or year > 2050:
-        raise ValueError("Year must be between 2000 and 2050")
+    if year < 2000 or year > 2045:
+        raise ValueError("Year must be between 2000 and 2045")
     
 
     # 1. set the years for getting the URG data and for projection
@@ -132,8 +133,6 @@ def get_consumption_data_historical_and_future(year: int) -> pd.DataFrame:
         year = ugr_genisis_year_end
 
     
-
-
     # 1. Get the raw UGR data
     # gas does also include other gases
     # gas does not include self generation, power does

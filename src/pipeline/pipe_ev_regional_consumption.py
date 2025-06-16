@@ -3,11 +3,12 @@ import pandas as pd
 from src.data_access.local_reader import *
 from src.data_processing.electric_vehicles import *
 from src.configs.mappings import *
+from src.configs.data import *
 from src.configs.config_loader import load_config
 
 
-FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data"]
-LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data"]
+FIRST_YEAR_EXISTING_DATA_KBA = load_config()["first_year_existing_registration_data_kba"]
+LAST_YEAR_EXISTING_DATA_KBA = load_config()["last_year_existing_registration_data_kba"]
 FIRST_YEAR_EXISTING_DATA_UGR = load_config()["first_year_existing_fuel_consumption_ugr"]
 LAST_YEAR_EXISTING_DATA_UGR = load_config()["last_year_existing_fuel_consumption_ugr"]
 
@@ -38,12 +39,21 @@ def historical_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
     # 1. load data
     number_of_registered_evs = registered_electric_vehicles_by_regional_id(year=year)
+    share_of_commercial_vehicles = share_of_commercial_vehicles_by_regional_id(year=year)
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
+    # validation
+    #if not number_of_registered_evs.equals(share_of_commercial_vehicles.index):
+    #    raise ValueError("number_of_registered_evs and share_of_commercial_vehicles must have the same index")
 
-    # 2. calculate consumption
-    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=number_of_registered_evs, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
+    # 2. calculate the number of private vehicles
+    df = number_of_registered_evs.join(share_of_commercial_vehicles)
+    df["number_of_evs"] = df["number_of_registered_evs"] * (1-df["share_of_commercial_vehicles"])
+    df.drop(columns=["share_of_commercial_vehicles", "number_of_registered_evs"], inplace=True)
+
+    # 3. calculate consumption
+    ev_consumption_by_region = calculate_electric_vehicle_consumption(data_in=df, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
     return ev_consumption_by_region 
@@ -53,6 +63,7 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
 
     Political Target by the german government: 15mio Electric vehicles by 2030.
+    Assumption: only EVs by 2045
 
     Args:
         year: int
@@ -68,6 +79,7 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
         raise ValueError("Year must be between 2000 and 2050, year is " + str(year))
     
     # 1. load data
+    share_of_commercial_vehicles_regional_id = share_of_commercial_vehicles_by_regional_id(year=year)
     existing_ev_stock = calculate_existing_ev_stock(year=LAST_YEAR_EXISTING_DATA_KBA)
     total_existing_car_stock = get_total_car_stock()
 
@@ -76,21 +88,26 @@ def future_1_electric_vehicle_consumption(year: int) -> pd.DataFrame:
     # political target: 15mio electric vehicles by 2030
     number_of_evs = s1_future_ev_stock_15mio_by_2030(year=year, baseline_year=LAST_YEAR_EXISTING_DATA_KBA, baseline_ev=existing_ev_stock, total_stock=total_existing_car_stock)
 
-
-    # 3. load consumption data
+    # 4. load consumption data
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
 
 
-    # 4. calculate the consumption
+    # 5. calculate the consumption
     ev_consumption = calculate_electric_vehicle_consumption(data_in=number_of_evs, avg_km_per_ev=avg_km_per_ev, avg_mwh_per_km=avg_mwh_per_km)
 
 
-    # 5. dissaggregate the total consumption into region_ids
+    # 6. dissaggregate the total consumption into region_ids
     ev_consumption_by_region = regional_dissaggregation_ev_consumption(ev_consumption=ev_consumption)
 
 
-    return ev_consumption_by_region
+    # 7. get only the private vehicles consumption
+    ev_consumption_private_by_region = ev_consumption_by_region.join(share_of_commercial_vehicles_regional_id)
+    ev_consumption_private_by_region["power[mwh]"] = ev_consumption_private_by_region["power[mwh]"] * (1-ev_consumption_private_by_region["share_of_commercial_vehicles"])
+    ev_consumption_private_by_region.drop(columns=["share_of_commercial_vehicles"], inplace=True)
+
+
+    return ev_consumption_private_by_region
 
 
 def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") -> pd.DataFrame:
@@ -126,9 +143,10 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     number_of_evs = s2_future_ev_stock(year=year, szenario=szenario)
 
 
-    # 2. load consumption data
+    # 2. load data
     avg_km_per_ev = calculate_avg_km_by_car(year=year)
     avg_mwh_per_km = calculate_avg_mwh_per_km()
+    share_of_commercial_vehicles_regional_id = share_of_commercial_vehicles_by_regional_id(year=year)
 
 
     # 3. calculate the consumption
@@ -138,11 +156,16 @@ def future_2_electric_vehicle_consumption(year: int, szenario: str = "trend") ->
     # 4. dissaggregate the total consumption into region_ids
     ev_consumption_by_region = regional_dissaggregation_ev_consumption(ev_consumption=ev_consumption)
 
+    # 5. get only the private vehicles consumption
+    ev_consumption_private_by_region = ev_consumption_by_region.join(share_of_commercial_vehicles_regional_id)
+    ev_consumption_private_by_region["power[mwh]"] = ev_consumption_private_by_region["power[mwh]"] * (1-ev_consumption_private_by_region["share_of_commercial_vehicles"])
+    ev_consumption_private_by_region.drop(columns=["share_of_commercial_vehicles"], inplace=True)
 
-    return ev_consumption_by_region
+
+    return ev_consumption_private_by_region
 
 
-# main function for s1 and s2
+# main function for s1 and s2: KBA approaches
 def s1_2_electric_vehicle_consumption(year: int, szenario: str, s2_szenario: str) -> pd.DataFrame:
     """
     Calculate the future consumption of electric vehicles based on the number of electric vehicles and the average km per ev and the average mwh per km.
@@ -229,6 +252,8 @@ def s3_electric_vehicle_consumption(year: int) -> pd.DataFrame:
 
 
 # Main function combining s1, s2 and s3
+# ! for KBA_1 & KBA_2 this returns the total consumption of cars (home_charging + work_charging + public_charging)
+# ! for UGR this only returns the consumption of home_charging
 def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_szenario: str = None, force_preprocessing: bool = False) -> pd.DataFrame:
     """
     Loads the registered electric vehicles by regional id for the given year in the past or future
@@ -287,7 +312,7 @@ def electric_vehicle_consumption_by_regional_id(year: int, szenario: str, s2_sze
     # 1. load the data
     # KBA Szenario
     if "KBA" in szenario:
-        ev_consumption_by_region = s1_2_electric_vehicle_consumption(year=year, szenario=szenario, s2_szenario=s2_szenario)
+        ev_consumption_by_region = s1_2_electric_vehicle_consumption(year=year, szenario=szenario, s2_szenario=s2_szenario)        
         
     # UGR Szenario
     elif "UGR" in szenario:
