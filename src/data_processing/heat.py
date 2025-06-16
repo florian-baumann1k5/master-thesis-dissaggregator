@@ -214,7 +214,7 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str, force_prepr
 
     # 2. disaggregate consumption of all applications by regional_id, indsutry sector and temporally (1h steps of the year)
     state_list = [state]
-    consumption_total = disagg_temporal_heat_CTS(consumption_data=consumption_data, state_list=state_list, year=year)     #TODO: die braucht länger
+    consumption_total = disagg_temporal_heat_CTS(consumption_data=consumption_data, state_list=state_list, year=year)     #info: die braucht länger
 
     # sanity check
     # Reverse lookup: get the key (state number) for the given state abbreviation
@@ -229,7 +229,7 @@ def create_heat_norm_cts(state: str, year: int, energy_carrier: str, force_prepr
         raise ValueError("Consumption data for state is not equal to the total gas consumption")
 
     # 3. get the consumption of ['hot_water', 'mechanical_energy', 'process_heat'] by regional_id
-    consumption_temperature_independent = (disagg_temporal_heat_CTS_water_by_state(state=state, year=year, energy_carrier=energy_carrier)) # TODO: dauert länger und bekomme "FUturteWarnigns"
+    consumption_temperature_independent = (disagg_temporal_heat_CTS_water_by_state(state=state, year=year, energy_carrier=energy_carrier)) # info: dauert länger und bekomme "FUturteWarnigns"
     
     # 4. create space heating timeseries: difference between total heat demand and water heating demand
     consumption_temperature_dependent = (consumption_total - consumption_temperature_independent).clip(lower=0)
@@ -392,7 +392,7 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, year: int, ener
     ]
     for i, df in enumerate(dataframes_to_check):
         if df.isna().any().any():
-            print(f"Warning: NaN values found in dataframe {i} before addition")
+            logger.warning(f"Warning: NaN values found in dataframe {i} before addition")
     
 
     # 7. Add all dataframes together for electric demand per regional_id, industry_sector and application
@@ -405,7 +405,7 @@ def calculate_total_demand_cts(df_temp_gas_switch: pd.DataFrame, year: int, ener
 
     # 8. Verify no NaN values in final result
     if df_temp_elec_from_gas_switch.isna().any().any():
-        print("Warning: NaN values found in final combined dataframe")
+        logger.warning("Warning: NaN values found in final combined dataframe")
     
 
     return df_temp_elec_from_gas_switch
@@ -753,7 +753,7 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
     ]
     for i, df in enumerate(dataframes_to_check):
         if df.isna().any().any():
-            print(f"Warning: NaN values found in dataframe {i} before addition")
+            logger.warning(f"Warning: NaN values found in dataframe {i} before addition")
     
 
     # 10. Add all dataframes together for electric demand per nuts3, branch and app
@@ -768,10 +768,10 @@ def calculate_total_demand_industry(df_temp_gas_switch: pd.DataFrame, df_electro
 
     # 11. Verify no NaN values in final result
     if df_temp_elec_from_gas_switch.isna().any().any():
-        print("Warning: NaN values found in final combined dataframe")
+        logger.warning("Warning: NaN values found in final combined dataframe")
 
-    # TODO: df_temp_hp_medium_heat is Heatpump
-    # TODO: df_electrode_switch is electrode heater
+    # df_temp_hp_medium_heat is Heatpump
+    # df_electrode_switch is electrode heater
 
 
     return df_temp_elec_from_gas_switch

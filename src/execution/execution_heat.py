@@ -12,12 +12,13 @@ def main():
 
     energy_carrier = "petrol"
     sector = "industry"
-    switch_to = "power"
+    switch_to = "hydrogen"
+    float_precision = 7
 
 
     for year in [2025, 2035, 2045]:
         for state in federal_state_dict().values():
-            df = temporal_elec_load_from_fuel_switch(year=year, state=state, energy_carrier=energy_carrier, sector=sector, switch_to=switch_to, force_preprocessing=True)
+            df = temporal_elec_load_from_fuel_switch(year=year, sector=sector, state=state, energy_carrier=energy_carrier, switch_to=switch_to, force_preprocessing=True, float_precision=float_precision)
 
             print(df)
 

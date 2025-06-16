@@ -258,7 +258,7 @@ def disagg_temporal_heat_CTS(consumption_data: pd.DataFrame, year: int, state_li
         regional_id_list = gv_lk.loc[gv_lk['federal_state'] == state].index.astype(str)
 
 
-        # iterate over every regional code in the list_lk... 'TODO: dauert
+        # iterate over every regional code in the list_lk... 'info: dauert
         for regional_id in regional_id_list:
 
             logger.info(f"Disaggregating gas consumption for regional id: {regional_id} in state: {state}")
